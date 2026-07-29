@@ -1,41 +1,10 @@
-# InvoiceX Agents
+# InvoiceX
 
-InvoiceX의 Document Agent와 Risk Agent를 위한 Python 패키지다. AI Studio의 Gemini API를 사용하며, 구조화된 Pydantic 출력과 엄격한 근거 검증을 적용한다.
+InvoiceX는 역할별 코드를 다음 네 영역으로 분리합니다.
 
-## 범위
+- `agent/`: 문서 추출, 위험 분석, 목업 및 Agent 테스트
+- `backend/`: API, 인증, 데이터 저장 및 외부 연동
+- `core/`: 결정론적 도메인 규칙과 검증
+- `frontend/`: 사용자 인터페이스와 UX
 
-- Document Agent: 문서 유형 분류, 필드 추출, 누락·불일치 탐지, 원문 근거 연결
-- Risk Agent: 백엔드가 계산한 위험 결과의 근거 기반 설명과 Risk Passport 요약
-- 공통 Gemini real/mock 클라이언트
-
-Risk Score, 조기정산 조건, 상태 전이, 자금 이동은 이 패키지의 책임이 아니다.
-
-## 로컬 설정
-
-```powershell
-Copy-Item .env.example .env
-```
-
-`.env`에 AI Studio 키를 직접 설정한다.
-
-```dotenv
-GEMINI_API_KEY=your-local-key
-```
-
-키를 코드, 로그, 테스트 또는 Git에 넣지 않는다.
-
-## 개발 명령
-
-```powershell
-uv sync
-uv run pytest
-uv run ruff check .
-```
-
-실제 Gemini 연동은 개인·거래처 정보가 없는 합성 데이터로 확인한다.
-
-```powershell
-uv run python scripts/create_synthetic_invoice_pdf.py
-uv run python scripts/smoke_gemini_document.py
-uv run python scripts/smoke_gemini_risk.py
-```
+현재 개발 단계는 `feat`이며, 영역별 작업은 대응하는 `feat-*` 브랜치에서 진행합니다.
