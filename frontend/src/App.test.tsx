@@ -1,9 +1,15 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { App } from "./App";
 
-test("renders the InvoiceX application heading", () => {
-  render(<App />, { wrapper: MemoryRouter });
+test("redirects the application root to the supplier dashboard", async () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>
+    </QueryClientProvider>,
+  );
 
-  expect(screen.getByRole("heading", { name: "InvoiceX" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Alpha Components" })).toBeInTheDocument();
 });
