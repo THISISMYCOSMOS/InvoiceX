@@ -205,10 +205,12 @@ import { createMockAdapter } from "./mockAdapter";
 test("progresses the demo invoice from analysis to settled", async () => {
   const adapter = createMockAdapter();
   await adapter.analyzeInvoice("INV-2026-001");
+  await adapter.requestVerification("INV-2026-001");
   await adapter.confirmVerification("VER-2026-001");
   await adapter.respondToOffer("INV-2026-001", "ACCEPT");
   await adapter.runFunding("INV-2026-001");
   await adapter.mockPayment("INV-2026-001");
+  await adapter.runSettlement("INV-2026-001");
   const invoice = await adapter.getInvoice("INV-2026-001");
   expect(invoice.status).toBe("SETTLED");
   expect(invoice.settlement?.investorSettlementUsdc).toBe(19_800);
@@ -233,13 +235,15 @@ export interface ScenarioAdapter {
   getVerification(verificationId: string): Promise<VerificationRequest>;
   confirmVerification(verificationId: string): Promise<Invoice>;
   respondToOffer(invoiceId: string, response: "ACCEPT" | "DECLINE"): Promise<Invoice>;
+  runFunding(invoiceId: string): Promise<Invoice>;
+  runSettlement(invoiceId: string): Promise<Invoice>;
   getInvestorDashboard(): Promise<InvestorDashboard>;
   mockPayment(invoiceId: string): Promise<Invoice>;
   reset(): Promise<Invoice>;
 }
 ```
 
-Copy the base scenario per adapter instance. Model the explicit happy-path transitions: analyzing completes to `DOCUMENT_REVIEW_REQUIRED`; verification request changes to `BUYER_REVIEW`; confirm creates the deterministic Risk Passport and moves to `OFFER_READY`; accepted offer moves through funding to `FUNDED`; mock payment completes to `SETTLED` with the fixed transaction and settlement values. Return a rejected Promise with an invoice-specific error for an invalid transition. Keep revision/dispute to status-only helper methods.
+Copy the base scenario per adapter instance. Model the explicit happy-path transitions: analyzing completes to `DOCUMENT_REVIEW_REQUIRED`; verification request changes to `BUYER_REVIEW`; confirm creates the deterministic Risk Passport and moves to `OFFER_READY`; accepted offer moves through funding to `FUNDED`; mock payment moves to `SETTLING`; settlement completes to `SETTLED` with the fixed transaction and settlement values. Return a rejected Promise with an invoice-specific error for an invalid transition. Keep revision/dispute to status-only helper methods.
 
 - [ ] **Step 4: Run the adapter test to verify that it passes**
 
