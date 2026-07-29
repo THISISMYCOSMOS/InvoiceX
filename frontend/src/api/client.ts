@@ -1,3 +1,9 @@
 import { createMockAdapter } from "./adapters/mockAdapter";
+import { createHttpAdapter } from "./adapters/httpAdapter";
 
-export const scenarioAdapter = createMockAdapter();
+const useMockApi = import.meta.env.VITE_USE_MOCK_API !== "false";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
+
+export const scenarioAdapter = useMockApi
+  ? createMockAdapter()
+  : createHttpAdapter(fetch, `${apiBaseUrl.replace(/\/$/, "")}/api/v1`);
