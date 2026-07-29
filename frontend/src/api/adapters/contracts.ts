@@ -3,6 +3,7 @@ import type { Invoice, InvestorDashboard, VerificationRequest } from "../../type
 export type OfferResponse = "ACCEPT" | "DECLINE";
 
 export interface ScenarioAdapter {
+  submitInvoiceDocuments(formData: FormData): Promise<Invoice>;
   getInvoices(): Promise<Invoice[]>;
   getInvoice(invoiceId: string): Promise<Invoice>;
   analyzeInvoice(invoiceId: string): Promise<Invoice>;

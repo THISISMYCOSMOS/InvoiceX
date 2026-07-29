@@ -33,6 +33,20 @@ export function createMockAdapter(): ScenarioAdapter {
   };
 
   return {
+    async submitInvoiceDocuments() {
+      const current = ensureInvoice(invoice.id);
+      if (current.status !== "DRAFT" && current.status !== "DOCUMENT_UPLOADING") {
+        return invalidTransition(current, "문서 등록");
+      }
+
+      invoice = {
+        ...current,
+        documents: clone(DEMO_DOCUMENTS),
+        analysis: clone(DEMO_ANALYSIS),
+        status: "DOCUMENT_REVIEW_REQUIRED",
+      };
+      return clone(invoice);
+    },
     async getInvoices() {
       return [clone(invoice)];
     },

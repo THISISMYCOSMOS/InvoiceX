@@ -85,6 +85,9 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
   const unavailable = (operation: string): Promise<never> => Promise.reject(new UnsupportedApiOperation(operation));
 
   return {
+    async submitInvoiceDocuments(formData) {
+      return unwrapInvoice(await request<unknown>("/invoices", { method: "POST", body: formData }));
+    },
     async getInvoices() {
       const payload = await request<unknown>("/invoices", { method: "GET" });
       const data = asRecord(payload, "Invoice 목록");
