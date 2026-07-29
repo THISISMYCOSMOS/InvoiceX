@@ -5,7 +5,7 @@ import { RoleSwitcher } from "./RoleSwitcher";
 export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <header>
+      <header className="sticky top-0 z-10">
         <nav aria-label="주요 메뉴">
           <Link to="/supplier">InvoiceX</Link>
           <Link to="/supplier">Supplier</Link>
@@ -14,7 +14,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
         <RoleSwitcher />
       </header>
-      <main>{children}</main>
+      <main className="px-4 sm:px-6">{children}</main>
     </>
   );
 }
