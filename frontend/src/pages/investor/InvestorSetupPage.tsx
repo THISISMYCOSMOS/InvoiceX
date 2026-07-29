@@ -1,0 +1,6 @@
+import { useState } from "react";
+
+export function InvestorSetupPage() {
+  const [submitted, setSubmitted] = useState(false);
+  return <section><h1>Investor Vault 및 AP2 Mandate 설정</h1><p>기관 지갑 주소: DEMO_INVESTOR_WALLET</p><p>Vault 주소: DEMO_AGENT_VAULT</p><p>Vault USDC 잔액: 50,000 USDC</p><form onSubmit={(event) => { event.preventDefault(); setSubmitted(true); }}><label>USDC 예치 입력<input name="deposit" type="number" min="0" defaultValue="50000" /></label><p>Gasless 수수료는 Sponsor Wallet이 지원합니다. 투자기관 지갑은 0 SOL이어도 됩니다.</p><label>총 투자 한도<input name="totalLimit" defaultValue="50000" /></label><label>건당 최대 투자금액<input name="perInvoiceLimit" defaultValue="20000" /></label><label>Buyer Allowlist<input name="buyerAllowlist" defaultValue="BUYER_PRIME" /></label><label>최소 Risk Score<input name="minimumScore" defaultValue="80" /></label><label>최대 잔존 만기<input name="maximumTerm" defaultValue="120일" /></label><label>정책 유효기간<input name="policyTerm" defaultValue="2026-12-31" /></label><button type="submit">AP2 Mandate 서명 요청</button></form>{submitted && <p role="status">AP2 Mandate API 연동을 위한 설정 값을 준비했습니다.</p>}<p>Mandate ID: DEMO-MANDATE-001</p><p>정책 해시: demo-policy-v1</p><p>Mandate 상태: ACTIVE</p></section>;
+}
