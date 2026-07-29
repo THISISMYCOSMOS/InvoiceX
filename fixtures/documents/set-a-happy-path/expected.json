@@ -1,0 +1,132 @@
+{
+  "setId": "set-a-happy-path",
+  "title": "해피패스 — 4개 문서의 공통 항목이 모두 일치",
+  "documents": [
+    {
+      "documentId": "a-invoice",
+      "pdf": "a-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "INV-2026-0001",
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1001",
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": "20000000",
+        "issueDate": "2026-07-29",
+        "dueDate": "2026-10-30",
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "200000",
+        "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "a-contract",
+      "pdf": "a-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": null,
+        "unitPrice": "200000",
+        "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약서에는 개별 청구 건의 번호·금액·만기일이 없다. 해당 필드는 누락으로 선언되어야 한다."
+    },
+    {
+      "documentId": "a-purchase-order",
+      "pdf": "a-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1001",
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": "20000000",
+        "issueDate": "2026-07-01",
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "200000",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주일은 발주서 자체의 발행일이며 청구서 발행일과 다르다. 불일치가 아니다."
+    },
+    {
+      "documentId": "a-delivery-note",
+      "pdf": "a-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1001",
+        "contractNumber": null,
+        "currency": "KRW",
+        "totalAmount": "20000000",
+        "issueDate": "2026-07-24",
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "200000",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ],
+      "note": "납품 완료 사실을 확인하는 증빙이다. 지급 만기일과 계약번호는 담지 않는다."
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "발행일은 청구서 2026-07-29, 발주서 2026-07-01, 납품확인서 2026-07-24로 서로 다르다.",
+    "이를 불일치로 보고하면 오탐이며 해피패스가 Buyer Verification 단계에서 막힌다.",
+    "reviewRequired는 false가 기대값이다. 누락 필드는 있으나 거래 단위 값은 충돌하지 않는다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

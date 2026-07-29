@@ -1,0 +1,173 @@
+{
+  "setId": "set-b-amount-mismatch",
+  "title": "불일치 — 발주서 단가가 계약·청구서보다 낮게 발행됨",
+  "documents": [
+    {
+      "documentId": "b-invoice",
+      "pdf": "b-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "INV-2026-0002",
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1002",
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": "20000000",
+        "issueDate": "2026-07-29",
+        "dueDate": "2026-10-30",
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "200000",
+        "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "b-contract",
+      "pdf": "b-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": null,
+        "unitPrice": "200000",
+        "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약서에는 개별 청구 건의 번호·금액·만기일이 없다. 해당 필드는 누락으로 선언되어야 한다."
+    },
+    {
+      "documentId": "b-purchase-order",
+      "pdf": "b-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1002",
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": "19000000",
+        "issueDate": "2026-07-01",
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "190000",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주일은 발주서 자체의 발행일이며 청구서 발행일과 다르다. 불일치가 아니다."
+    },
+    {
+      "documentId": "b-delivery-note",
+      "pdf": "b-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1002",
+        "contractNumber": null,
+        "currency": "KRW",
+        "totalAmount": "20000000",
+        "issueDate": "2026-07-24",
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "200000",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ],
+      "note": "납품 완료 사실을 확인하는 증빙이다. 지급 만기일과 계약번호는 담지 않는다."
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "totalAmount",
+      "values": [
+        {
+          "documentId": "b-invoice",
+          "value": "20000000"
+        },
+        {
+          "documentId": "b-purchase-order",
+          "value": "19000000"
+        },
+        {
+          "documentId": "b-delivery-note",
+          "value": "20000000"
+        }
+      ],
+      "description": "청구서와 거래명세서는 20,000,000원, 발주서는 19,000,000원이다."
+    },
+    {
+      "field": "unitPrice",
+      "values": [
+        {
+          "documentId": "b-invoice",
+          "value": "200000"
+        },
+        {
+          "documentId": "b-contract",
+          "value": "200000"
+        },
+        {
+          "documentId": "b-purchase-order",
+          "value": "190000"
+        },
+        {
+          "documentId": "b-delivery-note",
+          "value": "200000"
+        }
+      ],
+      "description": "계약 단가는 200,000원이나 발주서만 190,000원으로 발행되었다."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "notes": [
+    "reviewRequired는 true가 기대값이다.",
+    "이 상태는 Dispute가 아니라 Request Revision으로 처리되는 정보 오기재 유형이다.",
+    "수량·품목·거래 당사자·통화는 네 문서 모두 일치한다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}
