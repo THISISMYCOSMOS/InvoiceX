@@ -23,11 +23,27 @@ function useDemoMutation<TVariables>(mutationFn: (variables: TVariables) => Prom
 }
 
 export function useDemoControl() {
+  const confirmInvoice = useDemoMutation<string>(async (invoiceId) => {
+    const current = await invoiceApi.getInvoice(invoiceId);
+    if (current.status === "DOCUMENT_REVIEW_REQUIRED") {
+      const requested = await invoiceApi.requestVerification(invoiceId);
+      if (!requested.verificationId) {
+        throw new Error("검증 요청 ID가 생성되지 않았습니다.");
+      }
+      return verificationApi.confirmVerification(requested.verificationId);
+    }
+    if (current.status === "BUYER_REVIEW" && current.verificationId) {
+      return verificationApi.confirmVerification(current.verificationId);
+    }
+    throw new Error("Buyer Confirm을 실행할 수 있는 상태가 아닙니다.");
+  });
+
   return {
     reset: useDemoMutation<void>(() => demoApi.reset()),
     analyze: useDemoMutation<string>(invoiceApi.analyzeInvoice),
     requestVerification: useDemoMutation<string>(invoiceApi.requestVerification),
-    confirm: useDemoMutation<string>(verificationApi.confirmVerification),
+    confirm: confirmInvoice,
+    generateRiskPassport: useDemoMutation<string>(invoiceApi.getInvoice),
     acceptOffer: useDemoMutation<string>((invoiceId) => invoiceApi.respondToOffer(invoiceId, "ACCEPT")),
     fund: useDemoMutation<string>(invoiceApi.runFunding),
     mockPayment: useDemoMutation<string>(settlementApi.mockPayment),
