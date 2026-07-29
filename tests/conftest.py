@@ -30,7 +30,15 @@ def valid_document_response() -> dict[str, Any]:
                     "paymentTerms": None,
                     "deliveryCompleted": None,
                 },
-                "missingFields": [],
+                "missingFields": [
+                    "purchaseOrderNumber",
+                    "contractNumber",
+                    "itemName",
+                    "quantity",
+                    "unitPrice",
+                    "paymentTerms",
+                    "deliveryCompleted",
+                ],
                 "sourceEvidence": [
                     {
                         "evidenceId": "ev-invoice-number",

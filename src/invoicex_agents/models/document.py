@@ -108,10 +108,18 @@ class AnalyzedDocument(StrictModel):
         if len(declared_missing) != len(self.missing_fields):
             raise ValueError("missingFields values must be unique")
 
-        invalid_missing = declared_missing - self.extracted_data.empty_fields()
+        empty_field_aliases = self.extracted_data.empty_fields()
+        invalid_missing = declared_missing - empty_field_aliases
         if invalid_missing:
             invalid = ", ".join(sorted(invalid_missing))
             raise ValueError(f"missingFields must have null extracted values: {invalid}")
+
+        undeclared_empty = empty_field_aliases - declared_missing
+        if undeclared_empty:
+            undeclared = ", ".join(sorted(undeclared_empty))
+            raise ValueError(
+                f"every null extracted field must be listed in missingFields: {undeclared}"
+            )
 
         return self
 
@@ -180,8 +188,7 @@ class DocumentAnalysisResult(StrictModel):
             if any(item.field != mismatch.field.value for item in referenced_evidence):
                 raise ValueError("mismatch evidence field must match the mismatch field")
 
-        has_missing_fields = any(document.missing_fields for document in self.documents)
-        if (has_missing_fields or self.mismatches) and not self.review_required:
-            raise ValueError("reviewRequired must be true when fields are missing or mismatched")
+        if self.mismatches and not self.review_required:
+            raise ValueError("reviewRequired must be true when documents disagree")
 
         return self
