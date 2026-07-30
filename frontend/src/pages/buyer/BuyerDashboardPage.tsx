@@ -115,6 +115,51 @@ export function BuyerDashboardPage() {
           </table>
         </div>
       </section>
+
+      <section className="buyer-request-card buyer-payment-due-card">
+        <header>
+          <div>
+            <h2>{t("Payments due soon", "결제 필요")}</h2>
+            <p>{t("Invoices approaching their contractual due date", "계약상 만기일이 가까워진 인보이스")}</p>
+          </div>
+          <span className="buyer-due-summary">{t("1 priority invoice", "우선 처리 1건")}</span>
+        </header>
+        <div className="table-scroll">
+          <table aria-label={t("Payments due soon", "결제 필요")}>
+            <thead>
+              <tr>
+                <th>{t("Invoice", "인보이스")}</th>
+                <th>{t("Supplier", "공급기업")}</th>
+                <th>{t("Amount", "금액")}</th>
+                <th>{t("Due date", "만기일")}</th>
+                <th>{t("Remaining", "남은 기간")}</th>
+                <th>{t("Action", "작업")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>{primaryInvoice?.id ?? "INV-2026-001"}</strong></td>
+                <td>{primaryInvoice?.supplier.name ?? "Alpha Components"}</td>
+                <td>{krw.format(primaryInvoice?.invoiceAmountKrw ?? 20_000_000)}</td>
+                <td>{t("Oct 30, 2026", "2026년 10월 30일")}</td>
+                <td><span className="due-soon-pill">{t("7 days left", "7일 남음")}</span></td>
+                <td>
+                  <Link
+                    className="buyer-review-link is-primary"
+                    to={`/buyer/invoices/${primaryInvoice?.id ?? "INV-2026-001"}?section=payment`}
+                    aria-label={t(
+                      `Pay ${primaryInvoice?.id ?? "INV-2026-001"}`,
+                      `${primaryInvoice?.id ?? "INV-2026-001"} 결제하기`,
+                    )}
+                  >
+                    {t("Pay now", "결제하기")}
+                  </Link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </section>
   );
 }

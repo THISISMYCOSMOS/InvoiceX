@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { CurrencyKrw } from "@phosphor-icons/react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft, CurrencyKrw } from "@phosphor-icons/react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import invoicePreview from "../../assets/invoice-preview.png";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
@@ -106,6 +106,10 @@ function BuyerVerificationSection({
 
   return (
     <section className="buyer-verification">
+      <Link className="buyer-back-link" to="/buyer">
+        <ArrowLeft size={13} weight="bold" aria-hidden="true" />
+        {t("Back", "뒤로 가기")}
+      </Link>
       <header className="buyer-detail-heading">
         <div>
           <p className="detail-breadcrumb">{t("Verification Requests", "확인 요청")} / {invoice.id}</p>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useInvoice } from "../hooks/useInvoice";
 import { useLanguage } from "../i18n/LanguageContext";
 import { Brand } from "./Brand";
@@ -7,6 +7,7 @@ import { LanguageToggle } from "./LanguageToggle";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const isSupplier = pathname.startsWith("/supplier");
   const isBuyer = pathname.startsWith("/buyer");
@@ -29,6 +30,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const caption = isSupplier
     ? pathname === "/supplier"
       ? "01 · SUPPLIER DASHBOARD / 1440 × 900"
+      : pathname === "/supplier/company-wallet"
+        ? "12 · SUPPLIER COMPANY & WALLET / 1440 × 900"
       : pathname === "/supplier/invoices/new"
         ? "02 · DOCUMENT UPLOAD / 1440 × 900"
         : isSupplierOffer
@@ -57,6 +60,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Brand />
           </Link>
           <div className="topbar__user">
+            <label className="role-switcher">
+              <span className="sr-only">{t("Switch role", "역할 변경")}</span>
+              <select
+                aria-label={t("Switch role", "역할 변경")}
+                value={role === "DEMO" ? "" : role}
+                onChange={(event) => navigate(`/${event.target.value.toLowerCase()}`)}
+              >
+                {role === "DEMO" && <option value="">{t("Switch role", "역할 변경")}</option>}
+                <option value="SUPPLIER">{t("Supplier", "공급기업")}</option>
+                <option value="BUYER">{t("Buyer", "구매기업")}</option>
+                <option value="INVESTOR">{t("Investor", "투자자")}</option>
+              </select>
+            </label>
             <LanguageToggle />
             {isBuyer && detailInvoiceId && (
               <span className="topbar-status-pill topbar-status-pill--green">
@@ -77,12 +93,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   : t("Auto-invest active", "자동 투자 활성")}
               </span>
             )}
-            {isSupplier && pathname === "/supplier" && (
-              <span className="wallet-label">Wallet · 8xK2...p91Q</span>
-            )}
-            {isInvestor && !isInvestorActivity && (
-              <span className="wallet-label">Vault · 7VB...0Qe</span>
-            )}
             <span className="user-avatar" aria-hidden="true" />
             <strong>{company}</strong>
           </div>
@@ -96,10 +106,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <Link className={pathname === "/supplier" ? "is-active" : ""} to="/supplier">
                   {t("Overview", "개요")}
                 </Link>
-                <Link className={pathname !== "/supplier" ? "is-active" : ""} to="/supplier/invoices/new">
+                <Link className={pathname.startsWith("/supplier/invoices") ? "is-active" : ""} to="/supplier/invoices/new">
                   {t("Invoices", "인보이스")}
                 </Link>
-                <span>{t("Company & Wallet", "회사 및 지갑")}</span>
+                <Link className={pathname === "/supplier/company-wallet" ? "is-active" : ""} to="/supplier/company-wallet">
+                  {t("Company & Wallet", "회사 및 지갑")}
+                </Link>
               </nav>
             ) : isBuyer ? (
               <nav className="sidebar-nav" aria-label={t("Buyer navigation", "구매기업 내비게이션")}>
@@ -118,7 +130,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 >
                   {t("Payment Schedule", "결제 일정")}
                 </Link>
-                <span>{t("Completed", "완료")}</span>
               </nav>
             ) : isInvestor ? (
               <nav className="sidebar-nav" aria-label={t("Investor navigation", "투자자 내비게이션")}>
@@ -136,7 +147,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   {t("Mandate", "투자 위임")}
                 </Link>
                 <span>Vault</span>
-                {!isInvestorActivity && <span>{t("Settlement Reports", "정산 보고서")}</span>}
               </nav>
             ) : (
               <nav className="sidebar-nav" aria-label={t(`${role} navigation`, `${role} 내비게이션`)}>

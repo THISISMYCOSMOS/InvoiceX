@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { DEMO_DOCUMENTS, DEMO_INVOICE } from "../../mocks/demoScenario";
 import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 
@@ -8,15 +9,17 @@ test("shows the Figma verification controls for a buyer-review invoice", async (
   const user = userEvent.setup();
   const onConfirm = vi.fn();
   render(
-    <BuyerInvoiceDetailContent
-      invoice={{
-        ...DEMO_INVOICE,
-        status: "BUYER_REVIEW",
-        verificationId: "VER-2026-001",
-        documents: DEMO_DOCUMENTS,
-      }}
-      onConfirm={onConfirm}
-    />,
+    <MemoryRouter>
+      <BuyerInvoiceDetailContent
+        invoice={{
+          ...DEMO_INVOICE,
+          status: "BUYER_REVIEW",
+          verificationId: "VER-2026-001",
+          documents: DEMO_DOCUMENTS,
+        }}
+        onConfirm={onConfirm}
+      />
+    </MemoryRouter>,
   );
 
   expect(screen.getByRole("heading", { name: "Verify invoice INV-2026-001" })).toBeInTheDocument();

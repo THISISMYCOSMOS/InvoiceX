@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { NewInvoicePage } from "./pages/supplier/NewInvoicePage";
+import { SupplierCompanyWalletPage } from "./pages/supplier/SupplierCompanyWalletPage";
 import { SupplierDashboardPage } from "./pages/supplier/SupplierDashboardPage";
 import { SupplierInvoiceDetailPage } from "./pages/supplier/SupplierInvoiceDetailPage";
 import { BuyerDashboardPage } from "./pages/buyer/BuyerDashboardPage";
@@ -23,6 +24,7 @@ export function App() {
             <AppLayout>
               <Routes>
                 <Route path="/supplier" element={<SupplierDashboardPage />} />
+                <Route path="/supplier/company-wallet" element={<SupplierCompanyWalletPage />} />
                 <Route path="/supplier/invoices/new" element={<NewInvoicePage />} />
                 <Route path="/supplier/invoices/:invoiceId" element={<SupplierInvoiceDetailPage />} />
                 <Route path="/buyer" element={<BuyerDashboardPage />} />
