@@ -95,7 +95,13 @@ def _run_iteration(index: int) -> int:
     document_id = f"invoice-{index}"
     document_client = StaticGeminiClient(_document_response(document_id))
     document_result = DocumentAgent(document_client).analyze(
-        [MediaDocument(document_id, "application/pdf", b"%PDF-synthetic")]
+        [
+            MediaDocument(
+                document_id,
+                "image/png",
+                b"\x89PNG\r\n\x1a\nsynthetic",
+            )
+        ]
     )
     if document_result.documents[0].document_id != document_id:
         raise AssertionError("Document Agent changed the supplied document ID")

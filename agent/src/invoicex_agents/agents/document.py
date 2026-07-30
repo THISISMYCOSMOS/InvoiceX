@@ -6,7 +6,16 @@ import json
 from collections.abc import Sequence
 
 from invoicex_agents.agents._prompts import load_prompt
-from invoicex_agents.clients.base import MediaDocument, StructuredOutputClient
+from invoicex_agents.agents.document_validation import (
+    inspect_media_documents,
+    validate_source_evidence,
+)
+from invoicex_agents.clients.base import (
+    MAX_DOCUMENTS_PER_ANALYSIS,
+    MAX_TOTAL_DOCUMENT_BYTES,
+    MediaDocument,
+    StructuredOutputClient,
+)
 from invoicex_agents.exceptions import AgentInputError, GeminiResponseValidationError
 from invoicex_agents.models.document import DocumentAnalysisResult
 
@@ -24,10 +33,19 @@ class DocumentAgent:
         media = tuple(documents)
         if not media:
             raise AgentInputError("at least one document is required")
+        if len(media) > MAX_DOCUMENTS_PER_ANALYSIS:
+            raise AgentInputError(
+                f"no more than {MAX_DOCUMENTS_PER_ANALYSIS} documents may be analyzed"
+            )
+        if sum(len(item.data) for item in media) > MAX_TOTAL_DOCUMENT_BYTES:
+            raise AgentInputError(
+                f"combined document data exceeds the {MAX_TOTAL_DOCUMENT_BYTES}-byte limit"
+            )
 
         input_ids = [item.document_id for item in media]
         if len(input_ids) != len(set(input_ids)):
             raise AgentInputError("document_id values must be unique")
+        inspections = inspect_media_documents(media)
 
         manifest = {
             "documents": [
@@ -54,4 +72,5 @@ class DocumentAgent:
             raise GeminiResponseValidationError(
                 "Document Agent output must contain exactly the supplied documentId values"
             )
-        return result
+        review_fields = validate_source_evidence(result, inspections)
+        return result.reconciled(extra_review_fields=review_fields)

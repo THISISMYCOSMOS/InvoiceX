@@ -5,7 +5,10 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from invoicex_agents.models.document import DocumentAnalysisResult
+from invoicex_agents.models.document import (
+    DocumentAnalysisResult,
+    DocumentExtractedData,
+)
 
 
 def test_valid_document_result_is_accepted(
@@ -15,6 +18,18 @@ def test_valid_document_result_is_accepted(
 
     assert result.documents[0].extracted_data.invoice_number == "INV-2026-001"
     assert result.review_required is False
+
+
+def test_identifier_separator_whitespace_is_canonicalized() -> None:
+    extracted = DocumentExtractedData(
+        invoiceNumber="INV - 2026 – 001",
+        purchaseOrderNumber="PO / 2026 / 1001",
+        contractNumber="CT- 2026 -0007",
+    )
+
+    assert extracted.invoice_number == "INV-2026-001"
+    assert extracted.purchase_order_number == "PO/2026/1001"
+    assert extracted.contract_number == "CT-2026-0007"
 
 
 def test_non_null_extracted_value_without_evidence_is_rejected(
@@ -123,3 +138,69 @@ def test_missing_field_alone_does_not_force_review(
 
     assert result.documents[0].missing_fields
     assert result.review_required is False
+
+
+def test_numeric_date_and_currency_fields_are_canonicalized() -> None:
+    extracted = DocumentExtractedData.model_validate(
+        {
+            "currency": "krw",
+            "totalAmount": "KRW 20,000,000",
+            "quantity": "1,000 EA",
+            "unitPrice": "20,000 KRW",
+            "issueDate": "2026. 07. 29",
+            "dueDate": "2026년 10월 30일",
+        }
+    )
+
+    assert extracted.currency == "KRW"
+    assert extracted.total_amount == "20000000"
+    assert extracted.quantity == "1000"
+    assert extracted.unit_price == "20000"
+    assert extracted.issue_date == "2026-07-29"
+    assert extracted.due_date == "2026-10-30"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("currency", "BANANA"),
+        ("totalAmount", "approximately lots"),
+        ("quantity", "zero-ish"),
+        ("unitPrice", "-100"),
+        ("issueDate", "tomorrow"),
+        ("dueDate", "2026-02-30"),
+    ],
+)
+def test_malformed_document_values_are_rejected(field: str, value: object) -> None:
+    with pytest.raises(ValidationError):
+        DocumentExtractedData.model_validate({field: value})
+
+
+def test_mismatch_value_must_equal_extracted_data(
+    valid_document_response: dict[str, Any],
+    copy_dict: Any,
+) -> None:
+    response = copy_dict(valid_document_response)
+    second = copy_dict(response["documents"][0])
+    second["documentId"] = "purchase-order-1"
+    second["documentType"] = "PURCHASE_ORDER"
+    second["extractedData"]["totalAmount"] = "19000000"
+    for evidence in second["sourceEvidence"]:
+        evidence["documentId"] = "purchase-order-1"
+        evidence["evidenceId"] = f"po-{evidence['evidenceId']}"
+    response["documents"].append(second)
+    response["mismatches"] = [
+        {
+            "field": "totalAmount",
+            "values": [
+                {"documentId": "invoice-1", "value": "777"},
+                {"documentId": "purchase-order-1", "value": "888"},
+            ],
+            "description": "조작된 비교값",
+            "sourceEvidenceIds": ["ev-total", "po-ev-total"],
+        }
+    ]
+    response["reviewRequired"] = True
+
+    with pytest.raises(ValidationError, match="must match extractedData"):
+        DocumentAnalysisResult.model_validate(response)
