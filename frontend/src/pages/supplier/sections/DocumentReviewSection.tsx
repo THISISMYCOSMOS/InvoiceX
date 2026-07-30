@@ -103,7 +103,7 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
         <span className="verification-count">{t("9 of 10 verified", "10개 중 9개 검증")}</span>
       </header>
 
-      <ol className="review-steps" aria-label="Invoice verification progress">
+      <ol className="review-steps" aria-label={t("Invoice verification progress", "인보이스 확인 진행 상황")}>
         <li className="is-complete">
           <CheckCircle aria-hidden="true" size={24} weight="fill" />
           <span>{t("Upload documents", "문서 업로드")}</span>
@@ -119,15 +119,15 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
       </ol>
 
       <div className="review-layout">
-        <section className="document-preview" aria-label="Invoice document preview">
+        <section className="document-preview" aria-label={t("Invoice document preview", "인보이스 문서 미리보기")}>
           <header>
             <span>{invoice.id === "INV-2026-001" ? `invoice_${invoice.id}.pdf` : invoiceDocument?.fileName ?? "Invoice document"}</span>
-            <span>1 / 2 pages · 100%</span>
+            <span>{t("1 / 2 pages · 100%", "1 / 2페이지 · 100%")}</span>
           </header>
           {invoiceDocument?.storageUrl ? (
             <iframe title={invoiceDocument.fileName} src={invoiceDocument.storageUrl} />
           ) : (
-            <img className="document-preview__image" src={invoicePreview} alt="Invoice document preview" />
+            <img className="document-preview__image" src={invoicePreview} alt={t("Invoice document preview", "인보이스 문서 미리보기")} />
           )}
         </section>
 

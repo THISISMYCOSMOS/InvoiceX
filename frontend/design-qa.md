@@ -47,7 +47,7 @@ Each implementation screenshot was compared in the same visual input as its matc
 - Assets and icons: passed — Phosphor icons are used for controls and the invoice preview is a real raster asset.
 - Responsive safety: passed — desktop source viewport is exact and mobile breakpoints remain usable.
 - Browser console: passed — no errors or warnings during the final journey.
-- Automated checks: passed — lint, typecheck, 19 test files / 39 tests, and production build.
+- Automated checks: passed — lint, typecheck, 20 test files / 42 tests, and production build.
 
 ## Language control addendum
 
@@ -57,13 +57,13 @@ Each implementation screenshot was compared in the same visual input as its matc
 - Persistence: switching to Korean updates the document language and survives route changes and a full reload.
 - Localization: login, navigation, Supplier flow, Buyer flow, Investor flow, shared status/progress components, and developer demo controls render in both languages.
 - Fresh browser session: passed with no console errors or warnings.
-- Automated checks: passed — lint, typecheck, 19 test files / 39 tests, and production build.
+- Automated checks: passed — lint, typecheck, 20 test files / 42 tests, and production build.
 
 ## Local demo authentication
 
 - Supplier: `supplier@company.com` with the Supplier role.
 - Buyer: `buyer@company.com` with the Buyer role.
-- Investor: `invester@company.com` with the Investor role.
+- Investor: `investor@company.com` with the Investor role.
 - Login rejects valid credentials when the selected role does not match.
 - Demo sessions persist in browser storage without storing the password.
 
@@ -91,5 +91,39 @@ Each reference and implementation capture was reviewed together at the 1440 × 9
 - Buyer payment: passed — payment details, virtual account actions, waiting status, and payment schedule navigation match the source.
 - Responsive safety: passed — no horizontal overflow at 390 px and all primary controls remain visible.
 - Browser console: passed — no errors or warnings in a fresh verification-page session.
+
+## Investor dashboard and Treasury Agent decision
+
+Source visual truth:
+
+- Figma investor dashboard: `Gmn4FDxT8sXnW45RWWkgL1`, node `16:1055`.
+- Figma Treasury Agent decision detail: `Gmn4FDxT8sXnW45RWWkgL1`, node `16:1150`.
+
+Implementation captures:
+
+- `.design-qa/implementation-investor-dashboard.jpg`
+- `.design-qa/implementation-investor-agent-decision.jpg`
+
+Comparison setup:
+
+- Source frame: 1440 × 900 CSS px.
+- Implementation viewport and capture: 1440 × 900 px at device scale factor 1.
+- State: English, auto-invest active on the dashboard, investment completed on the decision detail.
+- Full-view comparison: both source frames and both implementation captures were opened together in one comparison input.
+- Focused region comparison: dashboard statistics/activity table and decision policy/execution cards were legible in the full-size comparison, so separate crops were not required.
+
+Findings and iteration history:
+
+- Initial P2 behavior issue: the RWA position action used an inert fragment when the current demo invoice had not yet reached the funded state.
+- Fix: supplied the known demo Solana explorer transaction as a functional fallback while preserving the adapter-provided explorer URL when available.
+- Post-fix evidence: the final browser snapshot exposes the full Solana explorer URL and the browser console contains no errors or warnings.
+- Fonts and typography: passed — Inter/Arial hierarchy, weights, compact labels, and table density match the source.
+- Spacing and layout rhythm: passed — 1280 × 800 shell, header/sidebar proportions, three-card grid, table, and decision columns align with the source. The language control intentionally occupies the leftmost position in the top-right control group.
+- Colors and visual tokens: passed — violet investor states, neutral borders, pale sidebar, green PASS states, and blue transaction link match the source palette.
+- Image quality and asset fidelity: passed — these screens contain no source raster imagery; the shared logo and avatar treatment remain consistent with the existing InvoiceX shell.
+- Copy and content: passed — labels, values, policy checks, status chips, and transaction summary match the source. Korean equivalents are available through the shared language control.
+- Responsive safety: passed — no horizontal page overflow at 390 px and both primary actions remain visible.
+- Primary interactions: dashboard activity navigation, mandate navigation, Korean/English switching, and the RWA explorer action were verified.
+- Automated checks: passed — lint, typecheck, 20 test files / 42 tests, and production build.
 
 final result: passed

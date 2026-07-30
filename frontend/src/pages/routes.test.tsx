@@ -20,7 +20,7 @@ function renderAt(path: string) {
 test.each([
   ["/supplier", "Good morning, Minjun"],
   ["/buyer", "Invoice verification"],
-  ["/investor", "Nova Capital"],
+  ["/investor", "Treasury overview"],
   ["/dev/demo", "Developer demo controls"],
 ])("renders %s", async (path, expectedText) => {
   renderAt(path);
@@ -42,7 +42,7 @@ test("renders the Figma login form", () => {
 test.each([
   ["Supplier", "supplier@company.com", "supplier", "Good morning, Minjun"],
   ["Buyer", "buyer@company.com", "buyer", "Invoice verification"],
-  ["Investor", "invester@company.com", "invester", "Nova Capital"],
+  ["Investor", "investor@company.com", "investor", "Treasury overview"],
 ])("signs the %s demo account into its dashboard", async (role, email, password, expectedText) => {
   const user = userEvent.setup();
   renderAt("/login");
@@ -105,4 +105,38 @@ test("keeps the language control first in every top-right control group", async 
   const appToggle = await screen.findByRole("button", { name: "한국어로 전환" });
 
   expect(supplier.container.querySelector(".topbar__user")?.firstElementChild).toBe(appToggle);
+});
+
+test("renders the investor Figma navigation and agent decision route", async () => {
+  const user = userEvent.setup();
+  renderAt("/investor");
+
+  expect(await screen.findByRole("heading", { name: "Treasury overview" })).toBeInTheDocument();
+  expect(screen.getByRole("navigation", { name: "Investor navigation" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Agent Activity" })).toHaveAttribute(
+    "href",
+    "/investor/activities/INV-2026-001",
+  );
+
+  await user.click(screen.getByRole("link", { name: "INV-2026-001" }));
+
+  expect(await screen.findByRole("heading", { name: "Treasury Agent decision" })).toBeInTheDocument();
+  expect(screen.getByText("6 / 6 PASSED")).toBeInTheDocument();
+});
+
+test("translates buyer and investor screens into Korean", async () => {
+  const user = userEvent.setup();
+  const buyer = renderAt("/buyer");
+
+  await screen.findByRole("heading", { name: "Invoice verification" });
+  await user.click(screen.getByRole("button", { name: "한국어로 전환" }));
+
+  expect(screen.getByRole("heading", { name: "인보이스 확인" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "확인 요청" })).toBeInTheDocument();
+
+  buyer.unmount();
+  renderAt("/investor");
+
+  expect(await screen.findByRole("heading", { name: "자금 운용 현황" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "에이전트 활동" })).toBeInTheDocument();
 });

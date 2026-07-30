@@ -1380,6 +1380,406 @@ a {
   background: #eafbf0;
 }
 
+.topbar-status-pill--purple {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.sidebar--investor .role-chip {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.sidebar--investor .sidebar-nav a.is-active {
+  color: #6d28d9;
+  background: #f1edff;
+}
+
+.sidebar--investor .sidebar-nav a:hover {
+  color: #6d28d9;
+}
+
+.investor-dashboard,
+.investor-decision {
+  color: #172033;
+}
+
+.investor-page-heading,
+.investor-decision__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.investor-page-heading h1,
+.investor-decision__heading h1 {
+  margin: 0;
+  color: #172033;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.55px;
+  line-height: 1.2;
+}
+
+.investor-page-heading p,
+.investor-decision__heading p {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.investor-primary-button,
+.investor-secondary-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #7c3aed;
+  border-radius: 7px;
+  padding: 0 13px;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.investor-primary-button {
+  color: #fff;
+  background: #7c3aed;
+}
+
+.investor-primary-button:hover {
+  border-color: #6d28d9;
+  background: #6d28d9;
+}
+
+.investor-secondary-button {
+  color: #334155;
+  border-color: #d9dee8;
+  background: #fff;
+}
+
+.investor-secondary-button:hover {
+  background: #f8fafc;
+}
+
+.investor-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.investor-stats article {
+  min-height: 68px;
+  padding: 13px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.investor-stats span {
+  display: block;
+  color: #667085;
+  font-size: 9.5px;
+}
+
+.investor-stats strong {
+  display: block;
+  margin-top: 8px;
+  color: #000;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.investor-stats small {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.investor-activity-card {
+  overflow: hidden;
+  margin-top: 16px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.investor-activity-card > header,
+.investor-policy-card > header,
+.investor-execution-card > header {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #d9dee8;
+  padding: 8px 15px;
+}
+
+.investor-activity-card h2,
+.investor-policy-card h2,
+.investor-execution-card h2 {
+  margin: 0;
+  color: #000;
+  font-size: 11.8px;
+  font-weight: 700;
+}
+
+.investor-activity-card table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10px;
+}
+
+.investor-activity-card thead {
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.investor-activity-card th,
+.investor-activity-card td {
+  height: 45px;
+  border-top: 1px solid #edf0f4;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.investor-activity-card th {
+  height: 36px;
+  font-weight: 400;
+}
+
+.investor-activity-card th:nth-child(1),
+.investor-activity-card td:nth-child(1) {
+  width: 25%;
+}
+
+.investor-activity-card th:nth-child(2),
+.investor-activity-card td:nth-child(2) {
+  width: 21%;
+}
+
+.investor-activity-card th:nth-child(3),
+.investor-activity-card td:nth-child(3) {
+  width: 17%;
+}
+
+.investor-activity-card th:nth-child(4),
+.investor-activity-card td:nth-child(4) {
+  width: 19%;
+}
+
+.investor-activity-card td:first-child a {
+  color: #000;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.investor-activity-card td:first-child a:hover {
+  color: #6d28d9;
+}
+
+.investor-activity-card td.is-strong {
+  font-weight: 700;
+}
+
+.investor-result {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.investor-result--invested {
+  color: #15803d;
+  background: #ede9fe;
+}
+
+.investor-result--excluded {
+  color: #64748b;
+  background: #eef2f7;
+}
+
+.investor-breadcrumb {
+  margin: 0 0 8px;
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.investor-decision__heading > span {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 8px;
+  color: #7c3aed;
+  background: #ede9fe;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.investor-decision__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.8fr);
+  gap: 15px;
+  margin-top: 22px;
+}
+
+.investor-policy-card,
+.investor-execution-card {
+  overflow: hidden;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.investor-policy-card {
+  min-height: 342px;
+}
+
+.investor-policy-card time {
+  color: #64748b;
+  font-size: 8.6px;
+}
+
+.investor-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  padding: 15px;
+}
+
+.investor-policy-grid article {
+  min-height: 51px;
+  border: 1px solid #d9dee8;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.investor-policy-grid article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.investor-policy-grid span {
+  color: #64748b;
+  font-size: 8.7px;
+}
+
+.investor-policy-grid b {
+  color: #15803d;
+  font-size: 9px;
+}
+
+.investor-policy-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: #000;
+  font-size: 11px;
+}
+
+.investor-execution-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.investor-execution-card dl {
+  margin: 15px 15px 0;
+}
+
+.investor-execution-card dl > div {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.investor-execution-card dt {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.investor-execution-card dd {
+  margin: 0;
+  color: #000;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.investor-execution-card dd a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.investor-position-button {
+  display: flex;
+  margin: 10px 15px 14px;
+}
+
+.investor-agent-notice {
+  margin: 0;
+  border: 1px solid #ede9fe;
+  border-radius: 8px;
+  padding: 11px 13px;
+  color: #7c3aed;
+  background: #ede9fe;
+  font-size: 9.2px;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .investor-page-heading,
+  .investor-decision__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .investor-page-heading .investor-primary-button {
+    align-self: flex-start;
+  }
+
+  .investor-stats,
+  .investor-decision__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .investor-policy-card {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .investor-stats,
+  .investor-policy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .investor-activity-card {
+    overflow-x: auto;
+  }
+
+  .investor-activity-card table {
+    min-width: 700px;
+  }
+}
+
 .buyer-page-heading h1,
 .buyer-detail-heading h1,
 .early-offer__heading h1 {

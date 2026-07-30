@@ -15,7 +15,7 @@ export interface DemoSession {
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   { role: "Supplier", email: "supplier@company.com", password: "supplier" },
   { role: "Buyer", email: "buyer@company.com", password: "buyer" },
-  { role: "Investor", email: "invester@company.com", password: "invester" },
+  { role: "Investor", email: "investor@company.com", password: "investor" },
 ] as const;
 
 export const DEMO_SESSION_KEY = "invoicex-demo-session";

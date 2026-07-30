@@ -45,7 +45,7 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
           </div>
         </dl>
 
-        <ol className="pending-progress" aria-label="Buyer verification progress">
+        <ol className="pending-progress" aria-label={t("Buyer verification progress", "구매기업 확인 진행 상황")}>
           <li className="is-complete"><span>{t("Registered", "등록")}</span></li>
           <li className="is-current"><span aria-current="step">{t("Buyer verification", "구매자 검증")}</span></li>
           <li><span>{t("Verified", "검증 완료")}</span></li>

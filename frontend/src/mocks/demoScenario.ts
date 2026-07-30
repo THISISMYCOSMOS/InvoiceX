@@ -121,7 +121,8 @@ export const DEMO_INVESTOR_DASHBOARD: InvestorDashboard = {
   investorName: DEMO_INVOICE.investor.name,
   automatedInvestmentActive: true,
   mandateStatus: "ACTIVE",
-  availableVaultUsdc: 50_000,
-  outstandingPrincipalUsdc: DEMO_SETTLEMENT.supplierAdvanceUsdc,
+  availableVaultUsdc: 312_400,
+  outstandingPrincipalUsdc: 187_600,
+  dueWithin30DaysUsdc: 72_840,
   recentAgentTraces: DEMO_AGENT_TRACES,
 };
