@@ -60,7 +60,7 @@ export const DEMO_ANALYSIS: DocumentAnalysis = {
   buyerName: matched(DEMO_INVOICE.buyer.name),
   amountKrw: matched(DEMO_INVOICE.invoiceAmountKrw),
   dueDate: matched(DEMO_INVOICE.dueDate),
-  contractNumber: matched(DEMO_INVOICE.contractNumber),
+  contractNumber: { value: DEMO_INVOICE.contractNumber, status: "REVIEW_REQUIRED" },
   purchaseOrderNumber: matched(DEMO_INVOICE.purchaseOrderNumber),
   deliveryCompleted: matched(true),
   modelName: "gemini-demo",

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { App } from "./App";
 
-test("redirects the application root to the supplier dashboard", async () => {
+test("redirects the application root to login", async () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
@@ -11,5 +11,5 @@ test("redirects the application root to the supplier dashboard", async () => {
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByRole("heading", { name: "Alpha Components" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Sign in to InvoiceX" })).toBeInTheDocument();
 });

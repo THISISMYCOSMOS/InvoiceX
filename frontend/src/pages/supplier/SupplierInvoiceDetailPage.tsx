@@ -5,16 +5,43 @@ import { LoadingState } from "../../components/LoadingState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAcceptOffer } from "../../hooks/useAcceptOffer";
 import { useInvoice } from "../../hooks/useInvoice";
+import { useRequestVerification } from "../../hooks/useRequestVerification";
 import type { Invoice } from "../../types/invoice";
 import { BuyerReviewPendingSection } from "./sections/BuyerReviewPendingSection";
+import { DocumentReviewSection } from "./sections/DocumentReviewSection";
 import { EarlySettlementOfferSection } from "./sections/EarlySettlementOfferSection";
 import { FundingProgressSection } from "./sections/FundingProgressSection";
 import { FundingReceiptSection } from "./sections/FundingReceiptSection";
 import { SettlementReceiptSection } from "./sections/SettlementReceiptSection";
+import { useLanguage } from "../../i18n/LanguageContext";
 
-export function SupplierInvoiceDetailContent({ invoice, onAccept }: { invoice: Invoice; onAccept: () => void }) {
-  let section = <section><h2>{invoice.status === "DOCUMENT_REVIEW_REQUIRED" ? "분석 결과 확인" : "인보이스 진행 상태"}</h2></section>;
-  if (invoice.status === "BUYER_REVIEW") section = <BuyerReviewPendingSection />;
+export function SupplierInvoiceDetailContent({
+  invoice,
+  onAccept,
+  onRequestVerification = () => undefined,
+  isRequestingVerification = false,
+}: {
+  invoice: Invoice;
+  onAccept: () => void;
+  onRequestVerification?: () => void;
+  isRequestingVerification?: boolean;
+}) {
+  const { t } = useLanguage();
+  if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
+    return (
+      <DocumentReviewSection
+        invoice={invoice}
+        onConfirm={onRequestVerification}
+        isPending={isRequestingVerification}
+      />
+    );
+  }
+
+  if (invoice.status === "BUYER_REVIEW") {
+    return <BuyerReviewPendingSection invoice={invoice} />;
+  }
+
+  let section = <section><h2>{t("Invoice progress", "인보이스 진행 상태")}</h2></section>;
   if (invoice.status === "OFFER_READY") section = <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} />;
   if (invoice.status === "FUNDING") section = <FundingProgressSection />;
   if (invoice.status === "FUNDED") section = <FundingReceiptSection invoice={invoice} />;
@@ -23,10 +50,19 @@ export function SupplierInvoiceDetailContent({ invoice, onAccept }: { invoice: I
 }
 
 export function SupplierInvoiceDetailPage() {
+  const { t } = useLanguage();
   const { invoiceId = "" } = useParams();
   const invoice = useInvoice(invoiceId);
   const acceptOffer = useAcceptOffer();
+  const requestVerification = useRequestVerification();
   if (invoice.isLoading) return <LoadingState />;
-  if (invoice.error || !invoice.data) return <ErrorState error={invoice.error ?? new Error("인보이스를 찾을 수 없습니다.")} />;
-  return <SupplierInvoiceDetailContent invoice={invoice.data} onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })} />;
+  if (invoice.error || !invoice.data) return <ErrorState error={invoice.error ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))} />;
+  return (
+    <SupplierInvoiceDetailContent
+      invoice={invoice.data}
+      onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
+      onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
+      isRequestingVerification={requestVerification.isPending}
+    />
+  );
 }

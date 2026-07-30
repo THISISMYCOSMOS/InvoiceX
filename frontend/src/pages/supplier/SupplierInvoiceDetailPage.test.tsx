@@ -1,5 +1,13 @@
 import { render, screen } from "@testing-library/react";
-import { DEMO_FUNDING_TRANSACTION, DEMO_INVOICE, DEMO_RISK_PASSPORT } from "../../mocks/demoScenario";
+import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
+import {
+  DEMO_ANALYSIS,
+  DEMO_DOCUMENTS,
+  DEMO_FUNDING_TRANSACTION,
+  DEMO_INVOICE,
+  DEMO_RISK_PASSPORT,
+} from "../../mocks/demoScenario";
 import { SupplierInvoiceDetailContent } from "./SupplierInvoiceDetailPage";
 
 test("shows the early settlement CTA for an offer-ready invoice", () => {
@@ -10,7 +18,7 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
     />,
   );
 
-  expect(screen.getByRole("button", { name: "조건 동의 및 조기정산 신청" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Accept terms and request early settlement" })).toBeInTheDocument();
 });
 
 test("shows the transaction receipt for a funded invoice", () => {
@@ -22,4 +30,54 @@ test("shows the transaction receipt for a funded invoice", () => {
   );
 
   expect(screen.getByText("Transaction Hash")).toBeInTheDocument();
+});
+
+test("shows extracted information and requests verification after confirmation", async () => {
+  const user = userEvent.setup();
+  const onRequestVerification = vi.fn();
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "DOCUMENT_REVIEW_REQUIRED",
+        documents: DEMO_DOCUMENTS,
+        analysis: {
+          ...DEMO_ANALYSIS,
+          contractNumber: { ...DEMO_ANALYSIS.contractNumber, status: "REVIEW_REQUIRED" },
+        },
+      }}
+      onAccept={() => undefined}
+      onRequestVerification={onRequestVerification}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Review extracted information" })).toBeInTheDocument();
+  expect(screen.getByText("9 of 10 verified")).toBeInTheDocument();
+  expect(screen.getByText("PM-SUPPLY-2026-04")).toBeInTheDocument();
+  expect(screen.getByText("Needs review")).toBeInTheDocument();
+  expect(screen.getByText("Completed · July 24, 2026")).toBeInTheDocument();
+  expect(screen.getByText("03 · DOCUMENT AGENT REVIEW / 1440 × 900")).toBeInTheDocument();
+  expect(screen.getByText("Document Agent complete")).toBeInTheDocument();
+  expect(screen.getByText("Prime Mobility Co., Ltd.")).toBeInTheDocument();
+  expect(screen.getByText("invoice_INV-2026-001.pdf")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
+  expect(onRequestVerification).toHaveBeenCalledTimes(1);
+});
+
+test("shows the buyer-verification pending summary from the invoice", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "BUYER_REVIEW" }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Waiting for buyer verification" })).toBeInTheDocument();
+  expect(screen.getByText("Prime Mobility")).toBeInTheDocument();
+  expect(screen.getByText("₩20,000,000")).toBeInTheDocument();
+  expect(screen.getByText("Oct 30, 2026")).toBeInTheDocument();
+  expect(screen.getByText("Verification requested · Jul 29, 2026 · 10:42")).toBeInTheDocument();
+  expect(screen.getByText("Buyer verification")).toHaveAttribute("aria-current", "step");
+  expect(screen.getByText("04 · BUYER VERIFICATION PENDING / 1440 × 900")).toBeInTheDocument();
 });

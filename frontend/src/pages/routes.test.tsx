@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, test } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { scenarioAdapter } from "../api/client";
 import { App } from "../App";
 
 beforeEach(async () => {
+  window.localStorage.clear();
   await scenarioAdapter.reset();
 });
 
@@ -15,12 +17,79 @@ function renderAt(path: string) {
 }
 
 test.each([
-  ["/supplier", "Alpha Components"],
+  ["/supplier", "Good morning, Minjun"],
   ["/buyer", "Prime Mobility"],
   ["/investor", "Nova Capital"],
-  ["/dev/demo", "개발자 데모 제어"],
+  ["/dev/demo", "Developer demo controls"],
 ])("renders %s", async (path, expectedText) => {
   renderAt(path);
 
-  expect(await screen.findByText(expectedText)).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: expectedText })).toBeInTheDocument();
+});
+
+test("renders the Figma login form", () => {
+  renderAt("/login");
+
+  expect(screen.getByRole("heading", { name: "Sign in to InvoiceX" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Supplier" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Buyer" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "Investor" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByLabelText("Company email")).toBeInTheDocument();
+  expect(screen.getByLabelText("Password")).toBeInTheDocument();
+});
+
+test.each([
+  ["Supplier", "Good morning, Minjun"],
+  ["Buyer", "Prime Mobility"],
+  ["Investor", "Nova Capital"],
+])("signs the %s role into its dashboard", async (role, expectedText) => {
+  const user = userEvent.setup();
+  renderAt("/login");
+
+  await user.click(screen.getByRole("button", { name: role }));
+  await user.type(screen.getByLabelText("Company email"), "minjun@company.com");
+  await user.type(screen.getByLabelText("Password"), "password");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+  expect(await screen.findByRole("heading", { name: expectedText })).toBeInTheDocument();
+});
+
+test("renders supplier navigation in the shared application shell", async () => {
+  renderAt("/supplier");
+
+  expect(await screen.findByRole("navigation", { name: "Supplier navigation" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/supplier");
+  expect(screen.getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/supplier/invoices/new");
+  expect(screen.getByText("Company & Wallet")).toBeInTheDocument();
+});
+
+test("switches between English and Korean from login and keeps the choice across routes", async () => {
+  const user = userEvent.setup();
+  const { unmount } = renderAt("/login");
+
+  await user.click(screen.getByRole("button", { name: "한국어로 전환" }));
+
+  expect(screen.getByRole("heading", { name: "InvoiceX에 로그인" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Switch to English" })).toBeInTheDocument();
+  expect(document.documentElement).toHaveAttribute("lang", "ko");
+
+  unmount();
+  renderAt("/supplier");
+
+  expect(await screen.findByRole("heading", { name: "좋은 아침이에요, 민준님" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "개요" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Switch to English" })).toBeInTheDocument();
+});
+
+test("keeps the language control first in every top-right control group", async () => {
+  const { container, unmount } = renderAt("/login");
+  const loginToggle = screen.getByRole("button", { name: "한국어로 전환" });
+
+  expect(container.querySelector(".login-panel")?.firstElementChild).toBe(loginToggle);
+
+  unmount();
+  const supplier = renderAt("/supplier");
+  const appToggle = await screen.findByRole("button", { name: "한국어로 전환" });
+
+  expect(supplier.container.querySelector(".topbar__user")?.firstElementChild).toBe(appToggle);
 });

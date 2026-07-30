@@ -11,7 +11,7 @@ test("enables buyer confirmation after document analysis succeeds", async () => 
   render(<QueryClientProvider client={queryClient}><DemoControlPage /></QueryClientProvider>);
 
   expect(await screen.findByRole("button", { name: "Buyer Confirm" })).toBeDisabled();
-  await user.click(screen.getByRole("button", { name: "Document Agent 분석 실행" }));
+    await user.click(screen.getByRole("button", { name: "Run Document Agent analysis" }));
 
   expect(await screen.findByRole("button", { name: "Buyer Confirm" })).toBeEnabled();
 });
