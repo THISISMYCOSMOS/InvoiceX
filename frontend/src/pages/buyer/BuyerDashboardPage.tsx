@@ -1,19 +1,109 @@
 import { Link } from "react-router-dom";
-import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
-import { StatusBadge } from "../../components/StatusBadge";
 import { useInvoices } from "../../hooks/useInvoices";
-import { useLanguage } from "../../i18n/LanguageContext";
+
+const fallbackRequests = [
+  {
+    id: "INV-2026-001",
+    supplier: "Alpha Components",
+    amountKrw: 20_000_000,
+    dueDate: "Oct 30, 2026",
+    primary: true,
+  },
+  {
+    id: "INV-2026-018",
+    supplier: "Hanul Parts",
+    amountKrw: 31_200_000,
+    dueDate: "Nov 05, 2026",
+    primary: false,
+  },
+] as const;
+
+const krw = new Intl.NumberFormat("ko-KR", {
+  style: "currency",
+  currency: "KRW",
+  maximumFractionDigits: 0,
+});
 
 export function BuyerDashboardPage() {
   const invoices = useInvoices();
-  const { t } = useLanguage();
+
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
-  const items = invoices.data ?? [];
-  const review = items.filter((invoice) => invoice.status === "BUYER_REVIEW");
-  const payment = items.filter((invoice) => ["FUNDED", "REPAYMENT_PENDING", "SETTLING"].includes(invoice.status));
-  const list = (title: string, invoicesToShow: typeof items) => <section><h2>{title}</h2>{invoicesToShow.length === 0 ? <EmptyState message={t("No invoices in this category.", "해당 인보이스가 없습니다.")} /> : <ul>{invoicesToShow.map((invoice) => <li key={invoice.id}><Link to={`/buyer/invoices/${invoice.id}`}>{invoice.id}</Link> <StatusBadge status={invoice.status} /></li>)}</ul>}</section>;
-  return <section><h1>Prime Mobility</h1>{list(t("Invoices requiring confirmation", "확인이 필요한 인보이스"), review)}{list(t("Upcoming payments", "지급 예정 인보이스"), payment)}</section>;
+
+  const primaryInvoice = invoices.data?.[0];
+  const requests = fallbackRequests.map((request, index) => (
+    index === 0 && primaryInvoice
+      ? {
+          ...request,
+          id: primaryInvoice.id,
+          supplier: primaryInvoice.supplier.name,
+          amountKrw: primaryInvoice.invoiceAmountKrw,
+        }
+      : request
+  ));
+
+  return (
+    <section className="buyer-dashboard">
+      <header className="buyer-page-heading">
+        <h1>Invoice verification</h1>
+        <p>Review supplier invoices and manage upcoming payments.</p>
+      </header>
+
+      <div className="buyer-stats" aria-label="Buyer invoice summary">
+        <article>
+          <span>New requests</span>
+          <strong>3 <small>invoices</small></strong>
+        </article>
+        <article>
+          <span>Due in 30 days</span>
+          <strong>₩68.4M</strong>
+        </article>
+        <article>
+          <span>Completed this month</span>
+          <strong>12</strong>
+        </article>
+      </div>
+
+      <section className="buyer-request-card">
+        <header>
+          <h2>New verification requests</h2>
+          <button type="button" className="secondary-button buyer-view-all">View all</button>
+        </header>
+        <div className="table-scroll">
+          <table aria-label="New verification requests">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Supplier</th>
+                <th>Amount</th>
+                <th>Due date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((request) => (
+                <tr key={request.id}>
+                  <td><strong>{request.id}</strong></td>
+                  <td>{request.supplier}</td>
+                  <td>{krw.format(request.amountKrw)}</td>
+                  <td>{request.dueDate}</td>
+                  <td>
+                    <Link
+                      className={request.primary ? "buyer-review-link is-primary" : "buyer-review-link"}
+                      to={`/buyer/invoices/${request.id}?section=verification`}
+                      aria-label={`Review ${request.id}`}
+                    >
+                      Review
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
 }

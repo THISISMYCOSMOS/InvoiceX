@@ -18,11 +18,13 @@ import { useLanguage } from "../../i18n/LanguageContext";
 export function SupplierInvoiceDetailContent({
   invoice,
   onAccept,
+  onDecline = () => undefined,
   onRequestVerification = () => undefined,
   isRequestingVerification = false,
 }: {
   invoice: Invoice;
   onAccept: () => void;
+  onDecline?: () => void;
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
 }) {
@@ -41,8 +43,11 @@ export function SupplierInvoiceDetailContent({
     return <BuyerReviewPendingSection invoice={invoice} />;
   }
 
+  if (invoice.status === "OFFER_READY") {
+    return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} onDecline={onDecline} />;
+  }
+
   let section = <section><h2>{t("Invoice progress", "인보이스 진행 상태")}</h2></section>;
-  if (invoice.status === "OFFER_READY") section = <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} />;
   if (invoice.status === "FUNDING") section = <FundingProgressSection />;
   if (invoice.status === "FUNDED") section = <FundingReceiptSection invoice={invoice} />;
   if (invoice.status === "SETTLED") section = <SettlementReceiptSection invoice={invoice} />;
@@ -61,6 +66,7 @@ export function SupplierInvoiceDetailPage() {
     <SupplierInvoiceDetailContent
       invoice={invoice.data}
       onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
+      onDecline={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "DECLINE" })}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
     />

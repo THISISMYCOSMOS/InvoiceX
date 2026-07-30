@@ -1,11 +1,44 @@
 import { render, screen } from "@testing-library/react";
-import { DEMO_INVOICE } from "../../mocks/demoScenario";
+import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
+import { DEMO_DOCUMENTS, DEMO_INVOICE } from "../../mocks/demoScenario";
 import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 
-test("shows verification controls for a buyer-review invoice", () => {
-  render(<BuyerInvoiceDetailContent invoice={{ ...DEMO_INVOICE, status: "BUYER_REVIEW", verificationId: "VER-2026-001" }} onConfirm={() => undefined} />);
+test("shows the Figma verification controls for a buyer-review invoice", async () => {
+  const user = userEvent.setup();
+  const onConfirm = vi.fn();
+  render(
+    <BuyerInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "BUYER_REVIEW",
+        verificationId: "VER-2026-001",
+        documents: DEMO_DOCUMENTS,
+      }}
+      onConfirm={onConfirm}
+    />,
+  );
 
-  expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Request changes" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Raise dispute" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Verify invoice INV-2026-001" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Invoice" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByText("Transaction exists")).toBeInTheDocument();
+  expect(screen.getByText("Supplier information")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Request revision" })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Confirm invoice" }));
+  expect(onConfirm).toHaveBeenCalledTimes(1);
+});
+
+test("shows the Figma maturity-payment screen for a funded invoice", () => {
+  render(
+    <BuyerInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "FUNDED" }}
+      onConfirm={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Pay invoice amount" })).toBeInTheDocument();
+  expect(screen.getByText("₩20,000,000")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Copy account number" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Download payment guide" })).toHaveAttribute("download");
 });

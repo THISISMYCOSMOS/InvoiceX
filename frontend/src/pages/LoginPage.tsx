@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Brand } from "../components/Brand";
 import { LanguageToggle } from "../components/LanguageToggle";
 import { useLanguage } from "../i18n/LanguageContext";
-
-type LoginRole = "Supplier" | "Buyer" | "Investor";
+import {
+  authenticateDemoAccount,
+  saveDemoSession,
+  type LoginRole,
+} from "../auth/demoAccounts";
 
 const roleRoutes: Record<LoginRole, string> = {
   Supplier: "/supplier",
@@ -14,11 +17,29 @@ const roleRoutes: Record<LoginRole, string> = {
 
 export function LoginPage() {
   const [role, setRole] = useState<LoginRole>("Supplier");
+  const [loginError, setLoginError] = useState<string>();
   const navigate = useNavigate();
   const { t } = useLanguage();
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const account = authenticateDemoAccount(
+      role,
+      String(formData.get("email") ?? ""),
+      String(formData.get("password") ?? ""),
+    );
+
+    if (!account) {
+      setLoginError(t(
+        "Check the selected role, email, and password.",
+        "선택한 역할, 이메일, 비밀번호를 확인해 주세요.",
+      ));
+      return;
+    }
+
+    saveDemoSession(account, formData.get("remember") === "on");
+    setLoginError(undefined);
     navigate(roleRoutes[role]);
   };
 
@@ -53,7 +74,10 @@ export function LoginPage() {
                   type="button"
                   aria-pressed={role === item}
                   key={item}
-                  onClick={() => setRole(item)}
+                  onClick={() => {
+                    setRole(item);
+                    setLoginError(undefined);
+                  }}
                 >
                   {t(item, item === "Supplier" ? "공급자" : item === "Buyer" ? "구매자" : "투자자")}
                 </button>
@@ -62,12 +86,26 @@ export function LoginPage() {
 
             <label className="login-field">
               <span>{t("Company email", "회사 이메일")}</span>
-              <input type="email" name="email" placeholder="name@company.com" required />
+              <input
+                type="email"
+                name="email"
+                placeholder="name@company.com"
+                aria-invalid={Boolean(loginError)}
+                onInput={() => setLoginError(undefined)}
+                required
+              />
             </label>
 
             <label className="login-field">
               <span>{t("Password", "비밀번호")}</span>
-              <input type="password" name="password" placeholder="••••••••••••" required />
+              <input
+                type="password"
+                name="password"
+                placeholder="••••••••••••"
+                aria-invalid={Boolean(loginError)}
+                onInput={() => setLoginError(undefined)}
+                required
+              />
             </label>
 
             <div className="login-options">
@@ -78,6 +116,7 @@ export function LoginPage() {
               <a href="#forgot-password">{t("Forgot password?", "비밀번호를 잊으셨나요?")}</a>
             </div>
 
+            {loginError && <p className="login-error" role="alert">{loginError}</p>}
             <button className="primary-button login-submit" type="submit">{t("Sign in", "로그인")}</button>
             <p className="login-form__foot">
               {t("New to InvoiceX?", "InvoiceX가 처음이신가요?")}{" "}

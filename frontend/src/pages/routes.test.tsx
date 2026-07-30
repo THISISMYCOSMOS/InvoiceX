@@ -8,6 +8,7 @@ import { App } from "../App";
 
 beforeEach(async () => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
   await scenarioAdapter.reset();
 });
 
@@ -18,7 +19,7 @@ function renderAt(path: string) {
 
 test.each([
   ["/supplier", "Good morning, Minjun"],
-  ["/buyer", "Prime Mobility"],
+  ["/buyer", "Invoice verification"],
   ["/investor", "Nova Capital"],
   ["/dev/demo", "Developer demo controls"],
 ])("renders %s", async (path, expectedText) => {
@@ -39,19 +40,31 @@ test("renders the Figma login form", () => {
 });
 
 test.each([
-  ["Supplier", "Good morning, Minjun"],
-  ["Buyer", "Prime Mobility"],
-  ["Investor", "Nova Capital"],
-])("signs the %s role into its dashboard", async (role, expectedText) => {
+  ["Supplier", "supplier@company.com", "supplier", "Good morning, Minjun"],
+  ["Buyer", "buyer@company.com", "buyer", "Invoice verification"],
+  ["Investor", "invester@company.com", "invester", "Nova Capital"],
+])("signs the %s demo account into its dashboard", async (role, email, password, expectedText) => {
   const user = userEvent.setup();
   renderAt("/login");
 
   await user.click(screen.getByRole("button", { name: role }));
-  await user.type(screen.getByLabelText("Company email"), "minjun@company.com");
-  await user.type(screen.getByLabelText("Password"), "password");
+  await user.type(screen.getByLabelText("Company email"), email);
+  await user.type(screen.getByLabelText("Password"), password);
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
   expect(await screen.findByRole("heading", { name: expectedText })).toBeInTheDocument();
+});
+
+test("rejects credentials that do not match the selected role", async () => {
+  const user = userEvent.setup();
+  renderAt("/login");
+
+  await user.type(screen.getByLabelText("Company email"), "buyer@company.com");
+  await user.type(screen.getByLabelText("Password"), "buyer");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+  expect(screen.getByRole("alert")).toHaveTextContent("Check the selected role, email, and password.");
+  expect(screen.getByRole("heading", { name: "Sign in to InvoiceX" })).toBeInTheDocument();
 });
 
 test("renders supplier navigation in the shared application shell", async () => {

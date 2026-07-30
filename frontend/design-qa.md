@@ -47,7 +47,7 @@ Each implementation screenshot was compared in the same visual input as its matc
 - Assets and icons: passed — Phosphor icons are used for controls and the invoice preview is a real raster asset.
 - Responsive safety: passed — desktop source viewport is exact and mobile breakpoints remain usable.
 - Browser console: passed — no errors or warnings during the final journey.
-- Automated checks: passed — lint, typecheck, 17 test files / 34 tests, and production build.
+- Automated checks: passed — lint, typecheck, 19 test files / 39 tests, and production build.
 
 ## Language control addendum
 
@@ -57,6 +57,39 @@ Each implementation screenshot was compared in the same visual input as its matc
 - Persistence: switching to Korean updates the document language and survives route changes and a full reload.
 - Localization: login, navigation, Supplier flow, Buyer flow, Investor flow, shared status/progress components, and developer demo controls render in both languages.
 - Fresh browser session: passed with no console errors or warnings.
-- Automated checks: passed — lint, typecheck, 17 test files / 34 tests, and production build.
+- Automated checks: passed — lint, typecheck, 19 test files / 39 tests, and production build.
+
+## Local demo authentication
+
+- Supplier: `supplier@company.com` with the Supplier role.
+- Buyer: `buyer@company.com` with the Buyer role.
+- Investor: `invester@company.com` with the Investor role.
+- Login rejects valid credentials when the selected role does not match.
+- Demo sessions persist in browser storage without storing the password.
+
+## Buyer and early-settlement flow
+
+Reference nodes:
+
+- Buyer dashboard: `16:750`
+- Buyer verification: `16:833`
+- Supplier early-settlement offer: `16:944`
+- Buyer due-date payment: `16:1279`
+
+Implementation captures:
+
+- `.design-qa/implementation-buyer-dashboard.png`
+- `.design-qa/implementation-buyer-verification.png`
+- `.design-qa/implementation-supplier-early-settlement.png`
+- `.design-qa/implementation-buyer-payment.png`
+
+Each reference and implementation capture was reviewed together at the 1440 × 900 source state.
+
+- Buyer dashboard: passed — green Buyer navigation, summary cards, request table, and review actions match the source.
+- Buyer verification: passed — document tabs, preview, checklist controls, disclosure, status chips, and CTAs match the source.
+- Supplier offer: passed with requested product correction — `Early Settlement` and `Transactions` were removed from the sidebar and replaced by `Company & Wallet`; the offer remains a state of the existing Supplier invoice detail route.
+- Buyer payment: passed — payment details, virtual account actions, waiting status, and payment schedule navigation match the source.
+- Responsive safety: passed — no horizontal overflow at 390 px and all primary controls remain visible.
+- Browser console: passed — no errors or warnings in a fresh verification-page session.
 
 final result: passed

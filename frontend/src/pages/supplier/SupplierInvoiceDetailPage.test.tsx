@@ -18,7 +18,10 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
     />,
   );
 
-  expect(screen.getByRole("button", { name: "Accept terms and request early settlement" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your early settlement offer is ready" })).toBeInTheDocument();
+  expect(screen.getByText("18,800 USDC")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Decline offer" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
 });
 
 test("shows the transaction receipt for a funded invoice", () => {

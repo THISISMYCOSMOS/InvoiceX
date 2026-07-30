@@ -492,6 +492,17 @@ a {
   text-align: center;
 }
 
+.login-error {
+  margin: 12px 0 -4px;
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.login-field input[aria-invalid="true"] {
+  border-color: #ef4444;
+}
+
 .supplier-dashboard {
   padding-top: 1px;
 }
@@ -1328,5 +1339,679 @@ a {
 
   .pending-summary {
     grid-template-columns: 1fr;
+  }
+}
+
+.buyer-dashboard,
+.buyer-verification,
+.buyer-payment,
+.early-offer {
+  color: #172033;
+}
+
+.topbar-status-pill {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.topbar-status-pill--green {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.topbar-status-pill--blue {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.sidebar--buyer .role-chip {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.sidebar--buyer .sidebar-nav a.is-active {
+  color: #15803d;
+  background: #eafbf0;
+}
+
+.buyer-page-heading h1,
+.buyer-detail-heading h1,
+.early-offer__heading h1 {
+  margin: 0;
+  color: #172033;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.65px;
+  line-height: 1.2;
+}
+
+.buyer-page-heading p,
+.buyer-detail-heading > div > p:last-child,
+.early-offer__heading > div > p:last-child {
+  margin: 8px 0 0;
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.buyer-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.buyer-stats article {
+  min-height: 68px;
+  padding: 13px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.buyer-stats span {
+  display: block;
+  color: #667085;
+  font-size: 9.5px;
+}
+
+.buyer-stats strong {
+  display: block;
+  margin-top: 8px;
+  color: #000;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.buyer-stats small {
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.buyer-request-card {
+  overflow: hidden;
+  margin-top: 20px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.buyer-request-card > header {
+  display: flex;
+  min-height: 57px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  border-bottom: 1px solid #d9dee8;
+}
+
+.buyer-request-card h2,
+.payment-information-card h2,
+.payment-status-card h2 {
+  margin: 0;
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.buyer-view-all {
+  min-height: 32px;
+  padding: 0 16px;
+  font-size: 10px;
+}
+
+.buyer-request-card table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.buyer-request-card th,
+.buyer-request-card td {
+  height: 46px;
+  padding: 0 15px;
+  border-bottom: 1px solid #e8ebf0;
+  color: #000;
+  font-size: 10px;
+  text-align: left;
+}
+
+.buyer-request-card th {
+  height: 38px;
+  color: #64748b;
+  background: #fbfcfe;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.buyer-request-card tr:last-child td {
+  border-bottom: 0;
+}
+
+.buyer-request-card th:last-child,
+.buyer-request-card td:last-child {
+  width: 160px;
+}
+
+.buyer-review-link {
+  display: inline-flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ccd3de;
+  border-radius: 7px;
+  color: #172033;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.buyer-review-link.is-primary {
+  border-color: #15803d;
+  color: #fff;
+  background: #15803d;
+}
+
+.buyer-detail-heading,
+.early-offer__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.detail-breadcrumb {
+  margin: 0 0 8px;
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.request-date-chip,
+.payment-pending-chip,
+.offer-ready-chip,
+.low-risk-chip,
+.expected-proceeds-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 22px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.request-date-chip,
+.payment-pending-chip {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.offer-ready-chip,
+.low-risk-chip,
+.expected-proceeds-chip {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.buyer-verification-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(380px, 0.9fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.document-compare-card {
+  overflow: hidden;
+  min-height: 425px;
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  background: #f1f5f9;
+}
+
+.document-tabs {
+  display: flex;
+  gap: 7px;
+  padding: 14px 15px 10px;
+}
+
+.document-tabs button {
+  min-height: 26px;
+  cursor: pointer;
+  border: 1px solid #ccd3de;
+  border-radius: 5px;
+  padding: 0 10px;
+  color: #334155;
+  background: #fff;
+  font: inherit;
+  font-size: 9px;
+}
+
+.document-tabs button.is-active {
+  border-color: #60a5fa;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.document-preview {
+  display: flex;
+  min-height: 370px;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 22px 20px;
+}
+
+.document-preview img {
+  display: block;
+  width: min(390px, 100%);
+  max-height: 360px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid #d9dee8;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.verification-panel {
+  min-width: 0;
+}
+
+.verification-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.verification-row {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid #d9dee8;
+  border-radius: 7px;
+  color: #64748b;
+  background: #fff;
+  font-size: 9.5px;
+}
+
+.verification-choice {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.verification-choice button {
+  min-height: 24px;
+  cursor: pointer;
+  border: 1px solid #ccd3de;
+  border-radius: 5px;
+  padding: 0 9px;
+  color: #334155;
+  background: #fff;
+  font: inherit;
+  font-size: 8.5px;
+}
+
+.verification-choice button.is-selected {
+  border-color: #86efac;
+  color: #15803d;
+  background: #ecfdf3;
+}
+
+.verification-choice button.is-selected.is-negative {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.verification-note,
+.payment-processing-note,
+.offer-disclosure {
+  margin: 10px 0 0;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+  padding: 11px 12px;
+  color: #16a34a;
+  background: #eafbf0;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.verification-actions,
+.offer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #d9dee8;
+}
+
+.verification-actions button,
+.offer-actions button {
+  min-height: 34px;
+  padding: 0 17px;
+  font-size: 10px;
+}
+
+.buyer-confirm-button,
+.copy-account-button {
+  cursor: pointer;
+  border: 1px solid #15803d;
+  border-radius: 7px;
+  color: #fff;
+  background: #15803d;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.buyer-confirm-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.inline-status {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 10px;
+  text-align: right;
+}
+
+.buyer-payment-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.payment-information-card,
+.payment-status-card {
+  overflow: hidden;
+  border: 1px solid #ccd3de;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.payment-information-card > header,
+.payment-status-card > header {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  border-bottom: 1px solid #ccd3de;
+}
+
+.payment-information-card > header span {
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #16a34a;
+  background: #dcfce7;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.payment-information-card dl {
+  margin: 0;
+  padding: 12px 15px;
+}
+
+.payment-information-card dl > div {
+  display: flex;
+  min-height: 37px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #e8ebf0;
+  font-size: 9.5px;
+}
+
+.payment-information-card dt {
+  color: #64748b;
+}
+
+.payment-information-card dd {
+  margin: 0;
+  color: #000;
+  font-weight: 700;
+  text-align: right;
+}
+
+.payment-information-card .payment-amount-row {
+  min-height: 58px;
+}
+
+.payment-information-card .payment-amount-row dd {
+  font-size: 21px;
+}
+
+.payment-information-card footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 15px 15px;
+}
+
+.copy-account-button,
+.payment-guide-link {
+  min-height: 34px;
+  padding: 0 15px;
+}
+
+.payment-guide-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.payment-status-card > div {
+  display: flex;
+  min-height: 197px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 26px;
+  text-align: center;
+}
+
+.krw-status-icon {
+  display: inline-flex;
+  width: 58px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #16a34a;
+  background: #ecfdf3;
+}
+
+.payment-status-card h3 {
+  margin: 16px 0 0;
+  color: #000;
+  font-size: 18px;
+}
+
+.payment-status-card p {
+  max-width: 360px;
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.payment-processing-note {
+  margin-left: calc(57.5% + 8px);
+}
+
+.early-offer__grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.28fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.risk-score-card,
+.offer-proceeds-card {
+  border: 1px solid #ccd3de;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.risk-score-card {
+  display: flex;
+  min-height: 395px;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 20px 16px;
+}
+
+.risk-score-card > strong {
+  margin-top: 42px;
+  color: #000;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.risk-score-card > small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.risk-score-card h2 {
+  margin: 47px 0 0;
+  color: #000;
+  font-size: 16px;
+}
+
+.risk-score-card > p {
+  margin: 11px 0 0;
+  color: #64748b;
+  font-size: 9.5px;
+  text-align: center;
+}
+
+.risk-score-card dl,
+.offer-proceeds-card dl {
+  width: 100%;
+  margin: 18px 0 0;
+}
+
+.risk-score-card dl > div,
+.offer-proceeds-card dl > div {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e8ebf0;
+  font-size: 9px;
+}
+
+.risk-score-card dt,
+.offer-proceeds-card dt {
+  color: #64748b;
+}
+
+.risk-score-card dd,
+.offer-proceeds-card dd {
+  margin: 0;
+  color: #000;
+  font-weight: 700;
+  text-align: right;
+}
+
+.risk-score-card dl > div:nth-child(-n + 2) dd {
+  color: #15803d;
+}
+
+.offer-proceeds-card {
+  min-height: 283px;
+  border-color: #93c5fd;
+  padding: 20px;
+  background: #f8fbff;
+}
+
+.offer-proceeds-card h2 {
+  margin: 10px 0 0;
+  color: #000;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.offer-proceeds-card > p {
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.offer-disclosure {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.offer-actions .primary-button {
+  width: auto;
+}
+
+.buyer-idle-state {
+  border: 1px solid #d9dee8;
+  border-radius: 9px;
+  padding: 30px;
+  background: #fff;
+}
+
+@media (max-width: 900px) {
+  .buyer-stats,
+  .buyer-verification-grid,
+  .buyer-payment-grid,
+  .early-offer__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-processing-note {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .buyer-detail-heading,
+  .early-offer__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .buyer-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-request-card th:nth-child(2),
+  .buyer-request-card td:nth-child(2),
+  .buyer-request-card th:nth-child(4),
+  .buyer-request-card td:nth-child(4) {
+    display: none;
+  }
+
+  .verification-row,
+  .payment-information-card dl > div {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px 0;
+  }
+
+  .payment-information-card footer,
+  .verification-actions,
+  .offer-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
