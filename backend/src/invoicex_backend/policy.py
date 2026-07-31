@@ -22,8 +22,24 @@ class DeterministicRiskPolicy:
 
     policy_version = "v1"
 
-    def evaluate(self, *, has_mismatches: bool, face_value_usdc: int) -> RiskDecision:
-        if has_mismatches:
+    def evaluate(
+        self,
+        *,
+        has_mismatches: bool,
+        face_value_usdc: int,
+        buyer_dispute: bool = False,
+        buyer_mismatches: bool = False,
+    ) -> RiskDecision:
+        if buyer_dispute:
+            # A buyer-declared dispute or payment hold is not investable.
+            return RiskDecision(
+                score=0,
+                level="BLOCKED",
+                eligibility=RiskEligibility.BLOCKED,
+                advance_rate_bps=None,
+                advance_amount_usdc=None,
+            )
+        if has_mismatches or buyer_mismatches:
             return RiskDecision(
                 score=68,
                 level="REVIEW_REQUIRED",

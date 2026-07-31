@@ -26,6 +26,7 @@ from invoicex_backend.models import (
     AgentTrace,
     AnalysisStatus,
     BlockchainTransaction,
+    BuyerChecklist,
     ChainTransfer,
     ChainTransferResult,
     DocumentAnalysis,
@@ -76,6 +77,9 @@ TRANSIENT_STATUS_AGENTS: dict[InvoiceStatus, TraceSource] = {
     InvoiceStatus.SETTLING: "SETTLEMENT_AGENT",
 }
 TRANSIENT_STATUSES = frozenset(TRANSIENT_STATUS_AGENTS)
+HIGH_SEVERITY_CODES = frozenset(
+    {"DOCUMENT_MISMATCH", "BUYER_REPORTED_MISMATCH", "BUYER_REPORTED_DISPUTE"}
+)
 
 
 class InvoiceService:
@@ -396,7 +400,11 @@ class InvoiceService:
     def get_verification(self, verification_id: str) -> Verification:
         return self._verification(verification_id).model_copy(deep=True)
 
-    async def confirm_verification(self, verification_id: str) -> Invoice:
+    async def confirm_verification(
+        self,
+        verification_id: str,
+        checklist: BuyerChecklist | None = None,
+    ) -> Invoice:
         verification = self._verification(verification_id)
         async with self._invoice_lock(verification.invoice_id):
             invoice = self._invoice(verification.invoice_id)
@@ -407,6 +415,12 @@ class InvoiceService:
                 or invoice.status is not InvoiceStatus.BUYER_REVIEW
             ):
                 raise StateConflictError("현재 상태에서는 Buyer 검증을 확정할 수 없습니다.")
+
+            # No body means every row agreed, which is the demo happy path.
+            # The transaction row is pinned positive: the demo data is synthetic,
+            # so "the transaction does not exist" cannot legitimately happen.
+            answers = (checklist or BuyerChecklist()).with_transaction_confirmed()
+            verification.checklist = answers
 
             verification.status = VerificationStatus.CONFIRMED
             invoice.status = InvoiceStatus.RISK_ASSESSING
@@ -466,11 +480,16 @@ class InvoiceService:
                 await self._persist()
                 return
 
+            checklist = self._buyer_checklist(invoice)
             decision = self._risk_policy.evaluate(
                 has_mismatches=bool(agent_analysis.mismatches),
                 face_value_usdc=invoice.invoice_amount_krw // 1_000,
+                buyer_dispute=checklist.dispute_reported,
+                buyer_mismatches=bool(checklist.mismatched_rows()),
             )
-            risk_request = self._risk_request(invoice, agent_analysis, decision)
+            risk_request = self._risk_request(
+                invoice, agent_analysis, decision, checklist
+            )
             try:
                 risk_result = await self._agents.analyze_risk(risk_request)
             except AgentError as exc:
@@ -506,7 +525,7 @@ class InvoiceService:
                 risk_factors=[
                     RiskFactor(
                         severity=(
-                            "HIGH" if factor.code == "DOCUMENT_MISMATCH" else "LOW"
+                            "HIGH" if factor.code in HIGH_SEVERITY_CODES else "LOW"
                         ),
                         title=factor.title,
                         description=reasons[factor.code],
@@ -752,6 +771,16 @@ class InvoiceService:
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
         )
 
+    def _buyer_checklist(self, invoice: Invoice) -> BuyerChecklist:
+        """Recover what the Buyer actually ticked, defaulting to full agreement."""
+
+        if invoice.verification_id is None:
+            return BuyerChecklist()
+        verification = self._verifications.get(invoice.verification_id)
+        if verification is None or verification.checklist is None:
+            return BuyerChecklist()
+        return verification.checklist
+
     @staticmethod
     def _due_on_or_before(due_date: str, horizon: date) -> bool:
         """Treat an unparseable due date as outside the window rather than crashing."""
@@ -933,6 +962,7 @@ class InvoiceService:
         invoice: Invoice,
         analysis: DocumentAnalysisResult,
         decision: RiskDecision,
+        checklist: BuyerChecklist,
     ) -> RiskAnalysisRequest:
         source_evidence = [
             evidence
@@ -982,6 +1012,28 @@ class InvoiceService:
                 source_evidence_ids=[buyer_evidence.evidence_id],
             ),
         ]
+        buyer_mismatches = checklist.mismatched_rows()
+        if buyer_mismatches:
+            factors.append(
+                RiskFactorContext(
+                    code="BUYER_REPORTED_MISMATCH",
+                    title="구매기업이 불일치를 보고함",
+                    facts=[
+                        "구매기업이 다음 항목을 불일치로 표시했습니다: "
+                        + ", ".join(buyer_mismatches)
+                    ],
+                    source_evidence_ids=[buyer_evidence.evidence_id],
+                )
+            )
+        if checklist.dispute_reported:
+            factors.append(
+                RiskFactorContext(
+                    code="BUYER_REPORTED_DISPUTE",
+                    title="분쟁 또는 결제 보류",
+                    facts=["구매기업이 분쟁 또는 결제 보류가 있다고 보고했습니다."],
+                    source_evidence_ids=[buyer_evidence.evidence_id],
+                )
+            )
         return RiskAnalysisRequest(
             invoice_id=invoice.id,
             buyer_decision="CONFIRM",

@@ -17,6 +17,7 @@ from fastapi import (
 
 from invoicex_backend.errors import DocumentValidationError
 from invoicex_backend.models import (
+    ConfirmVerificationRequest,
     DocumentType,
     ErrorResponse,
     InvestorDashboard,
@@ -212,10 +213,18 @@ async def confirm_verification(
     verification_id: VerificationId,
     background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
+    payload: ConfirmVerificationRequest | None = None,
 ) -> InvoiceResponse:
-    """Confirm the buyer decision and build the Risk Passport in the background."""
+    """Confirm the buyer decision and build the Risk Passport in the background.
 
-    invoice = await service.confirm_verification(verification_id)
+    The body is optional: the current Buyer screen sends none, which means every
+    checklist row agreed.
+    """
+
+    invoice = await service.confirm_verification(
+        verification_id,
+        payload.checklist if payload is not None else None,
+    )
     background_tasks.add_task(service.complete_risk_assessment, invoice.id)
     return InvoiceResponse(invoice=invoice)
 

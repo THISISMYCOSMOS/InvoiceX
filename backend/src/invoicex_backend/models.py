@@ -97,6 +97,61 @@ class OfferResponse(StrEnum):
     DECLINE = "DECLINE"
 
 
+class BuyerChecklistChoice(StrEnum):
+    """One row of the Buyer verification checklist.
+
+    MATCH also covers the affirmative option on the two rows the UI labels
+    differently: 납품 완료 "확인" and 분쟁 "없음".
+    """
+
+    MATCH = "MATCH"
+    MISMATCH = "MISMATCH"
+
+
+class BuyerChecklist(ApiModel):
+    """The six rows BuyerInvoiceDetailPage collects before Confirm.
+
+    Every row defaults to MATCH so an older client that sends no body keeps the
+    previous "everything agrees" behaviour.
+    """
+
+    transaction: BuyerChecklistChoice = BuyerChecklistChoice.MATCH
+    supplier: BuyerChecklistChoice = BuyerChecklistChoice.MATCH
+    amount: BuyerChecklistChoice = BuyerChecklistChoice.MATCH
+    due_date: BuyerChecklistChoice = BuyerChecklistChoice.MATCH
+    delivery: BuyerChecklistChoice = BuyerChecklistChoice.MATCH
+    dispute: BuyerChecklistChoice = BuyerChecklistChoice.MATCH
+
+    def with_transaction_confirmed(self) -> BuyerChecklist:
+        """Pin the transaction row positive.
+
+        The demo invoice is synthetic data we insert ourselves, so "the
+        transaction does not exist" is not a reachable outcome and must never
+        turn the happy path into a rejection.
+        """
+
+        return self.model_copy(update={"transaction": BuyerChecklistChoice.MATCH})
+
+    @property
+    def dispute_reported(self) -> bool:
+        return self.dispute is BuyerChecklistChoice.MISMATCH
+
+    def mismatched_rows(self) -> list[str]:
+        """Rows the buyer marked as disagreeing, excluding the dispute row."""
+
+        rows = {
+            "supplier": "공급기업 정보",
+            "amount": "인보이스 금액",
+            "due_date": "만기일",
+            "delivery": "납품 완료",
+        }
+        return [
+            label
+            for field, label in rows.items()
+            if getattr(self, field) is BuyerChecklistChoice.MISMATCH
+        ]
+
+
 class InvoiceParty(ApiModel):
     id: str
     name: str
@@ -233,6 +288,7 @@ class Verification(ApiModel):
     id: str
     invoice_id: str
     status: VerificationStatus
+    checklist: BuyerChecklist | None = None
 
 
 class InvoiceResponse(ApiModel):
@@ -253,6 +309,12 @@ class VerificationListResponse(ApiModel):
 
 class OfferResponseRequest(ApiModel):
     response: OfferResponse
+
+
+class ConfirmVerificationRequest(ApiModel):
+    """Optional body for Buyer confirm; omitting it means every row agreed."""
+
+    checklist: BuyerChecklist = Field(default_factory=BuyerChecklist)
 
 
 class InvestorDashboard(ApiModel):

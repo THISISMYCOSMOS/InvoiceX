@@ -58,6 +58,7 @@ def test_complete_frontend_contract_workflow(
                 "id": verification_id,
                 "invoiceId": invoice_id,
                 "status": "PENDING",
+                "checklist": None,
             }
         ]
     }
@@ -66,6 +67,7 @@ def test_complete_frontend_contract_workflow(
             "id": verification_id,
             "invoiceId": invoice_id,
             "status": "PENDING",
+            "checklist": None,
         }
     }
 
