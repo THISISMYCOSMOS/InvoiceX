@@ -1,0 +1,112 @@
+import type { AgentTrace, BlockchainTransaction, RiskPassport } from "./agents";
+import type { DocumentAnalysis, InvoiceDocument } from "./documents";
+
+export type InvoiceStatus =
+  | "DRAFT"
+  | "DOCUMENT_UPLOADING"
+  | "DOCUMENT_ANALYZING"
+  | "DOCUMENT_REVIEW_REQUIRED"
+  | "BUYER_REVIEW"
+  | "BUYER_VERIFIED"
+  | "RISK_ASSESSING"
+  | "OFFER_READY"
+  | "FUNDING"
+  | "FUNDED"
+  | "REPAYMENT_PENDING"
+  | "SETTLING"
+  | "SETTLED"
+  | "REVISION_REQUESTED"
+  | "DISPUTED"
+  | "BLOCKED"
+  | "ERROR";
+
+export type SupplierRegistrationStep = "REGISTER" | "BUYER_REVIEW" | "VERIFIED";
+
+const statusLabels: Record<InvoiceStatus, string> = {
+  DRAFT: "등록 준비",
+  DOCUMENT_UPLOADING: "문서 업로드 중",
+  DOCUMENT_ANALYZING: "문서 분석 중",
+  DOCUMENT_REVIEW_REQUIRED: "분석 결과 확인 필요",
+  BUYER_REVIEW: "구매기업 확인 대기",
+  BUYER_VERIFIED: "구매기업 검증 완료",
+  RISK_ASSESSING: "Risk Passport 생성 중",
+  OFFER_READY: "조기정산 조건 확인",
+  FUNDING: "Treasury Agent 처리 중",
+  FUNDED: "USDC 지급 완료",
+  REPAYMENT_PENDING: "만기 입금 대기",
+  SETTLING: "온체인 정산 중",
+  SETTLED: "만기 정산 완료",
+  REVISION_REQUESTED: "보완 요청됨",
+  DISPUTED: "이의 제기됨",
+  BLOCKED: "진행 불가",
+  ERROR: "처리 오류",
+};
+
+export function getInvoiceStatusLabel(status: InvoiceStatus): string {
+  return statusLabels[status];
+}
+
+export function getSupplierRegistrationStep(status: InvoiceStatus): SupplierRegistrationStep {
+  if (
+    status === "DRAFT" ||
+    status === "DOCUMENT_UPLOADING" ||
+    status === "DOCUMENT_ANALYZING" ||
+    status === "DOCUMENT_REVIEW_REQUIRED"
+  ) {
+    return "REGISTER";
+  }
+
+  return status === "BUYER_REVIEW" ? "BUYER_REVIEW" : "VERIFIED";
+}
+
+export interface InvoiceParty {
+  id: string;
+  name: string;
+  walletAddress?: string;
+  vaultAddress?: string;
+}
+
+export interface SettlementResult {
+  invoiceFaceValueUsdc: number;
+  investorSettlementUsdc: number;
+  platformFeeUsdc: number;
+  supplierResidualUsdc: number;
+}
+
+export interface Invoice {
+  id: string;
+  supplier: InvoiceParty;
+  buyer: InvoiceParty;
+  investor: InvoiceParty;
+  invoiceAmountKrw: number;
+  issueDate: string;
+  dueDate: string;
+  deliveryDate: string;
+  contractNumber: string;
+  purchaseOrderNumber: string;
+  status: InvoiceStatus;
+  documents: InvoiceDocument[];
+  analysis?: DocumentAnalysis;
+  riskPassport?: RiskPassport;
+  verificationId?: string;
+  fundingTransaction?: BlockchainTransaction;
+  settlementTransaction?: BlockchainTransaction;
+  settlement?: SettlementResult;
+  agentTraces: AgentTrace[];
+}
+
+export interface VerificationRequest {
+  id: string;
+  invoiceId: string;
+  status: "PENDING" | "CONFIRMED" | "REVISION_REQUESTED" | "DISPUTED";
+}
+
+export interface InvestorDashboard {
+  investorName: string;
+  automatedInvestmentActive: boolean;
+  mandateStatus: "DRAFT" | "SIGNED" | "ACTIVE";
+  availableVaultUsdc: number;
+  outstandingPrincipalUsdc: number;
+  dueWithin30DaysUsdc?: number;
+  recentAgentTraces: AgentTrace[];
+}
