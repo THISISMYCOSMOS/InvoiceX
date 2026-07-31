@@ -413,6 +413,34 @@ class InvoiceService:
             await self._persist()
             return self._copy_invoice(invoice)
 
+    async def request_revision(self, verification_id: str) -> Invoice:
+        """Record the Buyer's "수정 요청" instead of confirming the invoice."""
+
+        verification = self._verification(verification_id)
+        async with self._invoice_lock(verification.invoice_id):
+            invoice = self._invoice(verification.invoice_id)
+            if verification.status is VerificationStatus.REVISION_REQUESTED:
+                return self._copy_invoice(invoice)
+            if (
+                verification.status is not VerificationStatus.PENDING
+                or invoice.status is not InvoiceStatus.BUYER_REVIEW
+            ):
+                raise StateConflictError(
+                    "구매기업 확인 대기 상태에서만 수정을 요청할 수 있습니다."
+                )
+
+            verification.status = VerificationStatus.REVISION_REQUESTED
+            invoice.status = InvoiceStatus.REVISION_REQUESTED
+            self._append_trace(
+                invoice,
+                source="DOCUMENT_AGENT",
+                target="RISK_AGENT",
+                status="FAILED",
+                summary="구매기업이 제출 문서의 보완을 요청했습니다.",
+            )
+            await self._persist()
+            return self._copy_invoice(invoice)
+
     async def complete_risk_assessment(self, invoice_id: str) -> None:
         """Build the Risk Passport outside the Buyer confirm request.
 

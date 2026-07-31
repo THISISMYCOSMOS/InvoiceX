@@ -221,6 +221,22 @@ async def confirm_verification(
 
 
 @router.post(
+    "/verifications/{verificationId}/revision-request",
+    response_model=InvoiceResponse,
+    responses=documented_errors(404, 409),
+    tags=["Verifications"],
+    summary="Buyer 보완 요청",
+)
+async def request_revision(
+    verification_id: VerificationId,
+    service: InvoiceServiceDependency,
+) -> InvoiceResponse:
+    """Back the Buyer screen's "수정 요청" button, which had no server call."""
+
+    return InvoiceResponse(invoice=await service.request_revision(verification_id))
+
+
+@router.post(
     "/invoices/{invoiceId}/offer-response",
     response_model=InvoiceResponse,
     responses=documented_errors(404, 409, 422),
