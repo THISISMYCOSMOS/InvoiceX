@@ -1,6 +1,11 @@
 """Run one real Risk Agent call with non-sensitive synthetic inputs."""
 
-from invoicex_agents import AgentSettings, GoogleGeminiClient, RiskAgent
+from invoicex_agents import (
+    AgentSettings,
+    GoogleGeminiClient,
+    RiskAgent,
+    build_agent_error_response,
+)
 from invoicex_agents.models import (
     RiskAnalysisRequest,
     RiskFactorContext,
@@ -49,4 +54,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print(build_agent_error_response(exc).model_dump_json(by_alias=True, indent=2))
+        raise SystemExit(1) from None

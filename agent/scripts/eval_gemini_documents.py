@@ -6,7 +6,12 @@ import argparse
 import json
 from pathlib import Path
 
-from invoicex_agents import AgentSettings, DocumentAgent, GoogleGeminiClient
+from invoicex_agents import (
+    AgentSettings,
+    DocumentAgent,
+    GoogleGeminiClient,
+    build_agent_error_response,
+)
 from invoicex_agents.clients import MediaDocument
 from invoicex_agents.models.document import (
     DocumentExtractedData,
@@ -142,4 +147,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print(build_agent_error_response(exc).model_dump_json(by_alias=True, indent=2))
+        raise SystemExit(1) from None

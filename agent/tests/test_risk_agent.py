@@ -80,3 +80,15 @@ def test_risk_request_rejects_unknown_evidence(
 
     with pytest.raises(ValidationError, match="unknown"):
         RiskAnalysisRequest.model_validate(request_data)
+
+
+def test_risk_request_rejects_empty_risk_factors(
+    valid_risk_request_data: dict[str, Any],
+    copy_dict: Any,
+) -> None:
+    request_data = copy_dict(valid_risk_request_data)
+    request_data["riskFactors"] = []
+    request_data["sourceEvidence"] = []
+
+    with pytest.raises(ValidationError, match="at least 1 item"):
+        RiskAnalysisRequest.model_validate(request_data)

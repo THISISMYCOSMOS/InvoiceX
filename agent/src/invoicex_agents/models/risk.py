@@ -31,7 +31,7 @@ class RiskAnalysisRequest(StrictModel):
     buyer_decision: Literal["CONFIRM"]
     risk_score: int = Field(ge=0, le=100)
     risk_level: str = Field(min_length=1, max_length=50)
-    risk_factors: list[RiskFactorContext] = Field(default_factory=list)
+    risk_factors: list[RiskFactorContext] = Field(min_length=1)
     source_evidence: list[SourceEvidence] = Field(default_factory=list)
 
     @model_validator(mode="after")

@@ -109,7 +109,9 @@ class GoogleGeminiClient:
         error_type = type(last_error).__name__ if last_error is not None else "UnknownError"
         status_label = last_status_code if last_status_code is not None else "unknown"
         raise GeminiInvocationError(
-            f"Gemini request failed (status={status_label}, type={error_type})"
+            f"Gemini request failed (status={status_label}, type={error_type})",
+            status_code=last_status_code,
+            retryable=last_status_code in _RETRYABLE_STATUS_CODES,
         ) from None
 
     @staticmethod

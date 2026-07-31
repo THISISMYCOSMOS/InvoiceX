@@ -6,7 +6,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from invoicex_agents import AgentSettings, DocumentAgent, GoogleGeminiClient
+from invoicex_agents import (
+    AgentSettings,
+    DocumentAgent,
+    GoogleGeminiClient,
+    build_agent_error_response,
+)
 from invoicex_agents.clients import MediaDocument
 
 
@@ -40,4 +45,8 @@ if __name__ == "__main__":
     )
     arguments = parser.parse_args(sys.argv[1:])
     sources = arguments.pdfs or [Path("tmp/pdfs/invoicex-synthetic-invoice.pdf")]
-    main(sources)
+    try:
+        main(sources)
+    except Exception as exc:
+        print(build_agent_error_response(exc).model_dump_json(by_alias=True, indent=2))
+        raise SystemExit(1) from None

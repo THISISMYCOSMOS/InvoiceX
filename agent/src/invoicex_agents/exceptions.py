@@ -16,6 +16,17 @@ class AgentInputError(AgentError):
 class GeminiInvocationError(AgentError):
     """Raised when Gemini cannot complete a request."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: object | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retryable = retryable
+
 
 class GeminiResponseValidationError(AgentError):
     """Raised when Gemini returns an invalid structured response."""
