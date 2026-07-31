@@ -333,6 +333,22 @@ async def settle_mock_payment(
     return InvoiceResponse(invoice=await service.settle_mock_payment(invoice_id))
 
 
+@router.post(
+    "/invoices/{invoiceId}/settlement",
+    response_model=InvoiceResponse,
+    responses=documented_errors(404, 409, 502),
+    tags=["Settlement"],
+    summary="정산 마무리",
+)
+async def finalize_settlement(
+    invoice_id: InvoiceId,
+    service: InvoiceServiceDependency,
+) -> InvoiceResponse:
+    """Complete an invoice left in SETTLING by an unconfirmed mock payment."""
+
+    return InvoiceResponse(invoice=await service.finalize_settlement(invoice_id))
+
+
 async def _read_upload(
     upload: UploadFile,
     document_type: DocumentType,

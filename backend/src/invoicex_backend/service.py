@@ -640,54 +640,75 @@ class InvoiceService:
                 raise StateConflictError(
                     "펀딩 완료 후에만 Mock 입금과 정산을 처리할 수 있습니다."
                 )
+            return await self._run_settlement(invoice)
 
-            invoice.status = InvoiceStatus.SETTLING
-            try:
-                result = await self._solana.send_usdc(
-                    wallet_id=self._settings.privy_settlement_wallet_id
-                    or "MOCK_SETTLEMENT",
-                    transfers=[
-                        ChainTransfer(
-                            to_address=self._settings.investor_settlement_wallet_address,
-                            amount_usdc=19_800,
-                        ),
-                        ChainTransfer(
-                            to_address=self._settings.platform_fee_wallet_address,
-                            amount_usdc=200,
-                        ),
-                    ],
-                    reference_id=f"settlement-{invoice.id}",
-                )
-            except IntegrationError:
-                invoice.status = InvoiceStatus.ERROR
-                await self._persist()
-                raise
+    async def finalize_settlement(self, invoice_id: str) -> Invoice:
+        """Finish an invoice the mock payment left in SETTLING.
 
-            invoice.settlement_transaction = self._transaction(
-                result=result,
-                amount_usdc=20_000,
-                to_address=self._settings.investor_settlement_wallet_address,
-            )
-            if result.status is TransactionStatus.CONFIRMED:
-                invoice.settlement = Settlement(
-                    invoice_face_value_usdc=20_000,
-                    investor_settlement_usdc=19_800,
-                    platform_fee_usdc=200,
-                    supplier_residual_usdc=0,
+        mock-payment normally reaches SETTLED on its own, so this only has work
+        to do when the chain call came back unconfirmed.
+        """
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoice(invoice_id)
+            if invoice.status is InvoiceStatus.SETTLED:
+                return self._copy_invoice(invoice)
+            if invoice.status is not InvoiceStatus.SETTLING:
+                raise StateConflictError(
+                    "SETTLING 상태에서만 정산을 마무리할 수 있습니다."
                 )
-                invoice.status = InvoiceStatus.SETTLED
-                self._append_trace(
-                    invoice,
-                    source="SETTLEMENT_AGENT",
-                    target="SETTLEMENT_AGENT",
-                    status="COMPLETED",
-                    summary=(
-                        f"{'SANDBOX ' if result.sandbox else ''}"
-                        "KRW 입금 확인과 USDC 정산 분배를 완료했습니다."
+            return await self._run_settlement(invoice)
+
+    async def _run_settlement(self, invoice: Invoice) -> Invoice:
+        """Move USDC to the investor and the platform. Caller holds the invoice lock."""
+
+        invoice.status = InvoiceStatus.SETTLING
+        try:
+            result = await self._solana.send_usdc(
+                wallet_id=self._settings.privy_settlement_wallet_id
+                or "MOCK_SETTLEMENT",
+                transfers=[
+                    ChainTransfer(
+                        to_address=self._settings.investor_settlement_wallet_address,
+                        amount_usdc=19_800,
                     ),
-                )
+                    ChainTransfer(
+                        to_address=self._settings.platform_fee_wallet_address,
+                        amount_usdc=200,
+                    ),
+                ],
+                reference_id=f"settlement-{invoice.id}",
+            )
+        except IntegrationError:
+            invoice.status = InvoiceStatus.ERROR
             await self._persist()
-            return self._copy_invoice(invoice)
+            raise
+
+        invoice.settlement_transaction = self._transaction(
+            result=result,
+            amount_usdc=20_000,
+            to_address=self._settings.investor_settlement_wallet_address,
+        )
+        if result.status is TransactionStatus.CONFIRMED:
+            invoice.settlement = Settlement(
+                invoice_face_value_usdc=20_000,
+                investor_settlement_usdc=19_800,
+                platform_fee_usdc=200,
+                supplier_residual_usdc=0,
+            )
+            invoice.status = InvoiceStatus.SETTLED
+            self._append_trace(
+                invoice,
+                source="SETTLEMENT_AGENT",
+                target="SETTLEMENT_AGENT",
+                status="COMPLETED",
+                summary=(
+                    f"{'SANDBOX ' if result.sandbox else ''}"
+                    "KRW 입금 확인과 USDC 정산 분배를 완료했습니다."
+                ),
+            )
+        await self._persist()
+        return self._copy_invoice(invoice)
 
     def investor_dashboard(self) -> InvestorDashboard:
         active = {

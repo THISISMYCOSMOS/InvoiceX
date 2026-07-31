@@ -201,6 +201,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/invoices/{invoiceId}/analyze",
         "/api/v1/invoices/{invoiceId}/funding",
         "/api/v1/verifications/{verificationId}/revision-request",
+        "/api/v1/invoices/{invoiceId}/settlement",
     }
     assert set(schema["paths"]) == expected_paths
     request_schema = schema["paths"]["/api/v1/invoices"]["post"]["requestBody"][
