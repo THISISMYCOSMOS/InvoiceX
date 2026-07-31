@@ -242,6 +242,55 @@ async def respond_to_offer(
     return InvoiceResponse(invoice=invoice)
 
 
+@router.post(
+    "/invoices/{invoiceId}/analyze",
+    response_model=InvoiceResponse,
+    responses=documented_errors(400, 404, 409, 502),
+    tags=["Invoices"],
+    summary="시드 문서로 Document Agent 분석 실행",
+)
+async def analyze_invoice(
+    invoice_id: InvoiceId,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> InvoiceResponse:
+    """Replay the demo from a DRAFT invoice without re-uploading four files."""
+
+    invoice = await service.analyze_seeded_documents(invoice_id)
+    background_tasks.add_task(service.complete_document_analysis, invoice_id)
+    return InvoiceResponse(invoice=invoice)
+
+
+@router.post(
+    "/invoices/{invoiceId}/funding",
+    response_model=InvoiceResponse,
+    responses=documented_errors(404, 409, 502),
+    tags=["Funding"],
+    summary="Treasury Agent 투자 실행",
+)
+async def run_funding(
+    invoice_id: InvoiceId,
+    service: InvoiceServiceDependency,
+) -> InvoiceResponse:
+    """Finish a FUNDING invoice synchronously for the developer demo controls."""
+
+    await service.complete_funding(invoice_id)
+    return InvoiceResponse(invoice=service.get_invoice(invoice_id))
+
+
+@router.post(
+    "/demo/reset",
+    response_model=InvoiceResponse,
+    responses=documented_errors(400, 502),
+    tags=["Demo"],
+    summary="데모 데이터 초기화",
+)
+async def reset_demo(service: InvoiceServiceDependency) -> InvoiceResponse:
+    """Drop every invoice and return the fresh DRAFT one the frontend expects."""
+
+    return InvoiceResponse(invoice=await service.reset_demo())
+
+
 @router.get(
     "/investor/dashboard",
     response_model=InvestorDashboard,

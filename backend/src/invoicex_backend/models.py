@@ -261,6 +261,7 @@ class InvestorDashboard(ApiModel):
     mandate_status: Literal["DRAFT", "SIGNED", "ACTIVE"]
     available_vault_usdc: int
     outstanding_principal_usdc: int
+    due_within_30_days_usdc: int
     recent_agent_traces: list[AgentTrace]
 
 

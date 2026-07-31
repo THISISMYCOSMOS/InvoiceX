@@ -6,7 +6,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
 from invoicex_agents.exceptions import AgentError
@@ -667,10 +667,22 @@ class InvoiceService:
             InvoiceStatus.REPAYMENT_PENDING,
             InvoiceStatus.SETTLING,
         }
-        outstanding = sum(
-            invoice.risk_passport.suggested_advance_amount_usdc or 0
+        outstanding_invoices = [
+            invoice
             for invoice in self._invoices.values()
             if invoice.status in active and invoice.risk_passport is not None
+        ]
+        outstanding = sum(
+            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            for invoice in outstanding_invoices
+            if invoice.risk_passport is not None
+        )
+        horizon = datetime.now(UTC).date() + timedelta(days=30)
+        due_soon = sum(
+            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            for invoice in outstanding_invoices
+            if invoice.risk_passport is not None
+            and self._due_on_or_before(invoice.due_date, horizon)
         )
         traces = sorted(
             (
@@ -687,8 +699,19 @@ class InvoiceService:
             mandate_status="ACTIVE",
             available_vault_usdc=50_000,
             outstanding_principal_usdc=outstanding,
+            due_within_30_days_usdc=due_soon,
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
         )
+
+    @staticmethod
+    def _due_on_or_before(due_date: str, horizon: date) -> bool:
+        """Treat an unparseable due date as outside the window rather than crashing."""
+
+        try:
+            return date.fromisoformat(due_date) <= horizon
+        except ValueError:
+            logger.warning("만기일을 해석할 수 없습니다: %s", due_date)
+            return False
 
     async def close(self) -> None:
         await self._solana.aclose()

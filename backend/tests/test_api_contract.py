@@ -196,6 +196,10 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/invoices/{invoiceId}/offer-response",
         "/api/v1/investor/dashboard",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
+        # Operations the frontend adapter calls but the contract draft omitted.
+        "/api/v1/demo/reset",
+        "/api/v1/invoices/{invoiceId}/analyze",
+        "/api/v1/invoices/{invoiceId}/funding",
     }
     assert set(schema["paths"]) == expected_paths
     request_schema = schema["paths"]["/api/v1/invoices"]["post"]["requestBody"][
