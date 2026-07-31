@@ -57,9 +57,11 @@ def test_invoice_state_survives_restart(
         ] == verification_id
 
         # The restored agent analysis must still drive the Risk Passport.
-        offered = client.post(
+        accepted = client.post(
             f"/api/v1/verifications/{verification_id}/confirm"
         ).json()["invoice"]
+        assert accepted["status"] == "RISK_ASSESSING"
+        offered = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
         assert offered["status"] == "OFFER_READY"
         assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
 

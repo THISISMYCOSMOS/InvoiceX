@@ -210,11 +210,14 @@ async def get_verification(
 )
 async def confirm_verification(
     verification_id: VerificationId,
+    background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
-    return InvoiceResponse(
-        invoice=await service.confirm_verification(verification_id)
-    )
+    """Confirm the buyer decision and build the Risk Passport in the background."""
+
+    invoice = await service.confirm_verification(verification_id)
+    background_tasks.add_task(service.complete_risk_assessment, invoice.id)
+    return InvoiceResponse(invoice=invoice)
 
 
 @router.post(

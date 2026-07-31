@@ -328,7 +328,34 @@ class InvoiceService:
 
             verification.status = VerificationStatus.CONFIRMED
             invoice.status = InvoiceStatus.RISK_ASSESSING
-            agent_analysis = self._agent_analyses[invoice.id]
+            await self._persist()
+            return self._copy_invoice(invoice)
+
+    async def complete_risk_assessment(self, invoice_id: str) -> None:
+        """Build the Risk Passport outside the Buyer confirm request.
+
+        The frontend already polls RISK_ASSESSING, so the Gemini explanation
+        call does not need to block the Buyer's request.
+        """
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoices.get(invoice_id)
+            if invoice is None or invoice.status is not InvoiceStatus.RISK_ASSESSING:
+                return
+            agent_analysis = self._agent_analyses.get(invoice_id)
+            if agent_analysis is None:
+                invoice.status = InvoiceStatus.ERROR
+                self._append_trace(
+                    invoice,
+                    source="RISK_AGENT",
+                    target="TREASURY_AGENT",
+                    status="FAILED",
+                    summary="문서 분석 결과가 없어 Risk Passport를 만들 수 없습니다.",
+                )
+                logger.error("Missing document analysis for %s", invoice_id)
+                await self._persist()
+                return
+
             decision = self._risk_policy.evaluate(
                 has_mismatches=bool(agent_analysis.mismatches),
                 face_value_usdc=invoice.invoice_amount_krw // 1_000,
@@ -338,8 +365,16 @@ class InvoiceService:
                 risk_result = await self._agents.analyze_risk(risk_request)
             except AgentError as exc:
                 invoice.status = InvoiceStatus.ERROR
+                self._append_trace(
+                    invoice,
+                    source="RISK_AGENT",
+                    target="TREASURY_AGENT",
+                    status="FAILED",
+                    summary=f"Gemini Risk 설명 생성에 실패했습니다: {exc}",
+                )
+                logger.error("Risk assessment failed for %s: %s", invoice_id, exc)
                 await self._persist()
-                raise IntegrationError(f"Gemini Risk 설명 생성에 실패했습니다: {exc}") from exc
+                return
 
             reasons = {
                 reason.factor_code: reason.explanation
@@ -384,7 +419,6 @@ class InvoiceService:
                 summary=risk_result.risk_passport.summary,
             )
             await self._persist()
-            return self._copy_invoice(invoice)
 
     async def respond_to_offer(
         self,

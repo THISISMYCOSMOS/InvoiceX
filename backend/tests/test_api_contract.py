@@ -71,7 +71,11 @@ def test_complete_frontend_contract_workflow(
 
     confirmed = client.post(f"/api/v1/verifications/{verification_id}/confirm")
     assert confirmed.status_code == 200
-    offered = confirmed.json()["invoice"]
+    # Confirm returns before the Risk Agent runs; the frontend polls again.
+    assert confirmed.json()["invoice"]["status"] == "RISK_ASSESSING"
+    assert confirmed.json()["invoice"]["riskPassport"] is None
+
+    offered = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert offered["status"] == "OFFER_READY"
     assert offered["riskPassport"]["eligibility"] == "ELIGIBLE"
     assert offered["riskPassport"]["riskScore"] == 86

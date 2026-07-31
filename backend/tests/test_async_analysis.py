@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from invoicex_agents.exceptions import AgentError
 from invoicex_agents.models.document import DocumentAnalysisResult
+from invoicex_agents.models.risk import RiskAnalysisRequest, RiskAnalysisResult
 
 from invoicex_backend.agents import AgentDocument, MockAgentGateway
 from invoicex_backend.app import create_app
@@ -164,3 +165,128 @@ def test_restart_leaves_settled_invoices_untouched(
     invoice = restarted.get_invoice(invoice_id)
     assert invoice.status is InvoiceStatus.OFFER_READY
     assert all(trace.status != "FAILED" for trace in invoice.agent_traces)
+
+
+class FailingRiskAgentGateway(MockAgentGateway):
+    """Reproduce a Gemini outage during the background Risk explanation."""
+
+    async def analyze_risk(self, request: RiskAnalysisRequest) -> RiskAnalysisResult:
+        raise AgentError("Gemini risk unavailable")
+
+
+async def advance_to_buyer_review(service: InvoiceService) -> tuple[str, str]:
+    created = await service.create_invoice(uploads())
+    await service.complete_document_analysis(created.id)
+    invoice = await service.request_verification(created.id)
+    assert invoice.verification_id is not None
+    return created.id, invoice.verification_id
+
+
+def test_confirm_returns_before_the_risk_agent_runs(tmp_path: Path) -> None:
+    """RISK_ASSESSING must be observable, or the frontend polling is dead code."""
+
+    settings = mock_settings(tmp_path / "uploads")
+    service = build_service(settings)
+
+    async def scenario() -> None:
+        invoice_id, verification_id = await advance_to_buyer_review(service)
+
+        confirmed = await service.confirm_verification(verification_id)
+        assert confirmed.status is InvoiceStatus.RISK_ASSESSING
+        assert confirmed.risk_passport is None
+        assert service.get_verification(verification_id).status.value == "CONFIRMED"
+
+        await service.complete_risk_assessment(invoice_id)
+        offered = service.get_invoice(invoice_id)
+        assert offered.status is InvoiceStatus.OFFER_READY
+        assert offered.risk_passport is not None
+        assert offered.risk_passport.suggested_advance_amount_usdc == 18_800
+
+    asyncio.run(scenario())
+
+
+def test_background_risk_failure_surfaces_as_error_with_a_trace(
+    tmp_path: Path,
+) -> None:
+    settings = mock_settings(tmp_path / "uploads")
+    service = build_service(settings, FailingRiskAgentGateway())
+
+    async def scenario() -> str:
+        invoice_id, verification_id = await advance_to_buyer_review(service)
+        await service.confirm_verification(verification_id)
+        await service.complete_risk_assessment(invoice_id)
+        return invoice_id
+
+    invoice_id = asyncio.run(scenario())
+
+    failed = service.get_invoice(invoice_id)
+    assert failed.status is InvoiceStatus.ERROR
+    assert failed.risk_passport is None
+    trace = failed.agent_traces[-1]
+    assert trace.status == "FAILED"
+    assert trace.source_agent == "RISK_AGENT"
+    assert build_service(settings).get_invoice(invoice_id).status is InvoiceStatus.ERROR
+
+
+def test_risk_assessment_without_document_analysis_fails_cleanly(
+    tmp_path: Path,
+) -> None:
+    """A missing analysis used to raise KeyError and return a bare 500."""
+
+    settings = mock_settings(tmp_path / "uploads")
+    service = build_service(settings)
+
+    async def scenario() -> str:
+        invoice_id, verification_id = await advance_to_buyer_review(service)
+        await service.confirm_verification(verification_id)
+        service._agent_analyses.pop(invoice_id)
+        await service.complete_risk_assessment(invoice_id)
+        return invoice_id
+
+    invoice_id = asyncio.run(scenario())
+
+    invoice = service.get_invoice(invoice_id)
+    assert invoice.status is InvoiceStatus.ERROR
+    assert invoice.agent_traces[-1].status == "FAILED"
+    assert "문서 분석 결과" in invoice.agent_traces[-1].summary
+
+
+def test_risk_assessment_is_not_run_twice(tmp_path: Path) -> None:
+    settings = mock_settings(tmp_path / "uploads")
+    service = build_service(settings)
+
+    async def scenario() -> str:
+        invoice_id, verification_id = await advance_to_buyer_review(service)
+        await service.confirm_verification(verification_id)
+        await service.complete_risk_assessment(invoice_id)
+        await service.complete_risk_assessment(invoice_id)
+        return invoice_id
+
+    invoice_id = asyncio.run(scenario())
+
+    invoice = service.get_invoice(invoice_id)
+    assert invoice.status is InvoiceStatus.OFFER_READY
+    risk_traces = [
+        trace for trace in invoice.agent_traces if trace.source_agent == "RISK_AGENT"
+    ]
+    assert len(risk_traces) == 1
+
+
+def test_restart_during_risk_assessment_does_not_strand_the_invoice(
+    tmp_path: Path,
+) -> None:
+    settings = mock_settings(tmp_path / "uploads")
+    service = build_service(settings)
+
+    async def scenario() -> str:
+        invoice_id, verification_id = await advance_to_buyer_review(service)
+        await service.confirm_verification(verification_id)
+        return invoice_id
+
+    invoice_id = asyncio.run(scenario())
+    assert service.get_invoice(invoice_id).status is InvoiceStatus.RISK_ASSESSING
+
+    recovered = build_service(settings).get_invoice(invoice_id)
+    assert recovered.status is InvoiceStatus.ERROR
+    assert recovered.agent_traces[-1].source_agent == "RISK_AGENT"
+    assert "재시작" in recovered.agent_traces[-1].summary
