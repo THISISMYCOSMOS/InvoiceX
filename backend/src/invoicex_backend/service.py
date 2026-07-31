@@ -38,6 +38,7 @@ from invoicex_backend.models import (
     InvoiceParty,
     InvoiceStatus,
     OfferResponse,
+    PaymentInstructions,
     PositiveFactor,
     RiskEligibility,
     RiskFactor,
@@ -181,6 +182,12 @@ class InvoiceService:
             purchase_order_number=f"PO-{89340 + invoice_number}",
             status=status,
             verification_id=None,
+            verification_requested_at=None,
+            payment_instructions=PaymentInstructions(
+                bank_name=self._settings.payment_bank_name,
+                virtual_account=self._settings.payment_virtual_account,
+                account_holder=self._settings.payment_account_holder,
+            ),
             documents=[],
             analysis=None,
             risk_passport=None,
@@ -387,6 +394,7 @@ class InvoiceService:
             )
             self._verifications[verification_id] = verification
             invoice.verification_id = verification_id
+            invoice.verification_requested_at = datetime.now(UTC).isoformat()
             invoice.status = InvoiceStatus.BUYER_REVIEW
             await self._persist()
             return self._copy_invoice(invoice)
@@ -555,6 +563,26 @@ class InvoiceService:
                         f"투자 부적격({decision.eligibility.value})으로 조기정산 "
                         f"제안을 만들지 않았습니다: {risk_result.risk_passport.summary}"
                     ),
+                )
+                await self._persist()
+                return
+
+            # The offer is only real if the Treasury Agent would actually buy it.
+            # Checking the mandate here too stops the supplier from accepting an
+            # offer that is refused a moment later.
+            rejection = self._mandate_policy.rejection_reason(
+                invoice,
+                self._mandate,
+                outstanding_usdc=self._outstanding_principal(exclude=invoice.id),
+            )
+            if rejection is not None:
+                invoice.status = InvoiceStatus.BLOCKED
+                self._append_trace(
+                    invoice,
+                    source="RISK_AGENT",
+                    target="TREASURY_AGENT",
+                    status="FAILED",
+                    summary=f"AP2 Mandate 차단: {rejection}",
                 )
                 await self._persist()
                 return
@@ -826,6 +854,7 @@ class InvoiceService:
             investor_name="Nova Capital",
             automated_investment_active=self._mandate.status == "ACTIVE",
             mandate_status=self._mandate.status,
+            vault_address=self._settings.investor_settlement_wallet_address,
             available_vault_usdc=max(self._mandate.deposit_usdc - outstanding, 0),
             outstanding_principal_usdc=outstanding,
             due_within_30_days_usdc=due_soon,

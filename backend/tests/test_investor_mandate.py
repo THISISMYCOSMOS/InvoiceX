@@ -131,6 +131,44 @@ def test_each_mandate_field_can_block_funding(
         assert reason in blocked_trace["summary"]
 
 
+def test_a_mandate_violation_never_reaches_offer_ready(tmp_path: Path) -> None:
+    """The supplier must not be shown an offer the Treasury Agent will refuse.
+
+    The mandate used to be checked only at execution, so a tightened limit still
+    advertised the full offer and only failed after the supplier accepted it.
+    """
+
+    with demo_client(mock_settings(tmp_path / "uploads")) as client:
+        client.put(
+            "/api/v1/investor/mandate",
+            json=mandate_body(perInvoiceLimitUsdc=10_000),
+        )
+
+        invoice_id = advance_to_offer(client)
+
+        invoice = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+        assert invoice["status"] == "BLOCKED"
+        assert "건별 한도" in invoice["agentTraces"][-1]["summary"]
+        # The Risk Passport is still delivered so the UI can explain the refusal.
+        assert invoice["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
+        # And accepting is refused outright rather than failing after the fact.
+        refused = client.post(
+            f"/api/v1/invoices/{invoice_id}/offer-response",
+            json={"response": "ACCEPT"},
+        )
+        assert refused.status_code == 409
+
+
+def test_a_mandate_that_allows_the_invoice_still_offers_it(tmp_path: Path) -> None:
+    with demo_client(mock_settings(tmp_path / "uploads")) as client:
+        client.put("/api/v1/investor/mandate", json=mandate_body())
+
+        invoice_id = advance_to_offer(client)
+
+        invoice = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+        assert invoice["status"] == "OFFER_READY"
+
+
 def test_funding_consumes_the_vault_for_the_next_invoice(tmp_path: Path) -> None:
     """Outstanding principal must count against the limits, not just be displayed."""
 

@@ -246,6 +246,18 @@ class Settlement(ApiModel):
     supplier_residual_usdc: int
 
 
+class PaymentInstructions(ApiModel):
+    """Mock KRW deposit details shown on the Buyer maturity payment screen.
+
+    The defaults double as the fallback for snapshots written before this field
+    existed, so an upgrade does not invalidate a running demo's state file.
+    """
+
+    bank_name: str = "OOBank"
+    virtual_account: str = "123-456-789012"
+    account_holder: str = "InvoiceX Settlement Partner"
+
+
 class AgentTrace(ApiModel):
     id: str
     invoice_id: str
@@ -275,6 +287,10 @@ class Invoice(ApiModel):
     purchase_order_number: str
     status: InvoiceStatus
     verification_id: str | None
+    verification_requested_at: str | None = None
+    payment_instructions: PaymentInstructions = Field(
+        default_factory=PaymentInstructions
+    )
     documents: list[InvoiceDocument]
     analysis: DocumentAnalysis | None
     risk_passport: RiskPassport | None
@@ -345,6 +361,9 @@ class InvestorDashboard(ApiModel):
     investor_name: str
     automated_investment_active: bool
     mandate_status: Literal["DRAFT", "SIGNED", "ACTIVE"]
+    # The address settlement actually pays out to, so the UI never shows a
+    # different wallet than the one USDC moves through.
+    vault_address: str
     available_vault_usdc: int
     outstanding_principal_usdc: int
     due_within_30_days_usdc: int

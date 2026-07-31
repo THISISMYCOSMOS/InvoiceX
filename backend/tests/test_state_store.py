@@ -128,6 +128,61 @@ def test_settled_invoice_is_still_settled_after_restart(
         assert again["settlementTransaction"]["signature"] == signature
 
 
+def test_snapshot_written_before_a_new_field_still_loads(tmp_path: Path) -> None:
+    """Adding a required Invoice field must not wipe a running demo's state.
+
+    A field with no default made the whole snapshot fail validation, and load()
+    then quarantined it, silently dropping every invoice on upgrade.
+    """
+
+    path = tmp_path / "state.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": STATE_SCHEMA_VERSION,
+                "invoices": {
+                    "INV-2026-001": {
+                        "id": "INV-2026-001",
+                        "supplier": {"id": "S", "name": "Alpha"},
+                        "buyer": {"id": "B", "name": "Prime"},
+                        "investor": {"id": "I", "name": "Nova"},
+                        "invoiceAmountKrw": 20_000_000,
+                        "issueDate": "2026-07-29",
+                        "dueDate": "2026-10-30",
+                        "deliveryDate": "2026-07-24",
+                        "contractNumber": "C",
+                        "purchaseOrderNumber": "P",
+                        "status": "FUNDED",
+                        "verificationId": None,
+                        "documents": [],
+                        "analysis": None,
+                        "riskPassport": None,
+                        "fundingTransaction": None,
+                        "settlementTransaction": None,
+                        "settlement": None,
+                        "agentTraces": [],
+                    }
+                },
+                "verifications": {},
+                "agent_analyses": {},
+                "invoice_sequence": 1,
+                "verification_sequence": 0,
+                "document_sequence": 4,
+                "trace_sequence": 2,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    state = JsonStateStore(path).load()
+
+    assert set(state.invoices) == {"INV-2026-001"}
+    assert state.invoice_sequence == 1
+    assert not path.with_name("state.json.corrupt").exists()
+    # The missing field falls back to the demo defaults rather than exploding.
+    assert state.invoices["INV-2026-001"].payment_instructions.bank_name == "OOBank"
+
+
 def test_unreadable_state_is_quarantined_not_deleted(tmp_path: Path) -> None:
     path = tmp_path / "state.json"
     path.write_text("{ this is not json", encoding="utf-8")

@@ -8,8 +8,13 @@ from typing import Literal
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from invoicex_backend.models import PaymentInstructions
+
 # backend/src/invoicex_backend/config.py -> backend/seed
 DEFAULT_SEED_DIRECTORY = Path(__file__).resolve().parents[2] / "seed"
+
+# One source of truth: the DTO defaults also back restored snapshots.
+_PAYMENT_DEFAULTS = PaymentInstructions()
 
 
 class BackendSettings(BaseSettings):
@@ -134,6 +139,18 @@ class BackendSettings(BaseSettings):
     platform_fee_wallet_address: str = Field(
         default="DEMO_PLATFORM_FEE_WALLET",
         validation_alias="PLATFORM_FEE_WALLET_ADDRESS",
+    )
+    payment_bank_name: str = Field(
+        default=_PAYMENT_DEFAULTS.bank_name,
+        validation_alias="PAYMENT_BANK_NAME",
+    )
+    payment_virtual_account: str = Field(
+        default=_PAYMENT_DEFAULTS.virtual_account,
+        validation_alias="PAYMENT_VIRTUAL_ACCOUNT",
+    )
+    payment_account_holder: str = Field(
+        default=_PAYMENT_DEFAULTS.account_holder,
+        validation_alias="PAYMENT_ACCOUNT_HOLDER",
     )
     mandate_min_risk_score: int = Field(
         default=80,
