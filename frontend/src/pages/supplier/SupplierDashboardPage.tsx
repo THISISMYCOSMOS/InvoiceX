@@ -4,6 +4,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvoices } from "../../hooks/useInvoices";
+import { supplierWalletSummary } from "../../utils/supplierWallet";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const demoRecentInvoices = [
@@ -25,7 +26,11 @@ export function SupplierDashboardPage() {
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
-  const isDemoDashboard = items.length === 1 && items[0]?.id === "INV-2026-001";
+  // Pad the table only while the demo has a single real invoice; keying off a
+  // literal ID broke as soon as the year or the reset sequence changed.
+  const isDemoDashboard = items.length <= 1;
+  const wallet = supplierWalletSummary(items);
+  const usdc = new Intl.NumberFormat("en-US");
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "2-digit",
@@ -57,19 +62,19 @@ export function SupplierDashboardPage() {
       <div className="dashboard-stats">
         <section className="stat-card">
           <span>{t("USDC wallet balance", "USDC 지갑 잔액")}</span>
-          <strong>24,680 <small>USDC</small></strong>
+          <strong>{usdc.format(wallet.receivedUsdc)} <small>USDC</small></strong>
         </section>
         <section className="stat-card">
           <span>{t("In early settlement", "조기정산 진행 중")}</span>
-          <strong>3 <small>{t("invoices", "건")}</small></strong>
+          <strong>{wallet.inProgressCount} <small>{t("invoices", "건")}</small></strong>
         </section>
         <section className="stat-card">
           <span>{t("Waiting for buyer", "구매자 응답 대기")}</span>
-          <strong>2 <small>{t("requests", "건")}</small></strong>
+          <strong>{wallet.awaitingBuyerCount} <small>{t("requests", "건")}</small></strong>
         </section>
         <section className="stat-card">
           <span>{t("Settlement received", "수령한 정산금")}</span>
-          <strong>42,400 <small>USDC</small></strong>
+          <strong>{usdc.format(wallet.receivedUsdc)} <small>USDC</small></strong>
         </section>
       </div>
 

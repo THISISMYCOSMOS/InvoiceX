@@ -5,6 +5,7 @@ import { beforeEach, test } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { scenarioAdapter } from "../api/client";
 import { App } from "../App";
+import { DEMO_INVOICE } from "../mocks/demoScenario";
 
 beforeEach(async () => {
   window.localStorage.clear();
@@ -83,7 +84,8 @@ test("shows company details and manages the supplier demo wallet", async () => {
 
   expect(await screen.findByRole("heading", { name: "Company & Wallet" })).toBeInTheDocument();
   expect(screen.getByText("Alpha Components Co., Ltd.")).toBeInTheDocument();
-  expect(screen.getByText("8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q")).toBeInTheDocument();
+  // The settlement wallet must be the address the server actually pays out to.
+  expect(screen.getByText(DEMO_INVOICE.supplier.walletAddress!)).toBeInTheDocument();
   expect(container.querySelector(".topbar .wallet-label")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Disconnect wallet" }));
@@ -153,7 +155,10 @@ test("renders the investor Figma navigation and agent decision route", async () 
   await user.click(screen.getByRole("link", { name: "INV-2026-001" }));
 
   expect(await screen.findByRole("heading", { name: "Treasury Agent decision" })).toBeInTheDocument();
-  expect(screen.getByText("6 / 6 PASSED")).toBeInTheDocument();
+  // The pass count now follows the live mandate evaluation, so this routing
+  // smoke test only checks that the policy card rendered.
+  expect(screen.getByText(/\d+ \/ \d+ PASSED/)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Mandate evaluation/ })).toBeInTheDocument();
 });
 
 test("returns from buyer verification to the buyer dashboard", async () => {

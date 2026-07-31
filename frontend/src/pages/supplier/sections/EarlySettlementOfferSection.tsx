@@ -1,5 +1,18 @@
 import type { Invoice } from "../../../types/invoice";
+import { KRW_PER_USDC, PLATFORM_FEE_USDC } from "../../../mocks/demoScenario";
 import { useLanguage } from "../../../i18n/LanguageContext";
+
+const krwFormatter = new Intl.NumberFormat("ko-KR", {
+  style: "currency",
+  currency: "KRW",
+  maximumFractionDigits: 0,
+});
+const usdcFormatter = new Intl.NumberFormat("en-US");
+
+function shortenAddress(address: string | undefined): string {
+  if (!address) return "-";
+  return address.length > 12 ? `${address.slice(0, 4)}...${address.slice(-4)}` : address;
+}
 
 export function EarlySettlementOfferSection({
   invoice,
@@ -11,8 +24,20 @@ export function EarlySettlementOfferSection({
   onDecline?: () => void;
 }) {
   const { t } = useLanguage();
-  const score = invoice.riskPassport?.riskScore ?? 86;
-  const advanceRate = (invoice.riskPassport?.suggestedAdvanceRateBps ?? 9_400) / 100;
+  const passport = invoice.riskPassport;
+  const score = passport?.riskScore;
+  const advanceRate =
+    passport?.suggestedAdvanceRateBps === null || passport?.suggestedAdvanceRateBps === undefined
+      ? undefined
+      : passport.suggestedAdvanceRateBps / 100;
+  const proceeds = passport?.suggestedAdvanceAmountUsdc ?? null;
+  const faceValueUsdc = Math.round(invoice.invoiceAmountKrw / KRW_PER_USDC);
+  // Everything the supplier gives up: the discount plus the platform fee.
+  const totalCost = proceeds === null ? null : faceValueUsdc - proceeds + PLATFORM_FEE_USDC;
+  const riskFactors = [
+    ...(passport?.positiveFactors ?? []).map((factor) => ({ ...factor, positive: true })),
+    ...(passport?.riskFactors ?? []).map((factor) => ({ ...factor, positive: false })),
+  ];
 
   return (
     <section className="early-offer">
@@ -28,29 +53,34 @@ export function EarlySettlementOfferSection({
       <div className="early-offer__grid">
         <section className="risk-score-card">
           <span className="low-risk-chip">{t("LOW RISK", "낮은 위험")}</span>
-          <strong>{score}</strong>
+          <strong>{score ?? "-"}</strong>
           <small>/100</small>
           <h2>{t("Invoice Risk Score", "인보이스 위험 점수")}</h2>
           <p>{t("Buyer verification and payment history support this score.", "구매기업 확인과 결제 이력이 이 점수의 근거입니다.")}</p>
           <dl>
-            <div><dt>{t("Buyer verified", "구매기업 확인")}</dt><dd>{t("Passed", "통과")}</dd></div>
-            <div><dt>{t("Company KYB", "기업 KYB")}</dt><dd>{t("Passed", "통과")}</dd></div>
-            <div><dt>{t("Duplicate signal", "중복 신호")}</dt><dd>{t("None", "없음")}</dd></div>
-            <div><dt>{t("Prior late payments", "과거 연체 결제")}</dt><dd>{t("1 of 24", "24건 중 1건")}</dd></div>
+            {riskFactors.map((factor) => (
+              <div key={factor.title}>
+                <dt>{factor.title}</dt>
+                <dd>{factor.positive ? t("Passed", "통과") : t("Review", "검토")}</dd>
+              </div>
+            ))}
           </dl>
         </section>
 
         <section className="offer-proceeds-column">
           <article className="offer-proceeds-card">
             <span className="expected-proceeds-chip">{t("EXPECTED PROCEEDS", "예상 수령액")}</span>
-            <h2>18,800 USDC</h2>
-            <p>{t("Estimated using the hackathon mock rate of ₩1,000 / USDC.", "해커톤 Mock 환율인 1 USDC당 ₩1,000을 적용한 예상치입니다.")}</p>
+            <h2>{proceeds === null ? "-" : `${usdcFormatter.format(proceeds)} USDC`}</h2>
+            <p>{t(
+              `Estimated using the hackathon mock rate of ₩${usdcFormatter.format(KRW_PER_USDC)} / USDC.`,
+              `해커톤 Mock 환율인 1 USDC당 ₩${usdcFormatter.format(KRW_PER_USDC)}을 적용한 예상치입니다.`,
+            )}</p>
             <dl>
-              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>₩20,000,000</dd></div>
-              <div><dt>{t("Advance rate", "선지급률")}</dt><dd>{advanceRate}%</dd></div>
-              <div><dt>{t("Platform fee", "플랫폼 수수료")}</dt><dd>200 USDC</dd></div>
-              <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>1,200 USDC</dd></div>
-              <div><dt>{t("Payment method", "지급 방식")}</dt><dd>USDC · 8xK2...p91Q</dd></div>
+              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{krwFormatter.format(invoice.invoiceAmountKrw)}</dd></div>
+              <div><dt>{t("Advance rate", "선지급률")}</dt><dd>{advanceRate === undefined ? "-" : `${advanceRate}%`}</dd></div>
+              <div><dt>{t("Platform fee", "플랫폼 수수료")}</dt><dd>{usdcFormatter.format(PLATFORM_FEE_USDC)} USDC</dd></div>
+              <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>{totalCost === null ? "-" : `${usdcFormatter.format(totalCost)} USDC`}</dd></div>
+              <div><dt>{t("Payment method", "지급 방식")}</dt><dd>USDC · {shortenAddress(invoice.supplier.walletAddress)}</dd></div>
             </dl>
           </article>
           <p className="offer-disclosure">

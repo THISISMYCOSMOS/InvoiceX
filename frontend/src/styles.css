@@ -2865,3 +2865,95 @@ a {
     flex-direction: column;
   }
 }
+
+.invoice-exception {
+  min-height: 640px;
+}
+
+.exception-card--danger .exception-card__icon {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.exception-card--danger .exception-badge {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.exception-card--amber .exception-card__icon {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.exception-card--amber .exception-badge {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.exception-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 9px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: #f8fafc;
+}
+
+.exception-reason strong {
+  color: #64748b;
+  font-size: 9px;
+}
+
+.exception-reason span {
+  color: #172033;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.exception-factors {
+  display: grid;
+  margin: 12px 0 0;
+  padding: 0;
+  gap: 8px;
+  list-style: none;
+}
+
+.exception-factor {
+  border-left: 3px solid #dbe3ef;
+  padding: 2px 0 2px 10px;
+}
+
+.exception-factor--high {
+  border-color: #b91c1c;
+}
+
+.exception-factor--medium {
+  border-color: #b45309;
+}
+
+.exception-factor strong {
+  display: block;
+  color: #172033;
+  font-size: 10px;
+}
+
+.exception-factor span {
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.exception-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+@media (max-width: 900px) {
+  .exception-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

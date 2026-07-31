@@ -15,6 +15,13 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
     day: "2-digit",
     year: "numeric",
   });
+  // The backend stamps this when the supplier requests verification.
+  const requestedLabel = invoice.verificationRequestedAt
+    ? t(
+        `Verification requested · ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(invoice.verificationRequestedAt))}`,
+        `검증 요청 · ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(invoice.verificationRequestedAt))}`,
+      )
+    : t("Verification requested", "검증 요청됨");
   return (
     <section className="buyer-review-pending">
       <p className="workflow-screen-caption">{t("04 · BUYER VERIFICATION PENDING / 1440 × 900", "04 · 구매자 검증 대기 / 1440 × 900")}</p>
@@ -52,7 +59,7 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
         </ol>
 
         <div className="pending-notice">
-          <strong>{t("Verification requested · Jul 29, 2026 · 10:42", "검증 요청 · 2026년 7월 29일 · 10:42")}</strong>
+          <strong>{requestedLabel}</strong>
           <span>{t("We'll notify you when the buyer completes verification.", "구매자가 검증을 완료하면 알려드리겠습니다.")}</span>
         </div>
       </section>

@@ -4,7 +4,12 @@ import { LoadingState } from "../../components/LoadingState";
 import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
 import { useLanguage } from "../../i18n/LanguageContext";
 
-const activityRows = [
+/**
+ * Sample feed rows. The live numbers a demo actually produces are the stat
+ * tiles above, which come from the dashboard API; this table stays populated so
+ * the screen does not look empty with a single invoice.
+ */
+const demoActivityRows = [
   {
     invoiceId: "INV-2026-001",
     buyer: "Prime Mobility",
@@ -51,7 +56,7 @@ export function InvestorDashboardPage() {
     },
     {
       label: t("Due within 30 days", "30일 이내 만기"),
-      value: data.dueWithin30DaysUsdc ?? 72_840,
+      value: data.dueWithin30DaysUsdc ?? 0,
     },
   ];
 
@@ -102,7 +107,7 @@ export function InvestorDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {activityRows.map((activity) => (
+              {demoActivityRows.map((activity) => (
                 <tr key={activity.invoiceId}>
                   <td>
                     <Link to={`/investor/activities/${activity.invoiceId}`}>

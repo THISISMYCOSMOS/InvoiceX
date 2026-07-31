@@ -3,27 +3,82 @@ import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useLanguage } from "../../i18n/LanguageContext";
-import type { Invoice } from "../../types/invoice";
+import type { Invoice, InvestorMandate } from "../../types/invoice";
+import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
+import { useInvestorMandate } from "../../hooks/useInvestorMandate";
 
 interface PolicyCheck {
   label: string;
   value: string;
+  passed: boolean;
 }
 
-export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
-  const { t } = useLanguage();
-  const riskScore = invoice.riskPassport?.riskScore ?? 86;
-  const investment = invoice.fundingTransaction?.amountUsdc ?? 18_800;
-  const transactionUrl = invoice.fundingTransaction?.explorerUrl
-    ?? "https://explorer.solana.com/tx/5igDemoFundingSignature?cluster=devnet";
+const usdc = new Intl.NumberFormat("en-US");
+
+function daysUntil(dueDate: string): number {
+  const due = new Date(`${dueDate}T00:00:00`).getTime();
+  return Math.max(Math.ceil((due - Date.now()) / 86_400_000), 0);
+}
+
+export function InvestorActivityContent({
+  invoice,
+  mandate,
+  availableVaultUsdc,
+}: {
+  invoice: Invoice;
+  mandate: InvestorMandate;
+  availableVaultUsdc: number;
+}) {
+  const { language, t } = useLanguage();
+  const riskScore = invoice.riskPassport?.riskScore;
+  const investment = invoice.fundingTransaction?.amountUsdc ?? 0;
+  const transactionUrl = invoice.fundingTransaction?.explorerUrl;
+  const remainingDays = daysUntil(invoice.dueDate);
+  const signature = invoice.fundingTransaction?.signature;
+  const shortSignature = signature
+    ? `${signature.slice(0, 4)}...${signature.slice(-4)}`
+    : "-";
+  const decidedAt = invoice.fundingTransaction
+    ? new Date(invoice.fundingTransaction.createdAt)
+    : undefined;
+  const decidedLabel = decidedAt
+    ? new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(decidedAt)
+    : "";
+  // Every row mirrors a rule TreasuryMandatePolicy actually enforces.
   const policyChecks: PolicyCheck[] = [
-    { label: t("Buyer allowlist", "구매기업 허용 목록"), value: invoice.buyer.name },
-    { label: t("Minimum Risk Score", "최소 위험 점수"), value: `${riskScore} ≥ 80` },
-    { label: t("Max amount / invoice", "인보이스당 최대 금액"), value: `${investment.toLocaleString("en-US")} ≤ 25,000` },
-    { label: t("Remaining maturity", "잔존 만기"), value: t("45 days ≤ 90 days", "45일 ≤ 90일") },
-    { label: t("Buyer concentration", "구매기업 집중도"), value: "18.7% ≤ 20%" },
-    { label: t("Vault available balance", "Vault 가용 잔액"), value: "331,200 USDC" },
+    {
+      label: t("Buyer allowlist", "구매기업 허용 목록"),
+      value: invoice.buyer.name,
+      passed: mandate.buyerAllowlist.includes(invoice.buyer.id),
+    },
+    {
+      label: t("Minimum Risk Score", "최소 위험 점수"),
+      value: `${riskScore ?? "-"} ≥ ${mandate.minimumRiskScore}`,
+      passed: riskScore !== null && riskScore !== undefined && riskScore >= mandate.minimumRiskScore,
+    },
+    {
+      label: t("Max amount / invoice", "인보이스당 최대 금액"),
+      value: `${usdc.format(investment)} ≤ ${usdc.format(mandate.perInvoiceLimitUsdc)}`,
+      passed: investment <= mandate.perInvoiceLimitUsdc,
+    },
+    {
+      label: t("Remaining maturity", "잔존 만기"),
+      value: t(
+        `${remainingDays} days ≤ ${mandate.maximumTermDays} days`,
+        `${remainingDays}일 ≤ ${mandate.maximumTermDays}일`,
+      ),
+      passed: remainingDays <= mandate.maximumTermDays,
+    },
+    {
+      label: t("Vault available balance", "Vault 가용 잔액"),
+      value: `${usdc.format(availableVaultUsdc)} USDC`,
+      passed: availableVaultUsdc >= 0,
+    },
   ];
+  const passedCount = policyChecks.filter((check) => check.passed).length;
 
   return (
     <section className="investor-decision">
@@ -41,23 +96,23 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
             )}
           </p>
         </div>
-        <span>{t("6 / 6 PASSED", "6 / 6 통과")}</span>
+        <span>{t(`${passedCount} / ${policyChecks.length} PASSED`, `${passedCount} / ${policyChecks.length} 통과`)}</span>
       </header>
 
       <div className="investor-decision__grid">
         <section className="investor-policy-card">
           <header>
             <h2>{t("Mandate evaluation · Policy v1.4", "위임 정책 평가 · Policy v1.4")}</h2>
-            <time dateTime="2026-07-30T14:32:00+09:00">
-              {t("Jul 30, 2026 · 14:32", "2026년 7월 30일 · 14:32")}
-            </time>
+            {decidedAt && (
+              <time dateTime={decidedAt.toISOString()}>{decidedLabel}</time>
+            )}
           </header>
           <div className="investor-policy-grid">
             {policyChecks.map((check) => (
               <article key={check.label}>
                 <div>
                   <span>{check.label}</span>
-                  <b>{t("PASS", "통과")}</b>
+                  <b>{check.passed ? t("PASS", "통과") : t("FAIL", "실패")}</b>
                 </div>
                 <strong>{check.value}</strong>
               </article>
@@ -73,11 +128,11 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
             <dl>
               <div><dt>{t("RWA ID", "RWA ID")}</dt><dd>RWA-INV-001</dd></div>
               <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
-              <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{riskScore} / 100</dd></div>
+              <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{riskScore ?? "-"} / 100</dd></div>
               <div><dt>Treasury Agent</dt><dd>v0.9.2</dd></div>
               <div>
                 <dt>{t("Transaction", "트랜잭션")}</dt>
-                <dd><a href={transactionUrl} target="_blank" rel="noreferrer">4pYh...9kL2</a></dd>
+                <dd><a href={transactionUrl} target="_blank" rel="noreferrer">{shortSignature}</a></dd>
               </div>
             </dl>
             <a
@@ -105,15 +160,30 @@ export function InvestorActivityPage() {
   const { t } = useLanguage();
   const { invoiceId = "" } = useParams();
   const invoice = useInvoice(invoiceId);
+  const dashboard = useInvestorDashboard();
+  const { mandate } = useInvestorMandate();
 
-  if (invoice.isLoading) return <LoadingState />;
-  if (invoice.error || !invoice.data) {
+  if (invoice.isLoading || dashboard.isLoading || mandate.isLoading) return <LoadingState />;
+  if (
+    invoice.error || !invoice.data
+    || dashboard.error || !dashboard.data
+    || mandate.error || !mandate.data
+  ) {
     return (
       <ErrorState
-        error={invoice.error ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))}
+        error={
+          invoice.error ?? dashboard.error ?? mandate.error
+          ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))
+        }
       />
     );
   }
 
-  return <InvestorActivityContent invoice={invoice.data} />;
+  return (
+    <InvestorActivityContent
+      invoice={invoice.data}
+      mandate={mandate.data}
+      availableVaultUsdc={dashboard.data.availableVaultUsdc}
+    />
+  );
 }

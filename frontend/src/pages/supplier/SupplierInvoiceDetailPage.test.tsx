@@ -71,7 +71,7 @@ test("shows extracted information and requests verification after confirmation",
 test("shows the buyer-verification pending summary from the invoice", () => {
   render(
     <SupplierInvoiceDetailContent
-      invoice={{ ...DEMO_INVOICE, status: "BUYER_REVIEW" }}
+      invoice={{ ...DEMO_INVOICE, status: "BUYER_REVIEW", verificationRequestedAt: "2026-07-29T01:42:00.000Z" }}
       onAccept={() => undefined}
     />,
   );
@@ -80,7 +80,8 @@ test("shows the buyer-verification pending summary from the invoice", () => {
   expect(screen.getByText("Prime Mobility")).toBeInTheDocument();
   expect(screen.getByText("₩20,000,000")).toBeInTheDocument();
   expect(screen.getByText("Oct 30, 2026")).toBeInTheDocument();
-  expect(screen.getByText("Verification requested · Jul 29, 2026 · 10:42")).toBeInTheDocument();
+  // Stamped by the backend when the supplier requests verification.
+  expect(screen.getByText(/^Verification requested · Jul 29, 2026/)).toBeInTheDocument();
   expect(screen.getByText("Buyer verification")).toHaveAttribute("aria-current", "step");
   expect(screen.getByText("04 · BUYER VERIFICATION PENDING / 1440 × 900")).toBeInTheDocument();
 });

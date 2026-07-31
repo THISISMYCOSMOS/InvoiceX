@@ -1,16 +1,32 @@
 import { BuildingOffice, CheckCircle, Copy, LinkSimple, Plug, Wallet } from "@phosphor-icons/react";
 import { useState } from "react";
+import { ErrorState } from "../../components/ErrorState";
+import { LoadingState } from "../../components/LoadingState";
+import { useInvoices } from "../../hooks/useInvoices";
+import { DEMO_SUPPLIER_PROFILE } from "../../mocks/demoScenario";
+import { supplierWalletSummary } from "../../utils/supplierWallet";
 import { useLanguage } from "../../i18n/LanguageContext";
 
-const WALLET_ADDRESS = "8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q";
+const usdc = new Intl.NumberFormat("en-US");
 
 export function SupplierCompanyWalletPage() {
-  const [isConnected, setIsConnected] = useState(true);
+  const invoices = useInvoices();
+  const [disconnected, setDisconnected] = useState(false);
   const [copied, setCopied] = useState(false);
   const { t } = useLanguage();
 
+  if (invoices.isLoading) return <LoadingState />;
+  if (invoices.error) return <ErrorState error={invoices.error} />;
+
+  const wallet = supplierWalletSummary(invoices.data ?? []);
+  // Early-settlement USDC is sent to this exact address, so it must come from
+  // the server rather than a display constant.
+  const walletAddress = wallet.address;
+  const isConnected = !disconnected && Boolean(walletAddress);
+
   const copyWalletAddress = async () => {
-    await navigator.clipboard?.writeText(WALLET_ADDRESS);
+    if (!walletAddress) return;
+    await navigator.clipboard?.writeText(walletAddress);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
@@ -48,19 +64,19 @@ export function SupplierCompanyWalletPage() {
           <dl className="company-details">
             <div>
               <dt>{t("Legal company name", "법인명")}</dt>
-              <dd>Alpha Components Co., Ltd.</dd>
+              <dd>{DEMO_SUPPLIER_PROFILE.legalName}</dd>
             </div>
             <div>
               <dt>{t("Business registration number", "사업자등록번호")}</dt>
-              <dd>123-45-67890</dd>
+              <dd>{DEMO_SUPPLIER_PROFILE.businessRegistrationNumber}</dd>
             </div>
             <div>
               <dt>{t("Representative", "대표자")}</dt>
-              <dd>{t("Minjun Kim", "김민준")}</dd>
+              <dd>{t(DEMO_SUPPLIER_PROFILE.representativeEnglish, DEMO_SUPPLIER_PROFILE.representativeKorean)}</dd>
             </div>
             <div>
               <dt>{t("Company email", "회사 이메일")}</dt>
-              <dd>finance@alphacomponents.com</dd>
+              <dd>{DEMO_SUPPLIER_PROFILE.email}</dd>
             </div>
             <div>
               <dt>{t("Account role", "계정 역할")}</dt>
@@ -93,7 +109,7 @@ export function SupplierCompanyWalletPage() {
               <div className="wallet-address-panel">
                 <div>
                   <span>{t("Wallet address", "지갑 주소")}</span>
-                  <strong>{WALLET_ADDRESS}</strong>
+                  <strong>{walletAddress}</strong>
                 </div>
                 <button type="button" className="wallet-copy-button" onClick={copyWalletAddress}>
                   <Copy size={14} weight="bold" aria-hidden="true" />
@@ -104,7 +120,7 @@ export function SupplierCompanyWalletPage() {
               <div className="wallet-metrics">
                 <div>
                   <span>{t("Available balance", "사용 가능 잔액")}</span>
-                  <strong>24,680 <small>USDC</small></strong>
+                  <strong>{usdc.format(wallet.receivedUsdc)} <small>USDC</small></strong>
                 </div>
                 <div>
                   <span>{t("Network", "네트워크")}</span>
@@ -112,7 +128,7 @@ export function SupplierCompanyWalletPage() {
                 </div>
                 <div>
                   <span>{t("Last connected", "최근 연결")}</span>
-                  <strong>2026-07-30 14:22 KST</strong>
+                  <strong>{DEMO_SUPPLIER_PROFILE.lastConnectedAt}</strong>
                 </div>
               </div>
 
@@ -124,7 +140,7 @@ export function SupplierCompanyWalletPage() {
                     "조기정산 대금을 수령할 준비가 완료된 지갑입니다.",
                   )}
                 </p>
-                <button type="button" className="secondary-button wallet-action" onClick={() => setIsConnected(false)}>
+                <button type="button" className="secondary-button wallet-action" onClick={() => setDisconnected(true)}>
                   <Plug size={14} weight="bold" aria-hidden="true" />
                   {t("Disconnect wallet", "지갑 연결 해제")}
                 </button>
@@ -142,7 +158,7 @@ export function SupplierCompanyWalletPage() {
                   "조기정산 대금을 USDC로 수령할 Solana 지갑을 연결하세요.",
                 )}
               </p>
-              <button type="button" className="primary-button wallet-connect-button" onClick={() => setIsConnected(true)}>
+              <button type="button" className="primary-button wallet-connect-button" onClick={() => setDisconnected(false)}>
                 <Wallet size={15} weight="fill" aria-hidden="true" />
                 {t("Connect wallet", "지갑 연결")}
               </button>
