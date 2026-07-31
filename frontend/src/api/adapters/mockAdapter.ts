@@ -5,11 +5,12 @@ import {
   DEMO_FUNDING_TRANSACTION,
   DEMO_INVOICE,
   DEMO_INVESTOR_DASHBOARD,
+  DEMO_INVESTOR_MANDATE,
   DEMO_RISK_PASSPORT,
   DEMO_SETTLEMENT,
   DEMO_SETTLEMENT_TRANSACTION,
 } from "../../mocks/demoScenario";
-import type { Invoice, VerificationRequest } from "../../types/invoice";
+import type { Invoice, InvestorMandate, VerificationRequest } from "../../types/invoice";
 import type { ScenarioAdapter } from "./contracts";
 
 function clone<T>(value: T): T {
@@ -23,6 +24,7 @@ function invalidTransition(invoice: Invoice, action: string): never {
 export function createMockAdapter(): ScenarioAdapter {
   let invoice = clone(DEMO_INVOICE);
   let verification: VerificationRequest | undefined;
+  let mandate: InvestorMandate = clone(DEMO_INVESTOR_MANDATE);
 
   const ensureInvoice = (invoiceId: string): Invoice => {
     if (invoiceId !== invoice.id) {
@@ -99,6 +101,18 @@ export function createMockAdapter(): ScenarioAdapter {
       invoice = { ...invoice, riskPassport: clone(DEMO_RISK_PASSPORT), status: "OFFER_READY" };
       return clone(invoice);
     },
+    async requestRevision(verificationId) {
+      if (verification?.id !== verificationId) {
+        throw new Error(`Verification ${verificationId}을(를) 찾을 수 없습니다.`);
+      }
+      if (invoice.status !== "BUYER_REVIEW") {
+        return invalidTransition(invoice, "수정 요청");
+      }
+
+      verification = { ...verification, status: "REVISION_REQUESTED" };
+      invoice = { ...invoice, status: "REVISION_REQUESTED" };
+      return clone(invoice);
+    },
     async respondToOffer(invoiceId, response) {
       const current = ensureInvoice(invoiceId);
       if (current.status !== "OFFER_READY") {
@@ -153,9 +167,17 @@ export function createMockAdapter(): ScenarioAdapter {
     async getInvestorDashboard() {
       return clone(DEMO_INVESTOR_DASHBOARD);
     },
+    async getInvestorMandate() {
+      return clone(mandate);
+    },
+    async saveInvestorMandate(nextMandate) {
+      mandate = clone(nextMandate);
+      return clone(mandate);
+    },
     async reset() {
       invoice = clone(DEMO_INVOICE);
       verification = undefined;
+      mandate = clone(DEMO_INVESTOR_MANDATE);
       return clone(invoice);
     },
   };

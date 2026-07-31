@@ -6,11 +6,25 @@ import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useBuyerConfirm } from "../../hooks/useBuyerConfirm";
 import { useInvoice } from "../../hooks/useInvoice";
+import { useRequestRevision } from "../../hooks/useRequestRevision";
 import { useLanguage } from "../../i18n/LanguageContext";
-import type { Invoice, InvoiceStatus } from "../../types/invoice";
+import type { BuyerChecklist, Invoice, InvoiceStatus } from "../../types/invoice";
 
 type BuyerView = "verification" | "payment";
 type VerificationChoice = "match" | "mismatch";
+type BuyerChecklistState = Record<keyof BuyerChecklist, VerificationChoice>;
+
+function toChecklist(choices: BuyerChecklistState): BuyerChecklist {
+  const answer = (choice: VerificationChoice) => (choice === "match" ? "MATCH" : "MISMATCH");
+  return {
+    transaction: answer(choices.transaction),
+    supplier: answer(choices.supplier),
+    amount: answer(choices.amount),
+    dueDate: answer(choices.dueDate),
+    delivery: answer(choices.delivery),
+    dispute: answer(choices.dispute),
+  };
+}
 
 const documentTabs = [
   { key: "Invoice", english: "Invoice", korean: "인보이스" },
@@ -39,6 +53,19 @@ function formatDate(date: string, locale: "en-US" | "ko-KR") {
     day: "2-digit",
     year: "numeric",
   }).format(new Date(`${date}T00:00:00`));
+}
+
+function requestedLabel(
+  invoice: Invoice,
+  language: string,
+  t: (english: string, korean: string) => string,
+): string {
+  if (!invoice.verificationRequestedAt) return t("Requested", "확인 요청됨");
+  const requested = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
+    month: "short",
+    day: "2-digit",
+  }).format(new Date(invoice.verificationRequestedAt));
+  return t(`Requested ${requested}`, `${requested} 요청`);
 }
 
 function VerificationChoiceButtons({
@@ -77,16 +104,18 @@ function VerificationChoiceButtons({
 function BuyerVerificationSection({
   invoice,
   onConfirm,
+  onRequestRevision,
   canConfirm,
 }: {
   invoice: Invoice;
-  onConfirm: () => void;
+  onConfirm: (checklist: BuyerChecklist) => void;
+  onRequestRevision: () => void;
   canConfirm: boolean;
 }) {
   const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<(typeof documentTabs)[number]["key"]>("Invoice");
   const [message, setMessage] = useState<string>();
-  const [choices, setChoices] = useState<Record<string, VerificationChoice>>({
+  const [choices, setChoices] = useState<BuyerChecklistState>({
     transaction: "match",
     supplier: "match",
     amount: "match",
@@ -95,7 +124,12 @@ function BuyerVerificationSection({
     dispute: "match",
   });
 
-  const rows = useMemo(() => [
+  const rows = useMemo<{
+    key: keyof BuyerChecklist;
+    label: string;
+    positive: string;
+    negative: string;
+  }[]>(() => [
     { key: "transaction", label: t("Transaction exists", "거래 존재 여부"), positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
     { key: "supplier", label: t("Supplier information", "공급기업 정보"), positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
     { key: "amount", label: `${t("Invoice amount", "인보이스 금액")} · ${krw.format(invoice.invoiceAmountKrw)}`, positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
@@ -116,7 +150,7 @@ function BuyerVerificationSection({
           <h1>{t(`Verify invoice ${invoice.id}`, `인보이스 ${invoice.id} 확인`)}</h1>
           <p>{t("Compare the supplier submission with your contract, PO, and inspection records.", "공급기업 제출 자료를 계약서, 발주서 및 검수 기록과 비교하세요.")}</p>
         </div>
-        <span className="request-date-chip">{t("Requested Jul 29", "7월 29일 요청")}</span>
+        <span className="request-date-chip">{requestedLabel(invoice, language, t)}</span>
       </header>
 
       <div className="buyer-verification-grid">
@@ -161,7 +195,11 @@ function BuyerVerificationSection({
             <button
               type="button"
               className="secondary-button"
-              onClick={() => setMessage(t("Revision request prepared for the supplier.", "공급기업에 보낼 수정 요청을 준비했습니다."))}
+              onClick={() => {
+                onRequestRevision();
+                setMessage(t("Revision request sent to the supplier.", "공급기업에 수정 요청을 보냈습니다."));
+              }}
+              disabled={!canConfirm}
             >
               {t("Request revision", "수정 요청")}
             </button>
@@ -169,7 +207,7 @@ function BuyerVerificationSection({
               type="button"
               className="buyer-confirm-button"
               onClick={() => {
-                onConfirm();
+                onConfirm(toChecklist(choices));
                 setMessage(t("Invoice confirmation submitted.", "인보이스 확인을 제출했습니다."));
               }}
               disabled={!canConfirm}
@@ -185,19 +223,19 @@ function BuyerVerificationSection({
 }
 
 function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [copied, setCopied] = useState(false);
-  const accountNumber = "123-456-789012";
+  const { bankName, virtualAccount, accountHolder } = invoice.paymentInstructions;
   const paymentGuide = [
     `${t("Invoice", "인보이스")}: ${invoice.id}`,
     `${t("Amount", "금액")}: ${krw.format(invoice.invoiceAmountKrw)}`,
-    `${t("Bank", "은행")}: OOBank`,
-    `${t("Virtual account", "가상계좌")}: ${accountNumber}`,
-    `${t("Account holder", "예금주")}: InvoiceX Settlement Partner`,
+    `${t("Bank", "은행")}: ${bankName}`,
+    `${t("Virtual account", "가상계좌")}: ${virtualAccount}`,
+    `${t("Account holder", "예금주")}: ${accountHolder}`,
   ].join("\n");
 
   const copyAccount = async () => {
-    await navigator.clipboard?.writeText(accountNumber);
+    await navigator.clipboard?.writeText(virtualAccount);
     setCopied(true);
   };
 
@@ -223,10 +261,10 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
               <dt>{t("Amount to pay", "결제 금액")}</dt>
               <dd>{krw.format(invoice.invoiceAmountKrw)}</dd>
             </div>
-            <div><dt>{t("Payment deadline", "결제 기한")}</dt><dd>{t("October 30, 2026", "2026년 10월 30일")}</dd></div>
-            <div><dt>{t("Bank", "은행")}</dt><dd>OOBank</dd></div>
-            <div><dt>{t("Virtual account", "가상계좌")}</dt><dd>{accountNumber}</dd></div>
-            <div><dt>{t("Account holder", "예금주")}</dt><dd>InvoiceX Settlement Partner</dd></div>
+            <div><dt>{t("Payment deadline", "결제 기한")}</dt><dd>{formatDate(invoice.dueDate, language === "ko" ? "ko-KR" : "en-US")}</dd></div>
+            <div><dt>{t("Bank", "은행")}</dt><dd>{bankName}</dd></div>
+            <div><dt>{t("Virtual account", "가상계좌")}</dt><dd>{virtualAccount}</dd></div>
+            <div><dt>{t("Account holder", "예금주")}</dt><dd>{accountHolder}</dd></div>
           </dl>
           <footer>
             <button type="button" className="copy-account-button" onClick={copyAccount}>
@@ -269,10 +307,12 @@ function BuyerInvoiceIdleSection({ invoice }: { invoice: Invoice }) {
 export function BuyerInvoiceDetailContent({
   invoice,
   onConfirm,
+  onRequestRevision = () => undefined,
   view,
 }: {
   invoice: Invoice;
-  onConfirm: () => void;
+  onConfirm: (checklist: BuyerChecklist) => void;
+  onRequestRevision?: () => void;
   view?: BuyerView;
 }) {
   const showPayment = view === "payment" || maturityStatuses.includes(invoice.status);
@@ -285,6 +325,7 @@ export function BuyerInvoiceDetailContent({
       <BuyerVerificationSection
         invoice={invoice}
         onConfirm={onConfirm}
+        onRequestRevision={onRequestRevision}
         canConfirm={Boolean(invoice.verificationId) || view === "verification"}
       />
     );
@@ -298,6 +339,7 @@ export function BuyerInvoiceDetailPage() {
   const [searchParams] = useSearchParams();
   const invoice = useInvoice(invoiceId);
   const confirm = useBuyerConfirm();
+  const revision = useRequestRevision();
   const view = searchParams.get("section") === "payment" ? "payment" : "verification";
 
   if (invoice.isLoading) return <LoadingState />;
@@ -305,11 +347,14 @@ export function BuyerInvoiceDetailPage() {
     return <ErrorState error={invoice.error ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))} />;
   }
 
+  const verificationId = invoice.data.verificationId;
+
   return (
     <BuyerInvoiceDetailContent
       invoice={invoice.data}
       view={view}
-      onConfirm={() => invoice.data.verificationId && confirm.mutate(invoice.data.verificationId)}
+      onConfirm={(checklist) => verificationId && confirm.mutate({ verificationId, checklist })}
+      onRequestRevision={() => verificationId && revision.mutate(verificationId)}
     />
   );
 }

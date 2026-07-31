@@ -46,6 +46,18 @@ export function getInvoiceStatusLabel(status: InvoiceStatus): string {
   return statusLabels[status];
 }
 
+const exceptionStatuses: InvoiceStatus[] = [
+  "BLOCKED",
+  "REVISION_REQUESTED",
+  "DISPUTED",
+  "ERROR",
+];
+
+/** Statuses that end the happy path and need an explanation screen. */
+export function isExceptionStatus(status: InvoiceStatus): boolean {
+  return exceptionStatuses.includes(status);
+}
+
 export function getSupplierRegistrationStep(status: InvoiceStatus): SupplierRegistrationStep {
   if (
     status === "DRAFT" ||
@@ -73,6 +85,12 @@ export interface SettlementResult {
   supplierResidualUsdc: number;
 }
 
+export interface PaymentInstructions {
+  bankName: string;
+  virtualAccount: string;
+  accountHolder: string;
+}
+
 export interface Invoice {
   id: string;
   supplier: InvoiceParty;
@@ -85,6 +103,8 @@ export interface Invoice {
   contractNumber: string;
   purchaseOrderNumber: string;
   status: InvoiceStatus;
+  verificationRequestedAt?: string;
+  paymentInstructions: PaymentInstructions;
   documents: InvoiceDocument[];
   analysis?: DocumentAnalysis;
   riskPassport?: RiskPassport;
@@ -101,10 +121,36 @@ export interface VerificationRequest {
   status: "PENDING" | "CONFIRMED" | "REVISION_REQUESTED" | "DISPUTED";
 }
 
+export type BuyerChecklistChoice = "MATCH" | "MISMATCH";
+
+export interface BuyerChecklist {
+  transaction: BuyerChecklistChoice;
+  supplier: BuyerChecklistChoice;
+  amount: BuyerChecklistChoice;
+  dueDate: BuyerChecklistChoice;
+  delivery: BuyerChecklistChoice;
+  dispute: BuyerChecklistChoice;
+}
+
+export interface InvestorMandate {
+  depositUsdc: number;
+  totalLimitUsdc: number;
+  perInvoiceLimitUsdc: number;
+  buyerAllowlist: string[];
+  minimumRiskScore: number;
+  maximumTermDays: number;
+  policyExpiresOn: string;
+  mandateId: string;
+  policyHash: string;
+  status: "DRAFT" | "SIGNED" | "ACTIVE";
+}
+
 export interface InvestorDashboard {
   investorName: string;
   automatedInvestmentActive: boolean;
   mandateStatus: "DRAFT" | "SIGNED" | "ACTIVE";
+  /** Where settlement USDC actually lands; never render a display constant. */
+  vaultAddress: string;
   availableVaultUsdc: number;
   outstandingPrincipalUsdc: number;
   dueWithin30DaysUsdc?: number;

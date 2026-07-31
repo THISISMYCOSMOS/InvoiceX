@@ -16,7 +16,19 @@ test("invalidates invoice and verification queries after buyer confirmation", as
   );
   const { result } = renderHook(() => useBuyerConfirm(), { wrapper });
 
-  await act(() => result.current.mutateAsync("VER-2026-001"));
+  await act(() =>
+    result.current.mutateAsync({
+      verificationId: "VER-2026-001",
+      checklist: {
+        transaction: "MATCH",
+        supplier: "MATCH",
+        amount: "MATCH",
+        dueDate: "MATCH",
+        delivery: "MATCH",
+        dispute: "MATCH",
+      },
+    }),
+  );
 
   expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["invoice", "INV-2026-001"] });
   expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["verifications"] });

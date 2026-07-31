@@ -1,4 +1,11 @@
-import type { InvestorDashboard, Invoice, InvoiceStatus, VerificationRequest } from "../../types/invoice";
+import type {
+  BuyerChecklist,
+  InvestorDashboard,
+  InvestorMandate,
+  Invoice,
+  InvoiceStatus,
+  VerificationRequest,
+} from "../../types/invoice";
 import type { OfferResponse, ScenarioAdapter } from "./contracts";
 
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -17,13 +24,6 @@ export class HttpError extends Error {
   ) {
     super(message);
     this.name = "HttpError";
-  }
-}
-
-export class UnsupportedApiOperation extends Error {
-  constructor(operation: string) {
-    super(`${operation}은(는) 현재 백엔드 API 계약에 없습니다.`);
-    this.name = "UnsupportedApiOperation";
   }
 }
 
@@ -67,6 +67,13 @@ function unwrapVerification(value: unknown): VerificationRequest {
   };
 }
 
+function unwrapMandate(value: unknown): InvestorMandate {
+  const outer = asRecord(value, "Mandate");
+  const source = asRecord(outer.mandate, "Mandate");
+  asString(source.mandateId, "mandate.mandateId");
+  return source as unknown as InvestorMandate;
+}
+
 function stripTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
@@ -81,8 +88,6 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
 
     return response.json() as Promise<T>;
   };
-
-  const unavailable = (operation: string): Promise<never> => Promise.reject(new UnsupportedApiOperation(operation));
 
   return {
     async submitInvoiceDocuments(formData) {
@@ -101,7 +106,9 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async getInvoice(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}`, { method: "GET" }));
     },
-    analyzeInvoice: () => unavailable("문서 분석"),
+    async analyzeInvoice(invoiceId) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/analyze`, { method: "POST" }));
+    },
     async requestVerification(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/verification-request`, { method: "POST" }));
     },
@@ -118,8 +125,17 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async getVerification(verificationId) {
       return unwrapVerification(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}`, { method: "GET" }));
     },
-    async confirmVerification(verificationId) {
-      return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/confirm`, { method: "POST" }));
+    async confirmVerification(verificationId, checklist?: BuyerChecklist) {
+      return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/confirm`, {
+        method: "POST",
+        ...(checklist === undefined ? {} : {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checklist }),
+        }),
+      }));
+    },
+    async requestRevision(verificationId) {
+      return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/revision-request`, { method: "POST" }));
     },
     async respondToOffer(invoiceId, response: OfferResponse) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/offer-response`, {
@@ -128,14 +144,30 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
         body: JSON.stringify({ response }),
       }));
     },
-    runFunding: () => unavailable("Treasury Agent 투자 실행"),
+    async runFunding(invoiceId) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/funding`, { method: "POST" }));
+    },
     async mockPayment(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/settlement/mock-payment`, { method: "POST" }));
     },
-    runSettlement: () => unavailable("Settlement 실행"),
+    async runSettlement(invoiceId) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/settlement`, { method: "POST" }));
+    },
     async getInvestorDashboard() {
       return (await request<unknown>("/investor/dashboard", { method: "GET" })) as InvestorDashboard;
     },
-    reset: () => unavailable("데모 초기화"),
+    async getInvestorMandate() {
+      return unwrapMandate(await request<unknown>("/investor/mandate", { method: "GET" }));
+    },
+    async saveInvestorMandate(mandate) {
+      return unwrapMandate(await request<unknown>("/investor/mandate", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mandate),
+      }));
+    },
+    async reset() {
+      return unwrapInvoice(await request<unknown>("/demo/reset", { method: "POST" }));
+    },
   };
 }

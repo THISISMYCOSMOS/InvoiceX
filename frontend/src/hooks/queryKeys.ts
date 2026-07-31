@@ -3,4 +3,5 @@ export const queryKeys = {
   invoices: ["invoices"] as const,
   verifications: ["verifications"] as const,
   investorDashboard: ["investorDashboard"] as const,
+  investorMandate: ["investorMandate"] as const,
 };

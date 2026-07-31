@@ -1,6 +1,6 @@
 import type { AgentTrace, BlockchainTransaction, RiskPassport } from "../types/agents";
 import type { DocumentAnalysis, DocumentType, ExtractedField, InvoiceDocument } from "../types/documents";
-import type { Invoice, InvestorDashboard } from "../types/invoice";
+import type { Invoice, InvestorDashboard, InvestorMandate } from "../types/invoice";
 
 export const REQUIRED_DOCUMENT_TYPES: readonly DocumentType[] = [
   "INVOICE",
@@ -19,6 +19,24 @@ export const DEMO_SETTLEMENT = {
   earlySettlementCostUsdc: 1_200,
 } as const;
 
+/**
+ * Demo-wide constants the real screens need too: there is no FX feed and the
+ * platform fee is fixed for the hackathon, so both live here rather than being
+ * retyped per screen.
+ */
+export const KRW_PER_USDC = DEMO_SETTLEMENT.mockKrwPerUsdc;
+export const PLATFORM_FEE_USDC = DEMO_SETTLEMENT.platformFeeUsdc;
+
+/** Supplier profile fields the MVP has no signup or KYB flow to source. */
+export const DEMO_SUPPLIER_PROFILE = {
+  legalName: "Alpha Components Co., Ltd.",
+  businessRegistrationNumber: "123-45-67890",
+  representativeEnglish: "Minjun Kim",
+  representativeKorean: "김민준",
+  email: "finance@alphacomponents.com",
+  lastConnectedAt: "2026-07-30 14:22 KST",
+} as const;
+
 export const DEMO_INVOICE: Invoice = {
   id: "INV-2026-001",
   supplier: { id: "SUPPLIER_ALPHA", name: "Alpha Components", walletAddress: "8xK2...p91Q" },
@@ -31,6 +49,12 @@ export const DEMO_INVOICE: Invoice = {
   contractNumber: "PM-SUPPLY-2026-04",
   purchaseOrderNumber: "PO-89341",
   status: "DRAFT",
+  verificationRequestedAt: "2026-07-29T10:42:00+09:00",
+  paymentInstructions: {
+    bankName: "OOBank",
+    virtualAccount: "123-456-789012",
+    accountHolder: "InvoiceX Settlement Partner",
+  },
   documents: [],
   agentTraces: [],
 };
@@ -118,6 +142,7 @@ export const DEMO_AGENT_TRACES: AgentTrace[] = [
 ];
 
 export const DEMO_INVESTOR_DASHBOARD: InvestorDashboard = {
+  vaultAddress: DEMO_INVOICE.investor.vaultAddress ?? "DEMO_AGENT_VAULT",
   investorName: DEMO_INVOICE.investor.name,
   automatedInvestmentActive: true,
   mandateStatus: "ACTIVE",
@@ -125,4 +150,17 @@ export const DEMO_INVESTOR_DASHBOARD: InvestorDashboard = {
   outstandingPrincipalUsdc: 187_600,
   dueWithin30DaysUsdc: 72_840,
   recentAgentTraces: DEMO_AGENT_TRACES,
+};
+
+export const DEMO_INVESTOR_MANDATE: InvestorMandate = {
+  depositUsdc: 50_000,
+  totalLimitUsdc: 50_000,
+  perInvoiceLimitUsdc: 25_000,
+  buyerAllowlist: ["BUYER_PRIME"],
+  minimumRiskScore: 80,
+  maximumTermDays: 120,
+  policyExpiresOn: "2026-12-31",
+  mandateId: "DEMO-MANDATE-001",
+  policyHash: "demo-policy-v1",
+  status: "ACTIVE",
 };
