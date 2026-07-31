@@ -59,7 +59,7 @@ test("shows extracted information and requests verification after confirmation",
   expect(screen.getByText("PM-SUPPLY-2026-04")).toBeInTheDocument();
   expect(screen.getByText("Needs review")).toBeInTheDocument();
   expect(screen.getByText("Completed · July 24, 2026")).toBeInTheDocument();
-  expect(screen.getByText("03 · DOCUMENT AGENT REVIEW / 1440 × 900")).toBeInTheDocument();
+  expect(screen.queryByText("03 · DOCUMENT AGENT REVIEW / 1440 × 900")).not.toBeInTheDocument();
   expect(screen.getByText("Document Agent complete")).toBeInTheDocument();
   expect(screen.getByText("Prime Mobility Co., Ltd.")).toBeInTheDocument();
   expect(screen.getByText("invoice_INV-2026-001.pdf")).toBeInTheDocument();
@@ -82,5 +82,5 @@ test("shows the buyer-verification pending summary from the invoice", () => {
   expect(screen.getByText("Oct 30, 2026")).toBeInTheDocument();
   expect(screen.getByText("Verification requested · Jul 29, 2026 · 10:42")).toBeInTheDocument();
   expect(screen.getByText("Buyer verification")).toHaveAttribute("aria-current", "step");
-  expect(screen.getByText("04 · BUYER VERIFICATION PENDING / 1440 × 900")).toBeInTheDocument();
+  expect(screen.queryByText("04 · BUYER VERIFICATION PENDING / 1440 × 900")).not.toBeInTheDocument();
 });

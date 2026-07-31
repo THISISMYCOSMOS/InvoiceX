@@ -77,20 +77,41 @@ test("renders supplier navigation in the shared application shell", async () => 
   expect(screen.getByRole("link", { name: "Company & Wallet" })).toHaveAttribute("href", "/supplier/company-wallet");
 });
 
-test("shows company details and manages the supplier demo wallet", async () => {
+test("shows the supplier wallet connection without a hard-coded demo address", async () => {
   const user = userEvent.setup();
   const { container } = renderAt("/supplier/company-wallet");
 
   expect(await screen.findByRole("heading", { name: "Company & Wallet" })).toBeInTheDocument();
   expect(screen.getByText("Alpha Components Co., Ltd.")).toBeInTheDocument();
-  expect(screen.getByText("8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "No wallet connected" })).toBeInTheDocument();
+  expect(screen.queryByText("8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q")).not.toBeInTheDocument();
   expect(container.querySelector(".topbar .wallet-label")).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Disconnect wallet" }));
-  expect(screen.getByRole("heading", { name: "Connect a settlement wallet" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Connect Solana wallet" }));
+  expect(screen.getByRole("dialog", { name: "Choose a Solana wallet" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Phantom Connect" })).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Connect wallet" }));
-  expect(screen.getByRole("button", { name: "Disconnect wallet" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Backpack Install required" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("지원하는 Solana 지갑을 설치한 뒤 다시 시도해 주세요.");
+});
+
+test("shows the institution wallet only in investor setup, never buyer pages", async () => {
+  const user = userEvent.setup();
+  const investor = renderAt("/investor/setup");
+
+  expect(await screen.findByRole("heading", { name: "Institution wallet" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Investment mandate setup" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Investment policy" })).toBeInTheDocument();
+  expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("50,000");
+  expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Save policy draft" }));
+  expect(screen.getByRole("status")).toHaveTextContent("Policy draft is ready for the future mandate API integration.");
+
+  investor.unmount();
+  renderAt("/buyer");
+  expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Connect Solana wallet" })).not.toBeInTheDocument();
 });
 
 test("switches between English and Korean from login and keeps the choice across routes", async () => {
@@ -144,6 +165,8 @@ test("renders the investor Figma navigation and agent decision route", async () 
   expect(await screen.findByRole("heading", { name: "Treasury overview" })).toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "Investor navigation" })).toBeInTheDocument();
   expect(screen.queryByText("Vault · 7VB...0Qe")).not.toBeInTheDocument();
+  expect(screen.queryByText("RWA Portfolio")).not.toBeInTheDocument();
+  expect(screen.queryByText("Vault", { exact: true })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Agent Activity" })).toHaveAttribute(
     "href",
     "/investor/activities/INV-2026-001",

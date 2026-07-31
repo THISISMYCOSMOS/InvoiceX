@@ -1,4 +1,6 @@
+import { CheckCircle, Info, ShieldCheck, SlidersHorizontal } from "@phosphor-icons/react";
 import { useState } from "react";
+import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 export function InvestorSetupPage() {
@@ -6,61 +8,93 @@ export function InvestorSetupPage() {
   const { t } = useLanguage();
 
   return (
-    <section>
-      <h1>{t("Investor Vault and AP2 Mandate setup", "Investor Vault 및 AP2 위임 설정")}</h1>
-      <p>{t("Institution wallet", "기관 지갑 주소")}: DEMO_INVESTOR_WALLET</p>
-      <p>{t("Vault address", "Vault 주소")}: DEMO_AGENT_VAULT</p>
-      <p>{t("Vault USDC balance", "Vault USDC 잔액")}: 50,000 USDC</p>
-      <form onSubmit={(event) => { event.preventDefault(); setSubmitted(true); }}>
-        <label>
-          {t("USDC deposit", "USDC 예치 금액")}
-          <input name="deposit" type="number" min="0" defaultValue="50000" />
-        </label>
-        <p>
-          {t(
-            "Gasless fees are sponsored by the Sponsor Wallet. The investor wallet may hold 0 SOL.",
-            "Gasless 수수료는 Sponsor Wallet이 지원하며 투자자 지갑의 SOL 잔액은 0이어도 됩니다.",
+    <section className="investor-setup-page">
+      <header className="investor-page-heading investor-setup-heading">
+        <div>
+          <p className="investor-breadcrumb">{t("Investor / Setup", "투자자 / 투자 위임")}</p>
+          <h1>{t("Investment mandate setup", "투자 위임 설정")}</h1>
+          <p>
+            {t(
+              "Connect your institution wallet and set the investment guardrails used by Treasury Agent.",
+              "기관 지갑을 연결하고 Treasury Agent가 따를 투자 기준을 설정하세요.",
+            )}
+          </p>
+        </div>
+        <span className="investor-setup-heading__step">{t("Step 1 of 2", "1 / 2 단계")}</span>
+      </header>
+
+      <div className="investor-setup-stack">
+        <SolanaWalletConnection
+          title={t("Institution wallet", "기관 지갑")}
+          description={t(
+            "The connected wallet will be used later for Agent Vault deposits and auto-invest authorization signatures.",
+            "연결한 지갑은 향후 Agent Vault 예치와 자동투자 권한 서명에 사용됩니다.",
           )}
-        </p>
-        <label>
-          {t("Total investment limit", "총 투자 한도")}
-          <input name="totalLimit" defaultValue="50000" />
-        </label>
-        <label>
-          {t("Maximum per invoice", "인보이스당 최대 투자 금액")}
-          <input name="perInvoiceLimit" defaultValue="20000" />
-        </label>
-        <label>
-          {t("Buyer Allowlist", "구매기업 허용 목록")}
-          <input name="buyerAllowlist" defaultValue="BUYER_PRIME" />
-        </label>
-        <label>
-          {t("Minimum Risk Score", "최소 위험 점수")}
-          <input name="minimumScore" defaultValue="80" />
-        </label>
-        <label>
-          {t("Maximum remaining term", "최대 잔존 만기")}
-          <input name="maximumTerm" defaultValue={t("120 days", "120일")} />
-        </label>
-        <label>
-          {t("Policy expiry", "정책 만료일")}
-          <input name="policyTerm" defaultValue="2026-12-31" />
-        </label>
-        <button type="submit">
-          {t("Request AP2 Mandate signature", "AP2 위임 서명 요청")}
-        </button>
-      </form>
-      {submitted && (
-        <p role="status">
-          {t(
-            "Setup values are ready for AP2 Mandate API integration.",
-            "AP2 Mandate API 연동을 위한 설정 값이 준비되었습니다.",
+          onWalletConnected={() => undefined}
+          onWalletDisconnected={() => undefined}
+        />
+
+        <section className="investor-setup-policy-card">
+          <header>
+            <span className="investor-setup-icon" aria-hidden="true"><SlidersHorizontal size={18} weight="bold" /></span>
+            <div>
+              <h2>{t("Investment policy", "투자 정책")}</h2>
+              <p>{t("Set guardrails for eligible invoices.", "자동 투자할 인보이스의 기준을 설정합니다.")}</p>
+            </div>
+            <span className="investor-setup-draft">{t("Draft", "초안")}</span>
+          </header>
+
+          <form className="investor-policy-form" onSubmit={(event) => { event.preventDefault(); setSubmitted(true); }}>
+            <div className="investor-policy-form__grid">
+              <label htmlFor="totalLimit">
+                <span>{t("Total investment limit", "총 투자 한도")}</span>
+                <div><input id="totalLimit" name="totalLimit" inputMode="numeric" defaultValue="50,000" /><small>USDC</small></div>
+              </label>
+              <label htmlFor="perInvoiceLimit">
+                <span>{t("Maximum per invoice", "인보이스당 최대 금액")}</span>
+                <div><input id="perInvoiceLimit" name="perInvoiceLimit" inputMode="numeric" defaultValue="20,000" /><small>USDC</small></div>
+              </label>
+              <label htmlFor="buyerAllowlist">
+                <span>{t("Buyer allowlist", "구매기업 허용 목록")}</span>
+                <div><input id="buyerAllowlist" name="buyerAllowlist" defaultValue="Prime Mobility" /></div>
+              </label>
+              <label htmlFor="minimumScore">
+                <span>{t("Minimum Risk Score", "최소 위험 점수")}</span>
+                <div><input id="minimumScore" name="minimumScore" inputMode="numeric" defaultValue="80" /><small>/ 100</small></div>
+              </label>
+              <label htmlFor="maximumTerm">
+                <span>{t("Maximum remaining term", "최대 잔존 만기")}</span>
+                <div><input id="maximumTerm" name="maximumTerm" inputMode="numeric" defaultValue="120" /><small>{t("days", "일")}</small></div>
+              </label>
+              <label htmlFor="policyTerm">
+                <span>{t("Policy expiry", "정책 만료일")}</span>
+                <div><input id="policyTerm" name="policyTerm" defaultValue="2026-12-31" /></div>
+              </label>
+            </div>
+
+            <footer>
+              <p>
+                <Info size={15} weight="fill" aria-hidden="true" />
+                {t(
+                  "These settings are prepared locally and are not yet submitted to an investment API.",
+                  "설정 값은 현재 화면에서만 준비되며 투자 API로 전송되지 않습니다.",
+                )}
+              </p>
+              <button className="investor-primary-button" type="submit">
+                <ShieldCheck size={15} weight="fill" aria-hidden="true" />
+                {t("Save policy draft", "투자 정책 초안 저장")}
+              </button>
+            </footer>
+          </form>
+
+          {submitted && (
+            <p className="investor-setup-success" role="status">
+              <CheckCircle size={15} weight="fill" aria-hidden="true" />
+              {t("Policy draft is ready for the future mandate API integration.", "투자 정책 초안이 준비되었습니다. 향후 위임 API와 연동됩니다.")}
+            </p>
           )}
-        </p>
-      )}
-      <p>{t("Mandate ID", "위임 ID")}: DEMO-MANDATE-001</p>
-      <p>{t("Policy hash", "정책 해시")}: demo-policy-v1</p>
-      <p>{t("Mandate status", "위임 상태")}: ACTIVE</p>
+        </section>
+      </div>
     </section>
   );
 }

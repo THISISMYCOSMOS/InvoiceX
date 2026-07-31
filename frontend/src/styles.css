@@ -49,21 +49,8 @@ a {
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  padding: 50px 80px;
+  padding: 32px 80px;
   background: #e8ebf0;
-}
-
-.screen-caption,
-.workflow-screen-caption {
-  position: absolute;
-  z-index: 2;
-  top: 18px;
-  left: max(24px, calc((100vw - 1280px) / 2));
-  margin: 0;
-  color: #475569;
-  font-size: 10.8px;
-  font-weight: 700;
-  letter-spacing: 0.44px;
 }
 
 .agent-complete-badge {
@@ -641,6 +628,15 @@ a {
   background: #22c55e;
 }
 
+.wallet-status.is-error {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.wallet-status.is-error > span {
+  background: #ef4444;
+}
+
 .company-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -830,6 +826,283 @@ a {
   color: #64748b;
   font-size: 10px;
   line-height: 1.5;
+}
+
+.wallet-connection-description {
+  margin: 16px 17px 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.wallet-address-value {
+  display: block;
+  margin-top: 5px;
+  color: #475569;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wallet-error {
+  margin: 0 17px 17px;
+  border-radius: 7px;
+  padding: 9px 11px;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.wallet-chooser {
+  margin: 0 17px 17px;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  padding: 13px;
+  background: #f8fbff;
+}
+
+.wallet-chooser > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #172033;
+  font-size: 11px;
+}
+
+.wallet-chooser > div button {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 5px;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.wallet-chooser > div button:hover {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.wallet-chooser > p {
+  margin: 5px 0 10px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.wallet-chooser ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wallet-chooser li button {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid #d9dee8;
+  border-radius: 7px;
+  padding: 8px 9px;
+  color: #172033;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.wallet-chooser li button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.wallet-chooser li span {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.wallet-chooser li small {
+  color: #64748b;
+  font-size: 8px;
+}
+
+.investor-setup-page {
+  color: #172033;
+}
+
+.investor-setup-page .solana-wallet-connection {
+  max-width: 840px;
+}
+
+.investor-setup-heading {
+  margin-bottom: 22px;
+}
+
+.investor-setup-heading__step,
+.investor-setup-draft {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 9px;
+  color: #6d28d9;
+  background: #f1edff;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.investor-setup-stack {
+  display: grid;
+  max-width: 840px;
+  gap: 16px;
+}
+
+.investor-setup-policy-card {
+  overflow: hidden;
+  border: 1px solid #d9dee8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.investor-setup-policy-card > header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  gap: 11px;
+  border-bottom: 1px solid #e5e9f0;
+  padding: 0 17px;
+}
+
+.investor-setup-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  color: #6d28d9;
+  background: #f1edff;
+}
+
+.investor-setup-policy-card > header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.investor-setup-policy-card h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.investor-setup-policy-card header p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.investor-policy-form {
+  padding: 17px;
+}
+
+.investor-policy-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.investor-policy-form label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.investor-policy-form label > div {
+  display: flex;
+  min-height: 37px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d9dee8;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #fff;
+}
+
+.investor-policy-form label > div:focus-within {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.investor-policy-form input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #172033;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.investor-policy-form small {
+  color: #64748b;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.investor-policy-form footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 18px -17px -17px;
+  border-top: 1px solid #e5e9f0;
+  padding: 13px 17px;
+  background: #fbfcfe;
+}
+
+.investor-policy-form footer p,
+.investor-setup-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.investor-policy-form footer p svg,
+.investor-setup-success svg {
+  flex: 0 0 auto;
+}
+
+.investor-policy-form .investor-primary-button {
+  gap: 6px;
+  border: 0;
+  cursor: pointer;
+}
+
+.investor-setup-success {
+  margin: 0 17px 17px;
+  border-radius: 7px;
+  padding: 10px 11px;
+  color: #15803d;
+  background: #f0fdf4;
 }
 
 .wallet-connect-button {
@@ -1607,8 +1880,6 @@ a {
     padding: 24px 16px;
   }
 
-  .screen-caption,
-  .workflow-screen-caption,
   .agent-complete-badge {
     display: none;
   }
@@ -1658,6 +1929,10 @@ a {
     padding: 26px 20px;
   }
 
+  .investor-policy-form__grid {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1696,6 +1971,15 @@ a {
 
   .page-heading {
     flex-direction: column;
+  }
+
+  .investor-policy-form footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .investor-policy-form .investor-primary-button {
+    width: 100%;
   }
 
   .dashboard-stats {
@@ -1738,6 +2022,10 @@ a {
 
   .wallet-copy-button {
     align-self: flex-start;
+  }
+
+  .wallet-chooser ul {
+    grid-template-columns: 1fr;
   }
 }
 

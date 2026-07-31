@@ -92,7 +92,6 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
 
   return (
     <section className="document-review-page">
-      <p className="workflow-screen-caption">{t("03 · DOCUMENT AGENT REVIEW / 1440 × 900", "03 · 문서 에이전트 검토 / 1440 × 900")}</p>
       <span className="agent-complete-badge">{t("Document Agent complete", "Document Agent 완료")}</span>
       <header className="review-heading">
         <div>
