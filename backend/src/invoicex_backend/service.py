@@ -39,6 +39,7 @@ from invoicex_backend.models import (
     InvoiceStatus,
     OfferResponse,
     PositiveFactor,
+    RiskEligibility,
     RiskFactor,
     RiskPassport,
     Settlement,
@@ -542,6 +543,22 @@ class InvoiceService:
                 policy_version=self._risk_policy.policy_version,
                 generated_at=datetime.now(UTC).isoformat(),
             )
+            if decision.eligibility is not RiskEligibility.ELIGIBLE:
+                # Never advertise an offer the Treasury Agent cannot execute.
+                invoice.status = InvoiceStatus.BLOCKED
+                self._append_trace(
+                    invoice,
+                    source="RISK_AGENT",
+                    target="TREASURY_AGENT",
+                    status="FAILED",
+                    summary=(
+                        f"투자 부적격({decision.eligibility.value})으로 조기정산 "
+                        f"제안을 만들지 않았습니다: {risk_result.risk_passport.summary}"
+                    ),
+                )
+                await self._persist()
+                return
+
             invoice.status = InvoiceStatus.OFFER_READY
             self._append_trace(
                 invoice,
