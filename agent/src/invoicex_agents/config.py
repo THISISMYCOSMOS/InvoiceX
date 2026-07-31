@@ -30,7 +30,7 @@ class AgentSettings(BaseSettings):
         le=300,
     )
     gemini_max_attempts: int = Field(
-        default=1,
+        default=2,
         validation_alias="GEMINI_MAX_ATTEMPTS",
         ge=1,
         le=3,
