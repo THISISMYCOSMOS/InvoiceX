@@ -88,7 +88,13 @@ def test_real_client_builds_structured_media_request(
         system_instruction="system",
         user_prompt="manifest",
         response_schema=DocumentAnalysisResult,
-        media=(MediaDocument("invoice-1", "application/pdf", b"pdf"),),
+        media=(
+            MediaDocument(
+                "invoice-1",
+                "image/png",
+                b"\x89PNG\r\n\x1a\nsynthetic",
+            ),
+        ),
     )
 
     assert result.documents[0].document_id == "invoice-1"
