@@ -85,7 +85,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   {t("Invoices", "인보이스")}
                 </Link>
                 <Link className={pathname === "/supplier/company-wallet" ? "is-active" : ""} to="/supplier/company-wallet">
-                  {t("Company & Wallet", "회사 및 지갑")}
+                  {t("Settings", "설정")}
                 </Link>
               </nav>
             ) : isBuyer ? (
@@ -118,7 +118,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   {t("Agent Activity", "에이전트 활동")}
                 </Link>
                 <Link className={isInvestorSetup ? "is-active" : ""} to="/investor/setup">
-                  {t("Mandate", "투자 위임")}
+                  {t("Settings", "설정")}
                 </Link>
               </nav>
             ) : (

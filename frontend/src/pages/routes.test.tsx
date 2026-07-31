@@ -74,7 +74,7 @@ test("renders supplier navigation in the shared application shell", async () => 
   expect(await screen.findByRole("navigation", { name: "Supplier navigation" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/supplier");
   expect(screen.getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/supplier/invoices/new");
-  expect(screen.getByRole("link", { name: "Company & Wallet" })).toHaveAttribute("href", "/supplier/company-wallet");
+  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/supplier/company-wallet");
 });
 
 test("shows the supplier wallet connection without a hard-coded demo address", async () => {
@@ -171,6 +171,7 @@ test("renders the investor Figma navigation and agent decision route", async () 
     "href",
     "/investor/activities/INV-2026-001",
   );
+  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/investor/setup");
   expect(screen.queryByText("Settlement Reports")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("link", { name: "INV-2026-001" }));
