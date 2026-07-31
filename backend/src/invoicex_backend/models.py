@@ -317,6 +317,30 @@ class ConfirmVerificationRequest(ApiModel):
     checklist: BuyerChecklist = Field(default_factory=BuyerChecklist)
 
 
+class InvestorMandate(ApiModel):
+    """The AP2 investment policy InvestorSetupPage collects.
+
+    Field names mirror the form inputs. `maximumTermDays` is a number here even
+    though the form currently renders free text ("120 days"), because the policy
+    has to compare it against a due date.
+    """
+
+    deposit_usdc: int = Field(ge=0)
+    total_limit_usdc: int = Field(ge=0)
+    per_invoice_limit_usdc: int = Field(gt=0)
+    buyer_allowlist: list[str]
+    minimum_risk_score: int = Field(ge=0, le=100)
+    maximum_term_days: int = Field(gt=0)
+    policy_expires_on: str
+    mandate_id: str = "DEMO-MANDATE-001"
+    policy_hash: str = "demo-policy-v1"
+    status: Literal["DRAFT", "SIGNED", "ACTIVE"] = "ACTIVE"
+
+
+class InvestorMandateResponse(ApiModel):
+    mandate: InvestorMandate
+
+
 class InvestorDashboard(ApiModel):
     investor_name: str
     automated_investment_active: bool

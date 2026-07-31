@@ -9,7 +9,7 @@ from pathlib import Path
 from invoicex_agents.models.document import DocumentAnalysisResult
 from pydantic import BaseModel, ConfigDict, Field
 
-from invoicex_backend.models import Invoice, Verification
+from invoicex_backend.models import InvestorMandate, Invoice, Verification
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,9 @@ class PersistedState(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: int = STATE_SCHEMA_VERSION
+    # Absent in files written before the mandate existed; None means "use the
+    # environment default", so older snapshots still load.
+    mandate: InvestorMandate | None = None
     invoices: dict[str, Invoice] = Field(default_factory=dict)
     verifications: dict[str, Verification] = Field(default_factory=dict)
     agent_analyses: dict[str, DocumentAnalysisResult] = Field(default_factory=dict)

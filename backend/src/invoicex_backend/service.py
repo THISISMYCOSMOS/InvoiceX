@@ -33,6 +33,7 @@ from invoicex_backend.models import (
     DocumentType,
     ExtractedFieldStatus,
     InvestorDashboard,
+    InvestorMandate,
     Invoice,
     InvoiceParty,
     InvoiceStatus,
@@ -50,6 +51,7 @@ from invoicex_backend.policy import (
     DeterministicRiskPolicy,
     RiskDecision,
     TreasuryMandatePolicy,
+    default_mandate,
 )
 from invoicex_backend.seed import load_seed_documents
 from invoicex_backend.solana import SolanaGateway
@@ -100,7 +102,7 @@ class InvoiceService:
         self._storage = storage
         self._state_store = state_store
         self._risk_policy = DeterministicRiskPolicy()
-        self._mandate_policy = TreasuryMandatePolicy(settings)
+        self._mandate_policy = TreasuryMandatePolicy()
         self._invoice_locks: dict[str, asyncio.Lock] = {}
         self._sequence_lock = asyncio.Lock()
         self._persist_lock = asyncio.Lock()
@@ -116,6 +118,7 @@ class InvoiceService:
         self._verification_sequence = restored.verification_sequence
         self._document_sequence = restored.document_sequence
         self._trace_sequence = restored.trace_sequence
+        self._mandate = restored.mandate or default_mandate(settings)
         self._pending_documents: dict[str, list[AgentDocument]] = {}
         self._recover_interrupted_work()
 
@@ -586,7 +589,11 @@ class InvoiceService:
             invoice = self._invoice(invoice_id)
             if invoice.status is not InvoiceStatus.FUNDING:
                 return
-            rejection = self._mandate_policy.rejection_reason(invoice)
+            rejection = self._mandate_policy.rejection_reason(
+                invoice,
+                self._mandate,
+                outstanding_usdc=self._outstanding_principal(exclude=invoice.id),
+            )
             if rejection is not None:
                 invoice.status = InvoiceStatus.BLOCKED
                 self._append_trace(
@@ -729,22 +736,41 @@ class InvoiceService:
         await self._persist()
         return self._copy_invoice(invoice)
 
-    def investor_dashboard(self) -> InvestorDashboard:
+    def get_mandate(self) -> InvestorMandate:
+        return self._mandate.model_copy(deep=True)
+
+    async def save_mandate(self, mandate: InvestorMandate) -> InvestorMandate:
+        """Store the AP2 policy the investor configured, replacing the default."""
+
+        async with self._reset_lock:
+            self._mandate = mandate
+            await self._persist()
+            return self._mandate.model_copy(deep=True)
+
+    def _outstanding_invoices(self, exclude: str | None = None) -> list[Invoice]:
         active = {
             InvoiceStatus.FUNDED,
             InvoiceStatus.REPAYMENT_PENDING,
             InvoiceStatus.SETTLING,
         }
-        outstanding_invoices = [
+        return [
             invoice
             for invoice in self._invoices.values()
-            if invoice.status in active and invoice.risk_passport is not None
+            if invoice.status in active
+            and invoice.risk_passport is not None
+            and invoice.id != exclude
         ]
-        outstanding = sum(
+
+    def _outstanding_principal(self, exclude: str | None = None) -> int:
+        return sum(
             invoice.risk_passport.suggested_advance_amount_usdc or 0
-            for invoice in outstanding_invoices
+            for invoice in self._outstanding_invoices(exclude)
             if invoice.risk_passport is not None
         )
+
+    def investor_dashboard(self) -> InvestorDashboard:
+        outstanding_invoices = self._outstanding_invoices()
+        outstanding = self._outstanding_principal()
         horizon = datetime.now(UTC).date() + timedelta(days=30)
         due_soon = sum(
             invoice.risk_passport.suggested_advance_amount_usdc or 0
@@ -763,9 +789,9 @@ class InvoiceService:
         )[:20]
         return InvestorDashboard(
             investor_name="Nova Capital",
-            automated_investment_active=True,
-            mandate_status="ACTIVE",
-            available_vault_usdc=50_000,
+            automated_investment_active=self._mandate.status == "ACTIVE",
+            mandate_status=self._mandate.status,
+            available_vault_usdc=max(self._mandate.deposit_usdc - outstanding, 0),
             outstanding_principal_usdc=outstanding,
             due_within_30_days_usdc=due_soon,
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
@@ -800,6 +826,7 @@ class InvoiceService:
 
     def _snapshot(self) -> PersistedState:
         return PersistedState(
+            mandate=self._mandate,
             invoices=self._invoices,
             verifications=self._verifications,
             agent_analyses=self._agent_analyses,

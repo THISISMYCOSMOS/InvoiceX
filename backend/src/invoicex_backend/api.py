@@ -21,6 +21,8 @@ from invoicex_backend.models import (
     DocumentType,
     ErrorResponse,
     InvestorDashboard,
+    InvestorMandate,
+    InvestorMandateResponse,
     InvoiceListResponse,
     InvoiceResponse,
     OfferResponseRequest,
@@ -301,6 +303,32 @@ async def run_funding(
 
     await service.complete_funding(invoice_id)
     return InvoiceResponse(invoice=service.get_invoice(invoice_id))
+
+
+@router.get(
+    "/investor/mandate",
+    response_model=InvestorMandateResponse,
+    tags=["Investor"],
+    summary="AP2 Mandate 조회",
+)
+async def get_mandate(service: InvoiceServiceDependency) -> InvestorMandateResponse:
+    return InvestorMandateResponse(mandate=service.get_mandate())
+
+
+@router.put(
+    "/investor/mandate",
+    response_model=InvestorMandateResponse,
+    responses=documented_errors(422),
+    tags=["Investor"],
+    summary="AP2 Mandate 저장",
+)
+async def save_mandate(
+    payload: InvestorMandate,
+    service: InvoiceServiceDependency,
+) -> InvestorMandateResponse:
+    """Persist the InvestorSetupPage policy so the Treasury Agent enforces it."""
+
+    return InvestorMandateResponse(mandate=await service.save_mandate(payload))
 
 
 @router.post(
