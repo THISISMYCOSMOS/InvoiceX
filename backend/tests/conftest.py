@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from pypdf import PdfWriter
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
@@ -28,9 +30,19 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
         yield test_client
 
 
+def deterministic_pdf() -> bytes:
+    """Build a real single-page PDF the Document Agent can parse and inspect."""
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=595, height=842)
+    buffer = BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
 @pytest.fixture
 def contract_files() -> dict[str, tuple[str, bytes, str]]:
-    pdf = b"%PDF-1.4\nInvoiceX deterministic test document\n%%EOF"
+    pdf = deterministic_pdf()
     return {
         "INVOICE": ("invoice.pdf", pdf, "application/pdf"),
         "CONTRACT": ("contract.pdf", pdf, "application/pdf"),
