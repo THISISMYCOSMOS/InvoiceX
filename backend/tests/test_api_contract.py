@@ -16,13 +16,18 @@ def test_complete_frontend_contract_workflow(
     assert create_response.status_code == 201
     created = create_response.json()
     assert set(created) == {"invoice"}
-    invoice = created["invoice"]
-    invoice_id = invoice["id"]
-    assert invoice["status"] == "DOCUMENT_REVIEW_REQUIRED"
-    assert len(invoice["documents"]) == 4
-    assert {document["type"] for document in invoice["documents"]} == set(
+    accepted = created["invoice"]
+    invoice_id = accepted["id"]
+    # The upload returns before the Document Agent runs; the frontend polls.
+    assert accepted["status"] == "DOCUMENT_ANALYZING"
+    assert accepted["analysis"] is None
+    assert len(accepted["documents"]) == 4
+    assert {document["type"] for document in accepted["documents"]} == set(
         contract_files
     )
+
+    invoice = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+    assert invoice["status"] == "DOCUMENT_REVIEW_REQUIRED"
     assert invoice["analysis"]["status"] == "COMPLETED"
     assert invoice["analysis"]["amountKrw"]["value"] == 20_000_000
     assert invoice["riskPassport"] is None

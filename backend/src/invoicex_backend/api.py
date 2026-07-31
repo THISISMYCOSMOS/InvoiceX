@@ -106,9 +106,14 @@ async def create_invoice(
     contract_file: ContractFile,
     purchase_order_file: PurchaseOrderFile,
     delivery_proof_file: DeliveryProofFile,
+    background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
-    """Accept the four exact multipart fields defined by the frontend contract."""
+    """Accept the four exact multipart fields defined by the frontend contract.
+
+    Returns DOCUMENT_ANALYZING immediately; the frontend polls the detail API
+    while the Document Agent runs in the background.
+    """
 
     max_bytes = service.settings.max_document_size_bytes
     uploads = [
@@ -125,7 +130,9 @@ async def create_invoice(
             max_bytes,
         ),
     ]
-    return InvoiceResponse(invoice=await service.create_invoice(uploads))
+    invoice = await service.create_invoice(uploads)
+    background_tasks.add_task(service.complete_document_analysis, invoice.id)
+    return InvoiceResponse(invoice=invoice)
 
 
 @router.get(

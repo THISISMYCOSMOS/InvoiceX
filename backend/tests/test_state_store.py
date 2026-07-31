@@ -258,7 +258,14 @@ def test_concurrent_creates_persist_every_invoice(
             service.create_invoice(list(uploads)),
             service.create_invoice(list(uploads)),
         )
-        return [invoice.id for invoice in created]
+        invoice_ids = [invoice.id for invoice in created]
+        await asyncio.gather(
+            *[
+                service.complete_document_analysis(invoice_id)
+                for invoice_id in invoice_ids
+            ]
+        )
+        return invoice_ids
 
     invoice_ids = asyncio.run(create_both())
     assert len(set(invoice_ids)) == 2

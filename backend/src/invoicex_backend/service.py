@@ -68,6 +68,13 @@ TraceSource = Literal[
 ]
 TraceTarget = Literal["RISK_AGENT", "TREASURY_AGENT", "SETTLEMENT_AGENT"]
 TraceStatus = Literal["SUBMITTED", "WORKING", "COMPLETED", "FAILED"]
+TRANSIENT_STATUS_AGENTS: dict[InvoiceStatus, TraceSource] = {
+    InvoiceStatus.DOCUMENT_ANALYZING: "DOCUMENT_AGENT",
+    InvoiceStatus.RISK_ASSESSING: "RISK_AGENT",
+    InvoiceStatus.FUNDING: "TREASURY_AGENT",
+    InvoiceStatus.SETTLING: "SETTLEMENT_AGENT",
+}
+TRANSIENT_STATUSES = frozenset(TRANSIENT_STATUS_AGENTS)
 
 
 class InvoiceService:
@@ -103,6 +110,40 @@ class InvoiceService:
         self._verification_sequence = restored.verification_sequence
         self._document_sequence = restored.document_sequence
         self._trace_sequence = restored.trace_sequence
+        self._pending_documents: dict[str, list[AgentDocument]] = {}
+        self._recover_interrupted_work()
+
+    def _recover_interrupted_work(self) -> None:
+        """Fail invoices whose in-flight work died with the previous process.
+
+        The Gemini and chain calls are not resumable, and the frontend polls
+        transient statuses forever, so a restart must not leave one behind.
+        """
+
+        interrupted = [
+            invoice
+            for invoice in self._invoices.values()
+            if invoice.status in TRANSIENT_STATUSES
+        ]
+        if not interrupted:
+            return
+        for invoice in interrupted:
+            logger.error(
+                "재시작으로 중단된 작업을 ERROR로 정리합니다: %s (%s)",
+                invoice.id,
+                invoice.status.value,
+            )
+            self._append_trace(
+                invoice,
+                source=TRANSIENT_STATUS_AGENTS[invoice.status],
+                target="SETTLEMENT_AGENT",
+                status="FAILED",
+                summary=(
+                    f"서버 재시작으로 {invoice.status.value} 처리가 중단되었습니다."
+                ),
+            )
+            invoice.status = InvoiceStatus.ERROR
+        self._state_store.save(self._snapshot())
 
     async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
         self._validate_uploads(uploads)
@@ -151,46 +192,75 @@ class InvoiceService:
                     for document_id, upload in zip(document_ids, uploads, strict=True)
                 ]
             )
-            invoice.documents = list(stored_documents)
-            agent_documents = [
-                AgentDocument(
-                    document_id=document_id,
-                    type=upload.type,
-                    mime_type=upload.mime_type,
-                    data=upload.data,
-                )
-                for document_id, upload in zip(document_ids, uploads, strict=True)
-            ]
-            agent_result = await self._agents.analyze_documents(
-                invoice_id,
-                agent_documents,
-            )
-        except AgentError as exc:
-            invoice.status = InvoiceStatus.ERROR
-            await self._persist()
-            raise IntegrationError(f"Gemini 문서 분석에 실패했습니다: {exc}") from exc
         except OSError as exc:
             invoice.status = InvoiceStatus.ERROR
             await self._persist()
             raise IntegrationError("업로드 문서를 저장하지 못했습니다.") from exc
 
-        self._agent_analyses[invoice_id] = agent_result
-        invoice.analysis = self._to_frontend_analysis(
-            invoice_id,
-            agent_result,
-            {document.document_id: document.type for document in agent_documents},
-        )
-        self._apply_extracted_metadata(invoice, agent_result)
-        invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
-        self._append_trace(
-            invoice,
-            source="DOCUMENT_AGENT",
-            target="RISK_AGENT",
-            status="COMPLETED",
-            summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
-        )
+        invoice.documents = list(stored_documents)
+        # Hold the bytes in memory so the background analysis does not have to
+        # read them back from storage. They are deliberately never persisted.
+        self._pending_documents[invoice_id] = [
+            AgentDocument(
+                document_id=document_id,
+                type=upload.type,
+                mime_type=upload.mime_type,
+                data=upload.data,
+            )
+            for document_id, upload in zip(document_ids, uploads, strict=True)
+        ]
         await self._persist()
         return self._copy_invoice(invoice)
+
+    async def complete_document_analysis(self, invoice_id: str) -> None:
+        """Run the Document Agent outside the upload request.
+
+        The frontend already polls DOCUMENT_ANALYZING, so returning the invoice
+        immediately keeps a multi-document Gemini call off the request path.
+        """
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoices.get(invoice_id)
+            agent_documents = self._pending_documents.pop(invoice_id, None)
+            if invoice is None or agent_documents is None:
+                return
+            if invoice.status is not InvoiceStatus.DOCUMENT_ANALYZING:
+                return
+
+            try:
+                agent_result = await self._agents.analyze_documents(
+                    invoice_id,
+                    agent_documents,
+                )
+            except AgentError as exc:
+                invoice.status = InvoiceStatus.ERROR
+                self._append_trace(
+                    invoice,
+                    source="DOCUMENT_AGENT",
+                    target="RISK_AGENT",
+                    status="FAILED",
+                    summary=f"Gemini 문서 분석에 실패했습니다: {exc}",
+                )
+                logger.error("Document analysis failed for %s: %s", invoice_id, exc)
+                await self._persist()
+                return
+
+            self._agent_analyses[invoice_id] = agent_result
+            invoice.analysis = self._to_frontend_analysis(
+                invoice_id,
+                agent_result,
+                {document.document_id: document.type for document in agent_documents},
+            )
+            self._apply_extracted_metadata(invoice, agent_result)
+            invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
+            self._append_trace(
+                invoice,
+                source="DOCUMENT_AGENT",
+                target="RISK_AGENT",
+                status="COMPLETED",
+                summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
+            )
+            await self._persist()
 
     def list_invoices(self) -> list[Invoice]:
         return [
@@ -511,6 +581,17 @@ class InvoiceService:
     def settings(self) -> BackendSettings:
         return self._settings
 
+    def _snapshot(self) -> PersistedState:
+        return PersistedState(
+            invoices=self._invoices,
+            verifications=self._verifications,
+            agent_analyses=self._agent_analyses,
+            invoice_sequence=self._invoice_sequence,
+            verification_sequence=self._verification_sequence,
+            document_sequence=self._document_sequence,
+            trace_sequence=self._trace_sequence,
+        )
+
     async def _persist(self) -> None:
         """Snapshot the aggregate state after a mutation, off the event loop.
 
@@ -520,15 +601,7 @@ class InvoiceService:
         """
 
         async with self._persist_lock:
-            snapshot = PersistedState(
-                invoices=self._invoices,
-                verifications=self._verifications,
-                agent_analyses=self._agent_analyses,
-                invoice_sequence=self._invoice_sequence,
-                verification_sequence=self._verification_sequence,
-                document_sequence=self._document_sequence,
-                trace_sequence=self._trace_sequence,
-            )
+            snapshot = self._snapshot()
             await asyncio.to_thread(self._state_store.save, snapshot)
 
     async def _reserve_invoice_ids(self, document_count: int) -> tuple[str, list[str]]:
