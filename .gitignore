@@ -14,3 +14,7 @@ dist/
 build/
 tmp/
 *.egg-info/
+
+backend/.env
+backend/uploads/*
+!backend/uploads/.gitkeep
