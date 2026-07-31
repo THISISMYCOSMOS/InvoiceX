@@ -577,6 +577,13 @@ class InvoiceService:
                 )
             if response is OfferResponse.DECLINE:
                 invoice.status = InvoiceStatus.BLOCKED
+                self._append_trace(
+                    invoice,
+                    source="TREASURY_AGENT",
+                    target="SETTLEMENT_AGENT",
+                    status="FAILED",
+                    summary="공급기업이 조기정산 제안을 거절했습니다.",
+                )
                 await self._persist()
                 return self._copy_invoice(invoice), False
 
@@ -609,6 +616,17 @@ class InvoiceService:
             passport = invoice.risk_passport
             if passport is None or passport.suggested_advance_amount_usdc is None:
                 invoice.status = InvoiceStatus.BLOCKED
+                # Without a trace the frontend shows an unexplained BLOCKED.
+                self._append_trace(
+                    invoice,
+                    source="TREASURY_AGENT",
+                    target="SETTLEMENT_AGENT",
+                    status="FAILED",
+                    summary=(
+                        "선지급 조건이 산정되지 않아 Treasury Agent가 집행할 수 "
+                        "없습니다."
+                    ),
+                )
                 await self._persist()
                 return
             amount = passport.suggested_advance_amount_usdc
