@@ -8,6 +8,9 @@ from typing import Literal
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# backend/src/invoicex_backend/config.py -> backend/seed
+DEFAULT_SEED_DIRECTORY = Path(__file__).resolve().parents[2] / "seed"
+
 
 class BackendSettings(BaseSettings):
     """Runtime configuration with explicit real/mock integration modes."""
@@ -36,11 +39,15 @@ class BackendSettings(BaseSettings):
         default=None,
         validation_alias="STATE_FILE",
     )
+    seed_directory: Path | None = Field(
+        default=None,
+        validation_alias="SEED_DIRECTORY",
+    )
 
-    @field_validator("state_file", mode="before")
+    @field_validator("state_file", "seed_directory", mode="before")
     @classmethod
-    def blank_state_file_means_unset(cls, value: object) -> object:
-        """`STATE_FILE=` in a .env must not resolve to the working directory."""
+    def blank_path_means_unset(cls, value: object) -> object:
+        """A blank `STATE_FILE=`/`SEED_DIRECTORY=` must not resolve to Path('.')."""
 
         if isinstance(value, str) and not value.strip():
             return None
@@ -158,6 +165,13 @@ class BackendSettings(BaseSettings):
         if self.state_file is not None:
             return self.state_file
         return self.upload_directory.parent / "state.json"
+
+    def resolved_seed_directory(self) -> Path:
+        """Resolve the demo seed relative to the package, not the working directory."""
+
+        if self.seed_directory is not None:
+            return self.seed_directory
+        return DEFAULT_SEED_DIRECTORY
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
         if self.agent_mode == "auto":

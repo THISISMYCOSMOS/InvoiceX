@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -12,6 +13,8 @@ from invoicex_backend.models import (
     UploadedDocument,
     UploadStatus,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class LocalDocumentStorage:
@@ -25,6 +28,21 @@ class LocalDocumentStorage:
     @property
     def directory(self) -> Path:
         return self._directory
+
+    def clear(self) -> None:
+        """Delete stored uploads so a demo reset leaves no orphaned files.
+
+        Only regular files directly inside the upload directory are removed:
+        the directory itself stays mounted, and nothing outside it is touched.
+        """
+
+        for entry in self._directory.iterdir():
+            if entry.name == ".gitkeep" or not entry.is_file():
+                continue
+            try:
+                entry.unlink()
+            except OSError:
+                logger.exception("업로드 파일을 삭제하지 못했습니다: %s", entry)
 
     async def store(
         self,

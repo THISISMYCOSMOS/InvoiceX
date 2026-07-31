@@ -50,6 +50,7 @@ from invoicex_backend.policy import (
     RiskDecision,
     TreasuryMandatePolicy,
 )
+from invoicex_backend.seed import load_seed_documents
 from invoicex_backend.solana import SolanaGateway
 from invoicex_backend.state_store import JsonStateStore, PersistedState
 from invoicex_backend.storage import LocalDocumentStorage
@@ -99,6 +100,7 @@ class InvoiceService:
         self._invoice_locks: dict[str, asyncio.Lock] = {}
         self._sequence_lock = asyncio.Lock()
         self._persist_lock = asyncio.Lock()
+        self._reset_lock = asyncio.Lock()
 
         restored = state_store.load()
         self._invoices: dict[str, Invoice] = restored.invoices
@@ -145,12 +147,12 @@ class InvoiceService:
             invoice.status = InvoiceStatus.ERROR
         self._state_store.save(self._snapshot())
 
-    async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
-        self._validate_uploads(uploads)
-        invoice_id, document_ids = await self._reserve_invoice_ids(len(uploads))
+    def _new_invoice(self, invoice_id: str, status: InvoiceStatus) -> Invoice:
+        """Build the demo Invoice shell before the Document Agent fills it in."""
+
         now = datetime.now(UTC)
         invoice_number = int(invoice_id[-3:])
-        invoice = Invoice(
+        return Invoice(
             id=invoice_id,
             supplier=InvoiceParty(
                 id="SUPPLIER_ALPHA",
@@ -169,7 +171,7 @@ class InvoiceService:
             delivery_date=(now - timedelta(days=5)).date().isoformat(),
             contract_number=f"PM-SUPPLY-{now.year}-04",
             purchase_order_number=f"PO-{89340 + invoice_number}",
-            status=InvoiceStatus.DOCUMENT_ANALYZING,
+            status=status,
             verification_id=None,
             documents=[],
             analysis=None,
@@ -179,6 +181,86 @@ class InvoiceService:
             settlement=None,
             agent_traces=[],
         )
+
+    async def reset_demo(self) -> Invoice:
+        """Drop every invoice and hand back a fresh DRAFT one, as the mock adapter does."""
+
+        async with self._reset_lock:
+            self._invoices.clear()
+            self._verifications.clear()
+            self._agent_analyses.clear()
+            # Dropping the pending bytes makes any in-flight background analysis
+            # a no-op instead of mutating the reseeded invoice.
+            self._pending_documents.clear()
+            self._invoice_locks.clear()
+            async with self._sequence_lock:
+                self._invoice_sequence = 0
+                self._verification_sequence = 0
+                self._document_sequence = 0
+                self._trace_sequence = 0
+            await asyncio.to_thread(self._storage.clear)
+
+            invoice_id, _ = await self._reserve_invoice_ids(0)
+            invoice = self._new_invoice(invoice_id, InvoiceStatus.DRAFT)
+            self._invoices[invoice_id] = invoice
+            await self._persist()
+            return self._copy_invoice(invoice)
+
+    async def analyze_seeded_documents(self, invoice_id: str) -> Invoice:
+        """Attach the demo seed documents to a DRAFT invoice and analyze them.
+
+        The DemoControlPage runs this instead of an upload, so a demo can be
+        replayed without re-picking four files.
+        """
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoice(invoice_id)
+            if invoice.status is not InvoiceStatus.DRAFT:
+                raise StateConflictError(
+                    "DRAFT 상태에서만 시드 문서를 분석할 수 있습니다."
+                )
+            uploads = await asyncio.to_thread(
+                load_seed_documents,
+                self._settings.resolved_seed_directory(),
+            )
+            self._validate_uploads(uploads)
+            document_ids = await self._reserve_document_ids(len(uploads))
+            try:
+                stored = await asyncio.gather(
+                    *[
+                        self._storage.store(
+                            document_id=document_id,
+                            invoice_id=invoice_id,
+                            upload=upload,
+                        )
+                        for document_id, upload in zip(
+                            document_ids, uploads, strict=True
+                        )
+                    ]
+                )
+            except OSError as exc:
+                invoice.status = InvoiceStatus.ERROR
+                await self._persist()
+                raise IntegrationError("시드 문서를 저장하지 못했습니다.") from exc
+
+            invoice.documents = list(stored)
+            invoice.status = InvoiceStatus.DOCUMENT_ANALYZING
+            self._pending_documents[invoice_id] = [
+                AgentDocument(
+                    document_id=document_id,
+                    type=upload.type,
+                    mime_type=upload.mime_type,
+                    data=upload.data,
+                )
+                for document_id, upload in zip(document_ids, uploads, strict=True)
+            ]
+            await self._persist()
+            return self._copy_invoice(invoice)
+
+    async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
+        self._validate_uploads(uploads)
+        invoice_id, document_ids = await self._reserve_invoice_ids(len(uploads))
+        invoice = self._new_invoice(invoice_id, InvoiceStatus.DOCUMENT_ANALYZING)
         self._invoices[invoice_id] = invoice
 
         try:
@@ -645,11 +727,19 @@ class InvoiceService:
                 f"INV-{datetime.now(UTC).year}-"
                 f"{str(self._invoice_sequence).zfill(3)}"
             )
-            document_ids = []
-            for _ in range(document_count):
-                self._document_sequence += 1
-                document_ids.append(f"DOC-{str(self._document_sequence).zfill(3)}")
+            document_ids = self._next_document_ids(document_count)
         return invoice_id, document_ids
+
+    async def _reserve_document_ids(self, document_count: int) -> list[str]:
+        async with self._sequence_lock:
+            return self._next_document_ids(document_count)
+
+    def _next_document_ids(self, document_count: int) -> list[str]:
+        document_ids = []
+        for _ in range(document_count):
+            self._document_sequence += 1
+            document_ids.append(f"DOC-{str(self._document_sequence).zfill(3)}")
+        return document_ids
 
     def _validate_uploads(self, uploads: list[UploadedDocument]) -> None:
         supplied_types = [upload.type for upload in uploads]

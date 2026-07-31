@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from invoicex_agents import (
@@ -20,6 +19,92 @@ from invoicex_agents.models.risk import RiskAnalysisRequest, RiskAnalysisResult
 
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.models import DocumentType
+
+SEED_DOCUMENT_FIELDS = (
+    "invoiceNumber",
+    "supplierName",
+    "buyerName",
+    "purchaseOrderNumber",
+    "contractNumber",
+    "currency",
+    "totalAmount",
+    "issueDate",
+    "dueDate",
+    "itemName",
+    "quantity",
+    "unitPrice",
+    "paymentTerms",
+    "deliveryCompleted",
+)
+
+_SUPPLIER = ("(주)알파컴포넌츠", "공급기업: (주)알파컴포넌츠")
+_BUYER = ("(주)프라임모빌리티", "구매기업: (주)프라임모빌리티")
+_CURRENCY = ("KRW", "통화: KRW")
+_ITEM = ("정밀 가공 부품", "품목: 정밀 가공 부품")
+_QUANTITY = ("100", "수량: 100")
+_UNIT_PRICE = ("200000", "단가: 200,000 KRW")
+_PAYMENT_TERMS = (
+    "청구서 발행일로부터 93일 이내 지급",
+    "지급 조건: 청구서 발행일로부터 93일 이내 지급",
+)
+
+# Values and quotes taken verbatim from backend/seed so the deterministic mock
+# survives the Document Agent's source-evidence validation: every quote must be
+# findable on the PDF page and must support the extracted value.
+SEED_DOCUMENT_FACTS: dict[DocumentType, dict[str, tuple[object, str]]] = {
+    DocumentType.INVOICE: {
+        "invoiceNumber": ("INV-2026-0001", "인보이스 번호: INV-2026-0001"),
+        "supplierName": _SUPPLIER,
+        "buyerName": _BUYER,
+        "contractNumber": ("CT-2026-0007", "계약번호: CT-2026-0007"),
+        "purchaseOrderNumber": ("PO-2026-1001", "발주번호: PO-2026-1001"),
+        "currency": _CURRENCY,
+        "totalAmount": ("20000000", "공급가액 합계: 20,000,000 KRW"),
+        "issueDate": ("2026-07-29", "발행일: 2026-07-29"),
+        "dueDate": ("2026-10-30", "지급 만기일: 2026-10-30"),
+        "itemName": _ITEM,
+        "quantity": _QUANTITY,
+        "unitPrice": _UNIT_PRICE,
+        "paymentTerms": _PAYMENT_TERMS,
+        "deliveryCompleted": (True, "납품 완료 여부: 완료"),
+    },
+    DocumentType.CONTRACT: {
+        "supplierName": _SUPPLIER,
+        "buyerName": _BUYER,
+        "contractNumber": ("CT-2026-0007", "계약번호: CT-2026-0007"),
+        "currency": _CURRENCY,
+        "itemName": ("정밀 가공 부품", "계약 품목: 정밀 가공 부품"),
+        "unitPrice": ("200000", "계약 단가: 200,000 KRW"),
+        "paymentTerms": (
+            "청구서 발행일로부터 93일 이내 지급",
+            "대금 지급 조건: 청구서 발행일로부터 93일 이내 지급",
+        ),
+    },
+    DocumentType.PURCHASE_ORDER: {
+        "supplierName": _SUPPLIER,
+        "buyerName": _BUYER,
+        "contractNumber": ("CT-2026-0007", "계약번호: CT-2026-0007"),
+        "purchaseOrderNumber": ("PO-2026-1001", "발주번호: PO-2026-1001"),
+        "currency": _CURRENCY,
+        "totalAmount": ("20000000", "발주 금액: 20,000,000 KRW"),
+        "issueDate": ("2026-07-01", "발주일: 2026-07-01"),
+        "itemName": _ITEM,
+        "quantity": _QUANTITY,
+        "unitPrice": _UNIT_PRICE,
+    },
+    DocumentType.DELIVERY_PROOF: {
+        "supplierName": _SUPPLIER,
+        "buyerName": _BUYER,
+        "purchaseOrderNumber": ("PO-2026-1001", "발주번호: PO-2026-1001"),
+        "currency": _CURRENCY,
+        "totalAmount": ("20000000", "공급가액 합계: 20,000,000 KRW"),
+        "issueDate": ("2026-07-24", "발행일: 2026-07-24"),
+        "itemName": _ITEM,
+        "quantity": _QUANTITY,
+        "unitPrice": _UNIT_PRICE,
+        "deliveryCompleted": (True, "인수 확인: 발주 수량 전량 납품 완료"),
+    },
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,78 +217,29 @@ class MockAgentGateway:
         invoice_id: str,
         documents: list[AgentDocument],
     ) -> dict[str, object]:
-        now = datetime.now(UTC)
-        year = now.year
-        issue_date = now.date().isoformat()
-        due_date = (now + timedelta(days=90)).date().isoformat()
-        shared = {
-            "supplierName": "Alpha Components",
-            "buyerName": "Prime Mobility",
-            "currency": "KRW",
-            "totalAmount": "20000000",
-        }
-        values_by_type: dict[DocumentType, dict[str, object]] = {
-            DocumentType.INVOICE: {
-                **shared,
-                "invoiceNumber": invoice_id,
-                "issueDate": issue_date,
-                "dueDate": due_date,
-            },
-            DocumentType.CONTRACT: {
-                **shared,
-                "contractNumber": f"PM-SUPPLY-{year}-04",
-                "paymentTerms": "Invoice due date settlement",
-            },
-            DocumentType.PURCHASE_ORDER: {
-                **shared,
-                "purchaseOrderNumber": f"PO-{89340 + int(invoice_id[-3:])}",
-                "itemName": "Demo components",
-                "quantity": "100",
-                "unitPrice": "200000",
-            },
-            DocumentType.DELIVERY_PROOF: {
-                "supplierName": "Alpha Components",
-                "buyerName": "Prime Mobility",
-                "itemName": "Demo components",
-                "quantity": "100",
-                "deliveryCompleted": True,
-            },
-        }
+        del invoice_id
         agent_type = {
             DocumentType.INVOICE: "INVOICE",
             DocumentType.CONTRACT: "CONTRACT",
             DocumentType.PURCHASE_ORDER: "PURCHASE_ORDER",
             DocumentType.DELIVERY_PROOF: "DELIVERY_EVIDENCE",
         }
-        all_fields = [
-            "invoiceNumber",
-            "supplierName",
-            "buyerName",
-            "purchaseOrderNumber",
-            "contractNumber",
-            "currency",
-            "totalAmount",
-            "issueDate",
-            "dueDate",
-            "itemName",
-            "quantity",
-            "unitPrice",
-            "paymentTerms",
-            "deliveryCompleted",
-        ]
         analyzed_documents: list[dict[str, object]] = []
         for document in documents:
-            populated = values_by_type[document.type]
-            extracted = {field: populated.get(field) for field in all_fields}
+            populated = SEED_DOCUMENT_FACTS[document.type]
+            extracted = {
+                field: populated[field][0] if field in populated else None
+                for field in SEED_DOCUMENT_FIELDS
+            }
             evidence = [
                 {
                     "evidenceId": f"{document.document_id}-{field}",
                     "documentId": document.document_id,
                     "page": 1,
                     "field": field,
-                    "quote": str(value),
+                    "quote": quote,
                 }
-                for field, value in populated.items()
+                for field, (_, quote) in populated.items()
             ]
             analyzed_documents.append(
                 {
@@ -211,7 +247,9 @@ class MockAgentGateway:
                     "documentType": agent_type[document.type],
                     "extractedData": extracted,
                     "missingFields": [
-                        field for field in all_fields if extracted[field] is None
+                        field
+                        for field in SEED_DOCUMENT_FIELDS
+                        if extracted[field] is None
                     ],
                     "sourceEvidence": evidence,
                 }
