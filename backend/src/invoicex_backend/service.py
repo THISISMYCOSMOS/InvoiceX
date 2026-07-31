@@ -51,6 +51,7 @@ from invoicex_backend.policy import (
     TreasuryMandatePolicy,
 )
 from invoicex_backend.solana import SolanaGateway
+from invoicex_backend.state_store import JsonStateStore, PersistedState
 from invoicex_backend.storage import LocalDocumentStorage
 
 logger = logging.getLogger(__name__)
@@ -79,22 +80,29 @@ class InvoiceService:
         agent_gateway: AgentGateway,
         solana_gateway: SolanaGateway,
         storage: LocalDocumentStorage,
+        state_store: JsonStateStore,
     ) -> None:
         self._settings = settings
         self._agents = agent_gateway
         self._solana = solana_gateway
         self._storage = storage
+        self._state_store = state_store
         self._risk_policy = DeterministicRiskPolicy()
         self._mandate_policy = TreasuryMandatePolicy(settings)
-        self._invoices: dict[str, Invoice] = {}
-        self._agent_analyses: dict[str, DocumentAnalysisResult] = {}
-        self._verifications: dict[str, Verification] = {}
         self._invoice_locks: dict[str, asyncio.Lock] = {}
         self._sequence_lock = asyncio.Lock()
-        self._invoice_sequence = 0
-        self._verification_sequence = 0
-        self._document_sequence = 0
-        self._trace_sequence = 0
+        self._persist_lock = asyncio.Lock()
+
+        restored = state_store.load()
+        self._invoices: dict[str, Invoice] = restored.invoices
+        self._agent_analyses: dict[str, DocumentAnalysisResult] = (
+            restored.agent_analyses
+        )
+        self._verifications: dict[str, Verification] = restored.verifications
+        self._invoice_sequence = restored.invoice_sequence
+        self._verification_sequence = restored.verification_sequence
+        self._document_sequence = restored.document_sequence
+        self._trace_sequence = restored.trace_sequence
 
     async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
         self._validate_uploads(uploads)
@@ -159,9 +167,11 @@ class InvoiceService:
             )
         except AgentError as exc:
             invoice.status = InvoiceStatus.ERROR
+            await self._persist()
             raise IntegrationError(f"Gemini 문서 분석에 실패했습니다: {exc}") from exc
         except OSError as exc:
             invoice.status = InvoiceStatus.ERROR
+            await self._persist()
             raise IntegrationError("업로드 문서를 저장하지 못했습니다.") from exc
 
         self._agent_analyses[invoice_id] = agent_result
@@ -179,6 +189,7 @@ class InvoiceService:
             status="COMPLETED",
             summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
         )
+        await self._persist()
         return self._copy_invoice(invoice)
 
     def list_invoices(self) -> list[Invoice]:
@@ -217,6 +228,7 @@ class InvoiceService:
             self._verifications[verification_id] = verification
             invoice.verification_id = verification_id
             invoice.status = InvoiceStatus.BUYER_REVIEW
+            await self._persist()
             return self._copy_invoice(invoice)
 
     def list_verifications(self) -> list[Verification]:
@@ -256,6 +268,7 @@ class InvoiceService:
                 risk_result = await self._agents.analyze_risk(risk_request)
             except AgentError as exc:
                 invoice.status = InvoiceStatus.ERROR
+                await self._persist()
                 raise IntegrationError(f"Gemini Risk 설명 생성에 실패했습니다: {exc}") from exc
 
             reasons = {
@@ -300,6 +313,7 @@ class InvoiceService:
                 status="COMPLETED",
                 summary=risk_result.risk_passport.summary,
             )
+            await self._persist()
             return self._copy_invoice(invoice)
 
     async def respond_to_offer(
@@ -327,9 +341,11 @@ class InvoiceService:
                 )
             if response is OfferResponse.DECLINE:
                 invoice.status = InvoiceStatus.BLOCKED
+                await self._persist()
                 return self._copy_invoice(invoice), False
 
             invoice.status = InvoiceStatus.FUNDING
+            await self._persist()
             return self._copy_invoice(invoice), True
 
     async def complete_funding(self, invoice_id: str) -> None:
@@ -347,11 +363,13 @@ class InvoiceService:
                     status="FAILED",
                     summary=f"AP2 Mandate 차단: {rejection}",
                 )
+                await self._persist()
                 return
 
             passport = invoice.risk_passport
             if passport is None or passport.suggested_advance_amount_usdc is None:
                 invoice.status = InvoiceStatus.BLOCKED
+                await self._persist()
                 return
             amount = passport.suggested_advance_amount_usdc
             try:
@@ -376,6 +394,7 @@ class InvoiceService:
                     summary="Solana 조기정산금 전송에 실패했습니다.",
                 )
                 logger.error("Funding failed for %s: %s", invoice.id, exc)
+                await self._persist()
                 return
 
             invoice.funding_transaction = self._transaction(
@@ -392,6 +411,7 @@ class InvoiceService:
                     status="COMPLETED",
                     summary="AP2 Mandate 검증과 Solana Devnet USDC 전송을 완료했습니다.",
                 )
+            await self._persist()
 
     async def settle_mock_payment(self, invoice_id: str) -> Invoice:
         async with self._invoice_lock(invoice_id):
@@ -426,6 +446,7 @@ class InvoiceService:
                 )
             except IntegrationError:
                 invoice.status = InvoiceStatus.ERROR
+                await self._persist()
                 raise
 
             invoice.settlement_transaction = self._transaction(
@@ -451,6 +472,7 @@ class InvoiceService:
                         "KRW 입금 확인과 USDC 정산 분배를 완료했습니다."
                     ),
                 )
+            await self._persist()
             return self._copy_invoice(invoice)
 
     def investor_dashboard(self) -> InvestorDashboard:
@@ -488,6 +510,26 @@ class InvoiceService:
     @property
     def settings(self) -> BackendSettings:
         return self._settings
+
+    async def _persist(self) -> None:
+        """Snapshot the aggregate state after a mutation, off the event loop.
+
+        Each snapshot covers every invoice, so building and writing must stay
+        serialized: otherwise a slower writer could replace a newer snapshot
+        with its own stale one.
+        """
+
+        async with self._persist_lock:
+            snapshot = PersistedState(
+                invoices=self._invoices,
+                verifications=self._verifications,
+                agent_analyses=self._agent_analyses,
+                invoice_sequence=self._invoice_sequence,
+                verification_sequence=self._verification_sequence,
+                document_sequence=self._document_sequence,
+                trace_sequence=self._trace_sequence,
+            )
+            await asyncio.to_thread(self._state_store.save, snapshot)
 
     async def _reserve_invoice_ids(self, document_count: int) -> tuple[str, list[str]]:
         async with self._sequence_lock:

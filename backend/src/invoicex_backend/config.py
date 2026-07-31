@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +32,19 @@ class BackendSettings(BaseSettings):
         default=Path("uploads"),
         validation_alias="UPLOAD_DIRECTORY",
     )
+    state_file: Path | None = Field(
+        default=None,
+        validation_alias="STATE_FILE",
+    )
+
+    @field_validator("state_file", mode="before")
+    @classmethod
+    def blank_state_file_means_unset(cls, value: object) -> object:
+        """`STATE_FILE=` in a .env must not resolve to the working directory."""
+
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
     max_document_size_bytes: int = Field(
         default=20 * 1024 * 1024,
         validation_alias="MAX_DOCUMENT_SIZE_BYTES",
@@ -138,6 +151,13 @@ class BackendSettings(BaseSettings):
                     "SOLANA_MODE=privy requires configuration: " + ", ".join(missing)
                 )
         return self
+
+    def resolved_state_file(self) -> Path:
+        """Default the snapshot next to the uploads so each deployment stays isolated."""
+
+        if self.state_file is not None:
+            return self.state_file
+        return self.upload_directory.parent / "state.json"
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
         if self.agent_mode == "auto":

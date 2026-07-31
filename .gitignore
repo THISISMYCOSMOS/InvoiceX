@@ -18,3 +18,5 @@ tmp/
 backend/.env
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/state.json
+backend/state.json.*

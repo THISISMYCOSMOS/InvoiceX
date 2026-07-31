@@ -23,6 +23,7 @@ from invoicex_backend.errors import (
 )
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import create_solana_gateway
+from invoicex_backend.state_store import JsonStateStore
 from invoicex_backend.storage import LocalDocumentStorage
 
 
@@ -33,16 +34,15 @@ def create_app(
     """Create the API and allow dependency injection for contract tests."""
 
     resolved_settings = settings or BackendSettings()
+    storage = LocalDocumentStorage(resolved_settings)
     if service is None:
-        storage = LocalDocumentStorage(resolved_settings)
         service = InvoiceService(
             settings=resolved_settings,
             agent_gateway=create_agent_gateway(resolved_settings),
             solana_gateway=create_solana_gateway(resolved_settings),
             storage=storage,
+            state_store=JsonStateStore(resolved_settings.resolved_state_file()),
         )
-    else:
-        storage = LocalDocumentStorage(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
