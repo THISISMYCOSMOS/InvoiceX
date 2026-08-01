@@ -40,10 +40,16 @@ function fromBase64(value: string): Uint8Array {
   return Uint8Array.from(window.atob(value), (character) => character.charCodeAt(0));
 }
 
+function toBase64(value: Uint8Array): string {
+  let binary = "";
+  value.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return window.btoa(binary);
+}
+
 export function InvestorSetupPage() {
   const { t } = useLanguage();
   const { connection } = useConnection();
-  const { connected, publicKey, signMessage, sendTransaction } = useWallet();
+  const { connected, publicKey, signMessage, signTransaction, sendTransaction } = useWallet();
   const [policy, setPolicy] = useState(defaultPolicy);
   const [depositAmount, setDepositAmount] = useState("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,18 +128,46 @@ export function InvestorSetupPage() {
       const ownerWalletAddress = publicKey.toBase58();
       const prepared = await rwaApi.prepareVaultDeposit(ownerWalletAddress, amountUsdc);
       const transaction = VersionedTransaction.deserialize(fromBase64(prepared.transactionBase64));
-      const signature = await sendTransaction(transaction, connection, {
-        preflightCommitment: "confirmed",
-      });
-      await connection.confirmTransaction(signature, "confirmed");
-      const vault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, signature);
+      const vault = prepared.sponsored
+        ? await sponsorVaultDeposit(transaction, prepared.sponsorDepositId, ownerWalletAddress)
+        : await submitStandardVaultDeposit(transaction, amountUsdc, ownerWalletAddress);
       setVaultBalance(vault.availableUsdc);
-      setSuccess(t("The deposit was confirmed. Treasury Agent will evaluate eligible issued RWAs automatically.", "예치가 확인되었습니다. Treasury Agent가 발행된 RWA를 기준에 따라 자동 평가합니다."));
+      setSuccess(prepared.sponsored
+        ? t("The gasless deposit was confirmed. Treasury Agent will evaluate eligible issued RWAs automatically.", "가스리스 예치가 확인되었습니다. Treasury Agent가 발행된 RWA를 기준에 따라 자동 평가합니다.")
+        : t("The deposit was confirmed. Treasury Agent will evaluate eligible issued RWAs automatically.", "예치가 확인되었습니다. Treasury Agent가 발행된 RWA를 기준에 따라 자동 평가합니다."));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Vault deposit failed.", "Agent Vault 예치에 실패했습니다."));
     } finally {
       setIsDepositing(false);
     }
+  };
+
+  const submitStandardVaultDeposit = async (
+    transaction: VersionedTransaction,
+    amountUsdc: number,
+    ownerWalletAddress: string,
+  ) => {
+    const signature = await sendTransaction(transaction, connection, {
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(signature, "confirmed");
+    return rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, signature);
+  };
+
+  const sponsorVaultDeposit = async (
+    transaction: VersionedTransaction,
+    sponsorDepositId: string | null,
+    ownerWalletAddress: string,
+  ) => {
+    if (!signTransaction || !sponsorDepositId) {
+      throw new Error(t("This wallet does not support gasless transaction signing.", "이 지갑은 가스리스 트랜잭션 서명을 지원하지 않습니다."));
+    }
+    const signedTransaction = await signTransaction(transaction);
+    return rwaApi.sponsorVaultDeposit(
+      ownerWalletAddress,
+      sponsorDepositId,
+      toBase64(signedTransaction.serialize()),
+    );
   };
 
   return (

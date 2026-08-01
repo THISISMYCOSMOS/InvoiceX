@@ -53,6 +53,20 @@ def test_explicit_privy_mode_requires_complete_configuration() -> None:
         )
 
 
+def test_gasless_mode_requires_a_separate_privy_sponsor_wallet() -> None:
+    with pytest.raises(ValidationError, match="GASLESS_ENABLED"):
+        BackendSettings(
+            _env_file=None,
+            SOLANA_MODE="privy",
+            GASLESS_ENABLED=True,
+            PRIVY_APP_ID="app-id",
+            PRIVY_APP_SECRET="app-secret",
+            PRIVY_TREASURY_WALLET_ID="treasury",
+            PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+            PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+        )
+
+
 def test_direct_mode_requires_keys_and_selects_direct_when_configured() -> None:
     with pytest.raises(ValidationError, match="SOLANA_MODE=direct"):
         BackendSettings(_env_file=None, SOLANA_MODE="direct")

@@ -31,6 +31,7 @@ from invoicex_backend.models import (
     PrepareMandateRequest,
     PrepareVaultDepositRequest,
     SaveSupplierWalletRequest,
+    SponsorVaultDepositRequest,
     UploadedDocument,
     VaultBalance,
     VaultDepositPreparation,
@@ -320,7 +321,27 @@ async def prepare_vault_deposit(
         transaction_base64=prepared.transaction_base64,
         vault_address=prepared.vault_address,
         stablecoin_mint_address=prepared.stablecoin_mint_address,
+        sponsored=prepared.sponsored,
+        sponsor_deposit_id=prepared.sponsor_deposit_id,
+        sponsor_wallet_address=prepared.sponsor_wallet_address,
     )
+
+
+@router.post(
+    "/investor/vault/deposits/sponsor",
+    response_model=VaultBalance,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="가스리스 Agent Vault 예치 서명 완결",
+)
+async def sponsor_vault_deposit(
+    payload: SponsorVaultDepositRequest,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> VaultBalance:
+    vault = await service.sponsor_vault_deposit(payload)
+    background_tasks.add_task(service.execute_pending_investments)
+    return vault
 
 
 @router.post(

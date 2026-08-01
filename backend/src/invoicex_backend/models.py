@@ -335,12 +335,21 @@ class VaultDepositPreparation(ApiModel):
     transaction_base64: str
     vault_address: str
     stablecoin_mint_address: str
+    sponsored: bool = False
+    sponsor_deposit_id: str | None = None
+    sponsor_wallet_address: str | None = None
 
 
 class ConfirmVaultDepositRequest(ApiModel):
     owner_wallet_address: str
     amount_usdc: int = Field(gt=0)
     signature: str
+
+
+class SponsorVaultDepositRequest(ApiModel):
+    owner_wallet_address: str
+    sponsor_deposit_id: str
+    signed_transaction_base64: str
 
 
 class InvestorDashboard(ApiModel):

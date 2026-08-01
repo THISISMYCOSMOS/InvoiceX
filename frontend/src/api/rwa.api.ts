@@ -21,6 +21,9 @@ interface VaultDepositPreparation {
   transactionBase64: string;
   vaultAddress: string;
   stablecoinMintAddress: string;
+  sponsored: boolean;
+  sponsorDepositId: string | null;
+  sponsorWalletAddress: string | null;
 }
 
 interface VaultBalance {
@@ -89,6 +92,18 @@ export const rwaApi = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ownerWalletAddress, amountUsdc, signature }),
+    });
+  },
+
+  async sponsorVaultDeposit(
+    ownerWalletAddress: string,
+    sponsorDepositId: string,
+    signedTransactionBase64: string,
+  ): Promise<VaultBalance> {
+    return request<VaultBalance>("/investor/vault/deposits/sponsor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerWalletAddress, sponsorDepositId, signedTransactionBase64 }),
     });
   },
 };

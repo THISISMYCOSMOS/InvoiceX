@@ -221,6 +221,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/investor/mandates",
         "/api/v1/investor/vault",
         "/api/v1/investor/vault/deposits/prepare",
+        "/api/v1/investor/vault/deposits/sponsor",
         "/api/v1/investor/vault/deposits/confirm",
         "/api/v1/supplier/wallet",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",

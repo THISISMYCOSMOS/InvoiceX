@@ -78,6 +78,16 @@ class SolanaGateway(Protocol):
         self, *, signature: str, owner_wallet_address: str, amount_usdc: int
     ) -> bool: ...
 
+    async def sponsor_vault_deposit(
+        self,
+        *,
+        owner_wallet_address: str,
+        amount_usdc: int,
+        prepared_transaction_base64: str,
+        signed_transaction_base64: str,
+        reference_id: str,
+    ) -> ChainTransferResult: ...
+
     @property
     def vault_address(self) -> str: ...
 
@@ -100,6 +110,9 @@ class PreparedVaultDeposit:
     transaction_base64: str
     vault_address: str
     stablecoin_mint_address: str
+    sponsored: bool = False
+    sponsor_deposit_id: str | None = None
+    sponsor_wallet_address: str | None = None
 
 
 class MockSolanaGateway:
@@ -195,6 +208,9 @@ class MockSolanaGateway:
         self, *, signature: str, owner_wallet_address: str, amount_usdc: int
     ) -> bool:
         return bool(signature and owner_wallet_address and amount_usdc > 0)
+
+    async def sponsor_vault_deposit(self, **_: Any) -> ChainTransferResult:
+        raise IntegrationError("가스리스 예치는 Privy Devnet 설정 후 사용할 수 있습니다.")
 
 
 class DirectSolanaGateway:
@@ -460,6 +476,9 @@ class DirectSolanaGateway:
         )
         return destination_has_expected_balance and has_expected_transfer
 
+    async def sponsor_vault_deposit(self, **_: Any) -> ChainTransferResult:
+        raise IntegrationError("가스리스 예치는 Privy Sponsor 지갑이 필요합니다.")
+
     async def _send_and_confirm(
         self, *, instructions: list[Any], signers: list[Keypair], from_address: str, to_address: str
     ) -> ChainTransferResult:
@@ -713,12 +732,17 @@ class PrivySolanaGateway:
     ) -> PreparedVaultDeposit:
         owner = Pubkey.from_string(owner_wallet_address)
         treasury = Pubkey.from_string(await self._treasury_address())
+        sponsor = (
+            Pubkey.from_string(await self._sponsor_address())
+            if self._settings.gasless_enabled
+            else owner
+        )
         mint = Pubkey.from_string(self.stablecoin_mint_address)
         source = get_associated_token_address(owner, mint)
         destination = get_associated_token_address(treasury, mint)
         instructions = [
             create_idempotent_associated_token_account(
-                payer=owner,
+                payer=sponsor,
                 owner=treasury,
                 mint=mint,
             ),
@@ -734,11 +758,58 @@ class PrivySolanaGateway:
                 )
             ),
         ]
-        transaction = await self._unsigned_transaction(payer=owner, instructions=instructions)
+        transaction = await self._unsigned_transaction(payer=sponsor, instructions=instructions)
         return PreparedVaultDeposit(
             transaction_base64=base64.b64encode(bytes(transaction)).decode("ascii"),
             vault_address=str(treasury),
             stablecoin_mint_address=self.stablecoin_mint_address,
+            sponsored=self._settings.gasless_enabled,
+            sponsor_wallet_address=str(sponsor) if self._settings.gasless_enabled else None,
+        )
+
+    async def sponsor_vault_deposit(
+        self,
+        *,
+        owner_wallet_address: str,
+        amount_usdc: int,
+        prepared_transaction_base64: str,
+        signed_transaction_base64: str,
+        reference_id: str,
+    ) -> ChainTransferResult:
+        if not self._settings.gasless_enabled:
+            raise IntegrationError("가스리스 예치가 활성화되어 있지 않습니다.")
+        try:
+            expected = VersionedTransaction.from_bytes(
+                base64.b64decode(prepared_transaction_base64, validate=True)
+            )
+            submitted = VersionedTransaction.from_bytes(
+                base64.b64decode(signed_transaction_base64, validate=True)
+            )
+        except ValueError as exc:
+            raise IntegrationError("가스리스 예치 서명 트랜잭션 형식이 올바르지 않습니다.") from exc
+        if bytes(expected.message) != bytes(submitted.message):
+            raise IntegrationError(
+                "승인된 Agent Vault 예치 내용과 서명 트랜잭션이 일치하지 않습니다."
+            )
+        sponsor = await self._sponsor_address()
+        if str(submitted.message.account_keys[0]) != sponsor:
+            raise IntegrationError("가스리스 수수료 지갑이 올바르지 않습니다.")
+        owner = Pubkey.from_string(owner_wallet_address)
+        try:
+            owner_index = list(submitted.message.account_keys).index(owner)
+            owner_signature = submitted.signatures[owner_index]
+        except ValueError as exc:
+            raise IntegrationError("투자자 지갑 서명이 예치 트랜잭션에 없습니다.") from exc
+        signature_is_valid = owner_signature.verify(owner, to_bytes_versioned(submitted.message))
+        if owner_signature == Signature.default() or not signature_is_valid:
+            raise IntegrationError("투자자 지갑 서명을 검증하지 못했습니다.")
+        if amount_usdc > self._settings.gasless_deposit_max_usdc:
+            raise IntegrationError("가스리스 예치 한도를 초과했습니다.")
+        return await self._sign_and_send(
+            wallet_id=self._settings.privy_sponsor_wallet_id or "",
+            transaction=bytes(submitted),
+            reference_id=reference_id,
+            from_address=sponsor,
         )
 
     async def verify_vault_deposit(
@@ -898,6 +969,20 @@ class PrivySolanaGateway:
         actual = await self._wallet_address(self._settings.privy_treasury_wallet_id or "")
         if actual != configured:
             raise IntegrationError("설정된 Privy Treasury 주소와 지갑 주소가 일치하지 않습니다.")
+        return actual
+
+    async def _sponsor_address(self) -> str:
+        configured = self._settings.privy_sponsor_wallet_address
+        wallet_id = self._settings.privy_sponsor_wallet_id
+        if not configured or not wallet_id:
+            raise IntegrationError("Privy Sponsor 지갑이 설정되지 않았습니다.")
+        try:
+            Pubkey.from_string(configured)
+        except ValueError as exc:
+            raise IntegrationError("Privy Sponsor 공개 주소가 올바르지 않습니다.") from exc
+        actual = await self._wallet_address(wallet_id)
+        if actual != configured:
+            raise IntegrationError("설정된 Privy Sponsor 주소와 지갑 주소가 일치하지 않습니다.")
         return actual
 
     def _require_issuer_wallet_id(self) -> str:

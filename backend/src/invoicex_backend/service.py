@@ -7,7 +7,9 @@ import hashlib
 import json
 import logging
 import re
+import secrets
 from collections.abc import Callable
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
@@ -50,6 +52,7 @@ from invoicex_backend.models import (
     RiskPassport,
     RwaAsset,
     Settlement,
+    SponsorVaultDepositRequest,
     TransactionStatus,
     UploadedDocument,
     VaultBalance,
@@ -77,6 +80,14 @@ TraceSource = Literal[
 ]
 TraceTarget = Literal["RISK_AGENT", "TREASURY_AGENT", "SETTLEMENT_AGENT"]
 TraceStatus = Literal["SUBMITTED", "WORKING", "COMPLETED", "FAILED"]
+
+
+@dataclass(frozen=True, slots=True)
+class PendingSponsoredDeposit:
+    owner_wallet_address: str
+    amount_usdc: int
+    prepared_transaction_base64: str
+    expires_at: datetime
 
 
 class InvoiceService:
@@ -107,6 +118,8 @@ class InvoiceService:
         self._verification_sequence = 0
         self._document_sequence = 0
         self._trace_sequence = 0
+        self._sponsored_deposit_intents: dict[str, PendingSponsoredDeposit] = {}
+        self._sponsored_deposit_lock = asyncio.Lock()
 
     async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
         self._validate_uploads(uploads)
@@ -274,8 +287,49 @@ class InvoiceService:
 
     async def prepare_vault_deposit(self, *, owner_wallet_address: str, amount_usdc: int):
         self._validate_wallet_address(owner_wallet_address)
-        return await self._solana.prepare_vault_deposit(
+        prepared = await self._solana.prepare_vault_deposit(
             owner_wallet_address=owner_wallet_address, amount_usdc=amount_usdc
+        )
+        if not prepared.sponsored:
+            return prepared
+        if amount_usdc > self._settings.gasless_deposit_max_usdc:
+            raise StateConflictError(
+                "가스리스 예치는 최대 "
+                f"{self._settings.gasless_deposit_max_usdc} USDC까지 가능합니다."
+            )
+        sponsor_deposit_id = secrets.token_urlsafe(24)
+        async with self._sponsored_deposit_lock:
+            self._sponsored_deposit_intents[sponsor_deposit_id] = PendingSponsoredDeposit(
+                owner_wallet_address=owner_wallet_address,
+                amount_usdc=amount_usdc,
+                prepared_transaction_base64=prepared.transaction_base64,
+                expires_at=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        return replace(prepared, sponsor_deposit_id=sponsor_deposit_id)
+
+    async def sponsor_vault_deposit(self, request: SponsorVaultDepositRequest) -> VaultBalance:
+        self._validate_wallet_address(request.owner_wallet_address)
+        async with self._sponsored_deposit_lock:
+            intent = self._sponsored_deposit_intents.pop(request.sponsor_deposit_id, None)
+        if intent is None or intent.expires_at < datetime.now(UTC):
+            raise StateConflictError(
+                "가스리스 예치 요청이 만료되었거나 이미 처리되었습니다. 다시 시도해 주세요."
+            )
+        if intent.owner_wallet_address != request.owner_wallet_address:
+            raise StateConflictError("가스리스 예치 요청의 지갑 주소가 일치하지 않습니다.")
+        result = await self._solana.sponsor_vault_deposit(
+            owner_wallet_address=intent.owner_wallet_address,
+            amount_usdc=intent.amount_usdc,
+            prepared_transaction_base64=intent.prepared_transaction_base64,
+            signed_transaction_base64=request.signed_transaction_base64,
+            reference_id=f"gasless-deposit-{request.sponsor_deposit_id[:20]}",
+        )
+        return await self.confirm_vault_deposit(
+            ConfirmVaultDepositRequest(
+                owner_wallet_address=intent.owner_wallet_address,
+                amount_usdc=intent.amount_usdc,
+                signature=result.signature,
+            )
         )
 
     async def confirm_vault_deposit(self, request: ConfirmVaultDepositRequest) -> VaultBalance:

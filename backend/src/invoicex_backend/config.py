@@ -73,6 +73,20 @@ class BackendSettings(BaseSettings):
         validation_alias="PRIVY_SETTLEMENT_WALLET_ID",
     )
     privy_sponsor: bool = Field(default=True, validation_alias="PRIVY_SPONSOR")
+    gasless_enabled: bool = Field(default=False, validation_alias="GASLESS_ENABLED")
+    privy_sponsor_wallet_id: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_SPONSOR_WALLET_ID",
+    )
+    privy_sponsor_wallet_address: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_SPONSOR_WALLET_ADDRESS",
+    )
+    gasless_deposit_max_usdc: int = Field(
+        default=1,
+        validation_alias="GASLESS_DEPOSIT_MAX_USDC",
+        gt=0,
+    )
     privy_api_base_url: str = Field(
         default="https://api.privy.io",
         validation_alias="PRIVY_API_BASE_URL",
@@ -172,6 +186,12 @@ class BackendSettings(BaseSettings):
             missing = self.missing_direct_solana_configuration()
             if missing:
                 raise ValueError("SOLANA_MODE=direct requires configuration: " + ", ".join(missing))
+        if self.gasless_enabled:
+            if self.resolved_solana_mode() != "privy":
+                raise ValueError("GASLESS_ENABLED requires a complete Privy Solana configuration")
+            missing = self.missing_gasless_configuration()
+            if missing:
+                raise ValueError("GASLESS_ENABLED requires configuration: " + ", ".join(missing))
         return self
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
@@ -207,6 +227,13 @@ class BackendSettings(BaseSettings):
             for name, value in values.items()
             if not self._non_blank(value) or str(value).startswith("DEMO_")
         ]
+
+    def missing_gasless_configuration(self) -> list[str]:
+        values = {
+            "PRIVY_SPONSOR_WALLET_ID": self.privy_sponsor_wallet_id,
+            "PRIVY_SPONSOR_WALLET_ADDRESS": self.privy_sponsor_wallet_address,
+        }
+        return [name for name, value in values.items() if not self._non_blank(value)]
 
     @staticmethod
     def _non_blank(value: str | None) -> bool:
