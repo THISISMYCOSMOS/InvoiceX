@@ -15,5 +15,5 @@ test("progresses the demo invoice from analysis to settled", async () => {
   const invoice = await adapter.getInvoice("INV-2026-001");
 
   expect(invoice.status).toBe("SETTLED");
-  expect(invoice.settlement?.investorSettlementUsdc).toBe(19_800);
+  expect(invoice.settlement?.investorSettlementUsdc).toBe(1);
 });

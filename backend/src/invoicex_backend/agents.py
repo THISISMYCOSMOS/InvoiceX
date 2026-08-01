@@ -139,7 +139,7 @@ class MockAgentGateway:
             "supplierName": "Alpha Components",
             "buyerName": "Prime Mobility",
             "currency": "KRW",
-            "totalAmount": "20000000",
+            "totalAmount": "3000",
         }
         values_by_type: dict[DocumentType, dict[str, object]] = {
             DocumentType.INVOICE: {
@@ -158,7 +158,7 @@ class MockAgentGateway:
                 "purchaseOrderNumber": f"PO-{89340 + int(invoice_id[-3:])}",
                 "itemName": "Demo components",
                 "quantity": "100",
-                "unitPrice": "200000",
+                "unitPrice": "30",
             },
             DocumentType.DELIVERY_PROOF: {
                 "supplierName": "Alpha Components",

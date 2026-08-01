@@ -91,7 +91,9 @@ export function InvestorSetupPage() {
       const ownerWalletAddress = publicKey.toBase58();
       const prepared = await rwaApi.prepareVaultDeposit(ownerWalletAddress, amountUsdc);
       const transaction = VersionedTransaction.deserialize(fromBase64(prepared.transactionBase64));
-      const signature = await sendTransaction(transaction, connection);
+      const signature = await sendTransaction(transaction, connection, {
+        preflightCommitment: "confirmed",
+      });
       await connection.confirmTransaction(signature, "confirmed");
       const vault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, signature);
       setVaultBalance(vault.availableUsdc);

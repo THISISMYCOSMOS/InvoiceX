@@ -96,6 +96,7 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
         PRIVY_APP_ID="app-id",
         PRIVY_APP_SECRET="app-secret",
         PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
         PRIVY_SETTLEMENT_WALLET_ID="settlement",
         PRIVY_API_BASE_URL="https://privy.test",
         SOLANA_RPC_URL="https://rpc.test",
@@ -123,6 +124,79 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
     encoded = submitted["params"]["transaction"]  # type: ignore[index]
     transaction = VersionedTransaction.from_bytes(base64.b64decode(encoded))
     assert len(transaction.message.instructions) == 4
+
+
+@pytest.mark.asyncio
+async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
+    tmp_path: Path,
+) -> None:
+    treasury = str(Pubkey.new_unique())
+    issuer = str(Pubkey.new_unique())
+    supplier = str(Pubkey.new_unique())
+    signature = str(Signature.from_bytes(bytes(reversed(range(64)))))
+    methods: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        if request.url.host == "privy.test" and request.method == "GET":
+            address = issuer if request.url.path.endswith("/issuer") else treasury
+            return httpx.Response(200, json={"chain_type": "solana", "address": address})
+        if request.url.host == "privy.test":
+            method = payload["method"]
+            methods.append((request.url.path, method))
+            if method == "signTransaction":
+                return httpx.Response(
+                    200,
+                    json={
+                        "data": {
+                            "encoding": "base64",
+                            "signed_transaction": payload["params"]["transaction"],
+                        }
+                    },
+                )
+            return httpx.Response(200, json={"data": {"hash": signature}})
+        if payload["method"] == "getMinimumBalanceForRentExemption":
+            result: object = 1_000_000
+        elif payload["method"] == "getLatestBlockhash":
+            result = {"value": {"blockhash": str(Hash.default())}}
+        elif payload["method"] == "getSignatureStatuses":
+            result = {"value": [{"err": None, "confirmationStatus": "confirmed"}]}
+        else:
+            raise AssertionError(f"unexpected RPC method: {payload['method']}")
+        return httpx.Response(200, json={"jsonrpc": "2.0", "result": result, "id": 1})
+
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="privy",
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_TREASURY_WALLET_ADDRESS=treasury,
+        PRIVY_API_BASE_URL="https://privy.test",
+        SOLANA_RPC_URL="https://rpc.test",
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = PrivySolanaGateway(settings, http_client=client)
+    issued = await gateway.issue_rwa(invoice_id="INV-2026-001")
+    purchase = await gateway.purchase_rwa(
+        invoice_id="INV-2026-001",
+        rwa_mint_address=issued.mint_address,
+        escrow_token_account=issued.escrow_token_account,
+        supplier_wallet_address=supplier,
+        amount_usdc=1,
+    )
+    await client.aclose()
+
+    assert issued.transaction.provider == "PRIVY"
+    assert purchase.provider == "PRIVY"
+    assert methods == [
+        ("/v1/wallets/issuer/rpc", "signAndSendTransaction"),
+        ("/v1/wallets/issuer/rpc", "signTransaction"),
+        ("/v1/wallets/treasury/rpc", "signAndSendTransaction"),
+    ]
 
 
 @pytest.mark.asyncio

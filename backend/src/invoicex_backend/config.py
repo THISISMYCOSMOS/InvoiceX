@@ -64,6 +64,10 @@ class BackendSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("PRIVY_TREASURY_WALLET_ID", "PRIVY_WALLET_ID"),
     )
+    privy_rwa_issuer_wallet_id: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_RWA_ISSUER_WALLET_ID",
+    )
     privy_settlement_wallet_id: str | None = Field(
         default=None,
         validation_alias="PRIVY_SETTLEMENT_WALLET_ID",
@@ -102,6 +106,16 @@ class BackendSettings(BaseSettings):
         gt=0,
         le=120,
     )
+    solana_demo_transfer_amount_usdc: int = Field(
+        default=1,
+        validation_alias="SOLANA_DEMO_TRANSFER_AMOUNT_USDC",
+        ge=1,
+    )
+    demo_krw_per_usdc: int = Field(
+        default=1_500,
+        validation_alias="DEMO_KRW_PER_USDC",
+        ge=1,
+    )
     rwa_database_path: Path = Field(
         default=Path("invoicex-devnet.sqlite3"),
         validation_alias="RWA_DATABASE_PATH",
@@ -125,7 +139,10 @@ class BackendSettings(BaseSettings):
     )
     investor_settlement_wallet_address: str = Field(
         default="DEMO_AGENT_VAULT",
-        validation_alias="INVESTOR_SETTLEMENT_WALLET_ADDRESS",
+        validation_alias=AliasChoices(
+            "PRIVY_TREASURY_WALLET_ADDRESS",
+            "INVESTOR_SETTLEMENT_WALLET_ADDRESS",
+        ),
     )
     platform_fee_wallet_address: str = Field(
         default="DEMO_PLATFORM_FEE_WALLET",
@@ -164,6 +181,8 @@ class BackendSettings(BaseSettings):
 
     def resolved_solana_mode(self) -> Literal["direct", "privy", "mock"]:
         if self.solana_mode == "auto":
+            if not self.missing_privy_configuration():
+                return "privy"
             return "direct" if not self.missing_direct_solana_configuration() else "mock"
         return self.solana_mode
 
@@ -180,10 +199,8 @@ class BackendSettings(BaseSettings):
             "PRIVY_APP_ID": self.privy_app_id,
             "PRIVY_APP_SECRET": self.privy_app_secret,
             "PRIVY_WALLET_ID": self.privy_treasury_wallet_id,
-            "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
-            "SUPPLIER_WALLET_ADDRESS": self.supplier_wallet_address,
+            "PRIVY_RWA_ISSUER_WALLET_ID": self.privy_rwa_issuer_wallet_id,
             "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (self.investor_settlement_wallet_address),
-            "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
         }
         return [
             name

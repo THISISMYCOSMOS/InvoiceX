@@ -10,13 +10,13 @@ export const REQUIRED_DOCUMENT_TYPES: readonly DocumentType[] = [
 ];
 
 export const DEMO_SETTLEMENT = {
-  mockKrwPerUsdc: 1_000,
-  invoiceFaceValueUsdc: 20_000,
+  mockKrwPerUsdc: 1_500,
+  invoiceFaceValueUsdc: 2,
   advanceRateBps: 9_400,
-  supplierAdvanceUsdc: 18_800,
-  investorSettlementUsdc: 19_800,
-  platformFeeUsdc: 200,
-  earlySettlementCostUsdc: 1_200,
+  supplierAdvanceUsdc: 1,
+  investorSettlementUsdc: 1,
+  platformFeeUsdc: 1,
+  earlySettlementCostUsdc: 1,
 } as const;
 
 export const DEMO_INVOICE: Invoice = {
@@ -24,7 +24,7 @@ export const DEMO_INVOICE: Invoice = {
   supplier: { id: "SUPPLIER_ALPHA", name: "Alpha Components", walletAddress: "8xK2...p91Q" },
   buyer: { id: "BUYER_PRIME", name: "Prime Mobility" },
   investor: { id: "INVESTOR_NOVA", name: "Nova Capital", vaultAddress: "7VB...0Qe" },
-  invoiceAmountKrw: 20_000_000,
+  invoiceAmountKrw: 3_000,
   issueDate: "2026-07-29",
   dueDate: "2026-10-30",
   deliveryDate: "2026-07-24",

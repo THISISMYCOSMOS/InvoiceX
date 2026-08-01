@@ -11,6 +11,10 @@ export function EarlySettlementOfferSection({
   const { t } = useLanguage();
   const score = invoice.riskPassport?.riskScore ?? 86;
   const advanceRate = (invoice.riskPassport?.suggestedAdvanceRateBps ?? 9_400) / 100;
+  const expectedProceeds = invoice.riskPassport?.suggestedAdvanceAmountUsdc ?? 1;
+  const faceValueUsdc = Math.round(invoice.invoiceAmountKrw / 1_500);
+  const estimatedCost = Math.max(faceValueUsdc - expectedProceeds, 0);
+  const formatKrw = new Intl.NumberFormat("ko-KR").format(invoice.invoiceAmountKrw);
 
   return (
     <section className="early-offer">
@@ -41,14 +45,13 @@ export function EarlySettlementOfferSection({
         <section className="offer-proceeds-column">
           <article className="offer-proceeds-card">
             <span className="expected-proceeds-chip">{t("EXPECTED PROCEEDS", "예상 수령액")}</span>
-            <h2>18,800 USDC</h2>
-            <p>{t("Estimated at ₩1,000 per USDC.", "1 USDC당 ₩1,000을 적용한 예상치입니다.")}</p>
+            <h2>{expectedProceeds.toLocaleString()} USDC</h2>
+            <p>{t("Estimated at ₩1,500 per USDC.", "1 USDC당 ₩1,500을 적용한 예상치입니다.")}</p>
             <dl>
-              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>₩20,000,000</dd></div>
+              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>₩{formatKrw}</dd></div>
               <div><dt>{t("Advance rate", "선지급률")}</dt><dd>{advanceRate}%</dd></div>
-              <div><dt>{t("Platform fee", "플랫폼 수수료")}</dt><dd>200 USDC</dd></div>
-              <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>1,200 USDC</dd></div>
-              <div><dt>{t("Payment method", "지급 방식")}</dt><dd>USDC · 8xK2...p91Q</dd></div>
+              <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>{estimatedCost.toLocaleString()} USDC</dd></div>
+              <div><dt>{t("Payment method", "지급 방식")}</dt><dd>Circle USDC · Solana Devnet</dd></div>
             </dl>
           </article>
           <p className="offer-disclosure">

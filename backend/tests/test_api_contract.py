@@ -23,7 +23,7 @@ def test_complete_frontend_contract_workflow(
     assert len(invoice["documents"]) == 4
     assert {document["type"] for document in invoice["documents"]} == set(contract_files)
     assert invoice["analysis"]["status"] == "COMPLETED"
-    assert invoice["analysis"]["amountKrw"]["value"] == 20_000_000
+    assert invoice["analysis"]["amountKrw"]["value"] == 3_000
     assert invoice["riskPassport"] is None
     assert invoice["fundingTransaction"] is None
     assert invoice["settlementTransaction"] is None
@@ -66,7 +66,7 @@ def test_complete_frontend_contract_workflow(
     assert offered["riskPassport"]["eligibility"] == "ELIGIBLE"
     assert offered["riskPassport"]["riskScore"] == 86
     assert offered["riskPassport"]["suggestedAdvanceRateBps"] == 9_400
-    assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
+    assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 1
 
     duplicate_confirm = client.post(f"/api/v1/verifications/{verification_id}/confirm")
     assert duplicate_confirm.json()["invoice"]["status"] == "OFFER_READY"
@@ -109,7 +109,7 @@ def test_complete_frontend_contract_workflow(
 
     prepared_deposit = client.post(
         "/api/v1/investor/vault/deposits/prepare",
-        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": 18_800},
+        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": 1},
     )
     assert prepared_deposit.status_code == 200
     assert prepared_deposit.json()["vaultAddress"] == "DEMO_AGENT_VAULT"
@@ -117,7 +117,7 @@ def test_complete_frontend_contract_workflow(
         "/api/v1/investor/vault/deposits/confirm",
         json={
             "ownerWalletAddress": str(investor.pubkey()),
-            "amountUsdc": 18_800,
+            "amountUsdc": 1,
             "signature": "mock-deposit-signature-001",
         },
     )
@@ -126,7 +126,7 @@ def test_complete_frontend_contract_workflow(
     funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert funded["status"] == "FUNDED"
     assert funded["fundingTransaction"]["status"] == "CONFIRMED"
-    assert funded["fundingTransaction"]["amountUsdc"] == 18_800
+    assert funded["fundingTransaction"]["amountUsdc"] == 1
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
     assert funded["rwaAsset"]["status"] == "SOLD"
@@ -143,7 +143,7 @@ def test_complete_frontend_contract_workflow(
 
     dashboard = client.get("/api/v1/investor/dashboard")
     assert dashboard.status_code == 200
-    assert dashboard.json()["outstandingPrincipalUsdc"] == 18_800
+    assert dashboard.json()["outstandingPrincipalUsdc"] == 1
 
     settled_response = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
     assert settled_response.status_code == 200

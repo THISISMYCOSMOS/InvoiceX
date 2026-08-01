@@ -126,7 +126,7 @@ class InvoiceService:
                 name="Nova Capital",
                 vault_address=self._settings.investor_settlement_wallet_address,
             ),
-            invoice_amount_krw=20_000_000,
+            invoice_amount_krw=3_000,
             issue_date=now.date().isoformat(),
             due_date=(now + timedelta(days=90)).date().isoformat(),
             delivery_date=(now - timedelta(days=5)).date().isoformat(),
@@ -352,7 +352,7 @@ class InvoiceService:
             agent_analysis = self._agent_analyses[invoice.id]
             decision = self._risk_policy.evaluate(
                 has_mismatches=bool(agent_analysis.mismatches),
-                face_value_usdc=invoice.invoice_amount_krw // 1_000,
+                face_value_usdc=invoice.invoice_amount_krw // self._settings.demo_krw_per_usdc,
             )
             risk_request = self._risk_request(invoice, agent_analysis, decision)
             try:
@@ -431,10 +431,10 @@ class InvoiceService:
                 self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
             )
             if not supplier_wallet or supplier_wallet.startswith("DEMO_"):
-                if self._solana.mode == "direct":
+                if self._solana.mode != "mock":
                     raise StateConflictError("RWA 발행 전 공급기업 정산 지갑을 연결해 주세요.")
                 supplier_wallet = "DEMO_SUPPLIER_WALLET"
-            if self._solana.mode == "direct":
+            if self._solana.mode != "mock":
                 self._validate_wallet_address(supplier_wallet)
             invoice.supplier.wallet_address = supplier_wallet
             issued = await self._solana.issue_rwa(invoice_id=invoice.id)
@@ -509,7 +509,26 @@ class InvoiceService:
                 status="WORKING",
                 summary="Mandate 기준을 통과해 Agent Vault 자동 매수를 실행합니다.",
             )
-            amount = decision.amount_usdc
+            quoted_amount = decision.amount_usdc
+            amount = (
+                min(quoted_amount, self._settings.solana_demo_transfer_amount_usdc)
+                if self._solana.mode != "mock"
+                else quoted_amount
+            )
+            if amount != quoted_amount:
+                decision = decision.model_copy(
+                    update={
+                        "amount_usdc": amount,
+                        "checks": {
+                            **decision.checks,
+                            "demoTransferCapApplied": True,
+                            "quotedAmountUsdc": quoted_amount,
+                            "onchainAmountUsdc": amount,
+                        },
+                    }
+                )
+                self._repository.save_decision(decision)
+                invoice.agent_decision = decision
             try:
                 result = await self._solana.purchase_rwa(
                     invoice_id=invoice.id,

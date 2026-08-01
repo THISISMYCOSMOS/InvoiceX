@@ -13,20 +13,27 @@ from typing import Any, Protocol
 import httpx
 from solders.hash import Hash
 from solders.keypair import Keypair
-from solders.message import MessageV0
+from solders.message import MessageV0, to_bytes_versioned
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 from solders.system_program import CreateAccountParams, create_account
 from solders.transaction import VersionedTransaction
 from spl.token.constants import MINT_LEN, TOKEN_PROGRAM_ID
 from spl.token.instructions import (
+    AuthorityType,
     create_idempotent_associated_token_account,
     get_associated_token_address,
     initialize_mint,
     mint_to_checked,
+    set_authority,
     transfer_checked,
 )
-from spl.token.models import InitializeMintParams, MintToCheckedParams, TransferCheckedParams
+from spl.token.models import (
+    InitializeMintParams,
+    MintToCheckedParams,
+    SetAuthorityParams,
+    TransferCheckedParams,
+)
 
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import IntegrationError
@@ -301,6 +308,16 @@ class DirectSolanaGateway:
                     decimals=0,
                 )
             ),
+            set_authority(
+                SetAuthorityParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    account=mint.pubkey(),
+                    authority=AuthorityType.MINT_TOKENS,
+                    current_authority=self._platform.pubkey(),
+                    signers=[],
+                    new_authority=None,
+                )
+            ),
         ]
         transaction = await self._send_and_confirm(
             instructions=instructions,
@@ -517,7 +534,12 @@ class DirectSolanaGateway:
 
 
 class PrivySolanaGateway:
-    """Build SPL-token transactions and execute them with Privy's REST API."""
+    """Execute Circle Devnet USDC and invoice RWA transactions via Privy wallets.
+
+    The Treasury wallet owns deposited USDC.  A separate Privy issuer wallet
+    holds each freshly minted RWA in escrow, so the agent can exchange the two
+    assets in one transaction signed by both service wallets.
+    """
 
     mode = "privy"
 
@@ -552,7 +574,70 @@ class PrivySolanaGateway:
         return self._settings.solana_usdc_mint
 
     async def issue_rwa(self, *, invoice_id: str) -> RwaIssueResult:
-        raise IntegrationError("RWA 발행은 SOLANA_MODE=direct에서만 지원합니다.")
+        issuer_wallet_id = self._require_issuer_wallet_id()
+        issuer = Pubkey.from_string(await self._wallet_address(issuer_wallet_id))
+        mint = Keypair()
+        rent = await self._minimum_rent(MINT_LEN)
+        escrow = get_associated_token_address(issuer, mint.pubkey())
+        instructions = [
+            create_account(
+                CreateAccountParams(
+                    from_pubkey=issuer,
+                    to_pubkey=mint.pubkey(),
+                    lamports=rent,
+                    space=MINT_LEN,
+                    owner=TOKEN_PROGRAM_ID,
+                )
+            ),
+            initialize_mint(
+                InitializeMintParams(
+                    decimals=0,
+                    program_id=TOKEN_PROGRAM_ID,
+                    mint=mint.pubkey(),
+                    mint_authority=issuer,
+                )
+            ),
+            create_idempotent_associated_token_account(
+                payer=issuer,
+                owner=issuer,
+                mint=mint.pubkey(),
+            ),
+            mint_to_checked(
+                MintToCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    mint=mint.pubkey(),
+                    dest=escrow,
+                    mint_authority=issuer,
+                    amount=1,
+                    decimals=0,
+                )
+            ),
+            set_authority(
+                SetAuthorityParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    account=mint.pubkey(),
+                    authority=AuthorityType.MINT_TOKENS,
+                    current_authority=issuer,
+                    signers=[],
+                    new_authority=None,
+                )
+            ),
+        ]
+        transaction = await self._partially_signed_transaction(
+            payer=issuer,
+            instructions=instructions,
+            additional_signers=[mint],
+        )
+        result = await self._sign_and_send(
+            wallet_id=issuer_wallet_id,
+            transaction=transaction,
+            reference_id=f"rwa-issue-{invoice_id}",
+        )
+        return RwaIssueResult(
+            mint_address=str(mint.pubkey()),
+            escrow_token_account=str(escrow),
+            transaction=result,
+        )
 
     async def purchase_rwa(
         self,
@@ -563,17 +648,152 @@ class PrivySolanaGateway:
         supplier_wallet_address: str,
         amount_usdc: int,
     ) -> ChainTransferResult:
-        raise IntegrationError("RWA 자동 매수는 SOLANA_MODE=direct에서만 지원합니다.")
+        if amount_usdc <= 0:
+            raise IntegrationError("RWA 자동 매수 금액이 올바르지 않습니다.")
+        issuer_wallet_id = self._require_issuer_wallet_id()
+        treasury = Pubkey.from_string(await self._treasury_address())
+        issuer = Pubkey.from_string(await self._wallet_address(issuer_wallet_id))
+        supplier = Pubkey.from_string(supplier_wallet_address)
+        stablecoin_mint = Pubkey.from_string(self.stablecoin_mint_address)
+        rwa_mint = Pubkey.from_string(rwa_mint_address)
+        treasury_usdc = get_associated_token_address(treasury, stablecoin_mint)
+        supplier_usdc = get_associated_token_address(supplier, stablecoin_mint)
+        treasury_rwa = get_associated_token_address(treasury, rwa_mint)
+        instructions = [
+            create_idempotent_associated_token_account(
+                payer=treasury,
+                owner=supplier,
+                mint=stablecoin_mint,
+            ),
+            create_idempotent_associated_token_account(
+                payer=treasury,
+                owner=treasury,
+                mint=rwa_mint,
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=treasury_usdc,
+                    mint=stablecoin_mint,
+                    dest=supplier_usdc,
+                    owner=treasury,
+                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    decimals=self._settings.solana_usdc_decimals,
+                )
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=Pubkey.from_string(escrow_token_account),
+                    mint=rwa_mint,
+                    dest=treasury_rwa,
+                    owner=issuer,
+                    amount=1,
+                    decimals=0,
+                )
+            ),
+        ]
+        transaction = await self._partially_signed_transaction(
+            payer=treasury,
+            instructions=instructions,
+            additional_signers=[],
+        )
+        issuer_signed = await self._sign_transaction(
+            wallet_id=issuer_wallet_id,
+            transaction=transaction,
+        )
+        return await self._sign_and_send(
+            wallet_id=self._settings.privy_treasury_wallet_id or "",
+            transaction=issuer_signed,
+            reference_id=f"rwa-purchase-{invoice_id}",
+        )
 
     async def prepare_vault_deposit(
         self, *, owner_wallet_address: str, amount_usdc: int
     ) -> PreparedVaultDeposit:
-        raise IntegrationError("Agent Vault 예치는 SOLANA_MODE=direct에서만 지원합니다.")
+        owner = Pubkey.from_string(owner_wallet_address)
+        treasury = Pubkey.from_string(await self._treasury_address())
+        mint = Pubkey.from_string(self.stablecoin_mint_address)
+        source = get_associated_token_address(owner, mint)
+        destination = get_associated_token_address(treasury, mint)
+        instructions = [
+            create_idempotent_associated_token_account(
+                payer=owner,
+                owner=treasury,
+                mint=mint,
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=source,
+                    mint=mint,
+                    dest=destination,
+                    owner=owner,
+                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    decimals=self._settings.solana_usdc_decimals,
+                )
+            ),
+        ]
+        transaction = await self._unsigned_transaction(payer=owner, instructions=instructions)
+        return PreparedVaultDeposit(
+            transaction_base64=base64.b64encode(bytes(transaction)).decode("ascii"),
+            vault_address=str(treasury),
+            stablecoin_mint_address=self.stablecoin_mint_address,
+        )
 
     async def verify_vault_deposit(
         self, *, signature: str, owner_wallet_address: str, amount_usdc: int
     ) -> bool:
-        return False
+        payload = await self._rpc(
+            "getTransaction",
+            [signature, {"encoding": "jsonParsed", "commitment": "confirmed"}],
+        )
+        if payload is None:
+            return False
+        meta = payload.get("meta") if isinstance(payload, dict) else None
+        if not isinstance(meta, dict) or meta.get("err") is not None:
+            return False
+        treasury = await self._treasury_address()
+        destination = str(
+            get_associated_token_address(
+                Pubkey.from_string(treasury),
+                Pubkey.from_string(self.stablecoin_mint_address),
+            )
+        )
+        transaction = payload.get("transaction") if isinstance(payload, dict) else None
+        message = transaction.get("message") if isinstance(transaction, dict) else None
+        instructions = message.get("instructions", []) if isinstance(message, dict) else []
+        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        has_expected_transfer = any(
+            isinstance(instruction, dict)
+            and instruction.get("program") in {"spl-token", "spl-token-2022"}
+            and isinstance(instruction.get("parsed"), dict)
+            and instruction["parsed"].get("type") in {"transfer", "transferChecked"}
+            and isinstance(instruction["parsed"].get("info"), dict)
+            and instruction["parsed"]["info"].get("authority") == owner_wallet_address
+            and instruction["parsed"]["info"].get("destination") == destination
+            and int(
+                (
+                    instruction["parsed"]["info"].get("tokenAmount")
+                    or {"amount": instruction["parsed"]["info"].get("amount", 0)}
+                ).get("amount", 0)
+            )
+            == expected_raw
+            for instruction in instructions
+        )
+        pre_balances = meta.get("preTokenBalances", [])
+        post_balances = meta.get("postTokenBalances", [])
+        owner_delta = self._token_balance_delta(
+            pre_balances,
+            post_balances,
+            owner_wallet_address,
+        )
+        treasury_delta = self._token_balance_delta(pre_balances, post_balances, treasury)
+        return (
+            has_expected_transfer
+            and owner_delta == -expected_raw
+            and treasury_delta == expected_raw
+        )
 
     async def send_usdc(
         self,
@@ -589,6 +809,26 @@ class PrivySolanaGateway:
 
         from_address = await self._wallet_address(wallet_id)
         serialized_transaction = await self._build_transaction(from_address, transfers)
+        return await self._sign_and_send(
+            wallet_id=wallet_id,
+            transaction=serialized_transaction,
+            reference_id=reference_id,
+            from_address=from_address,
+        )
+
+    async def _sign_and_send(
+        self,
+        *,
+        wallet_id: str,
+        transaction: bytes,
+        reference_id: str,
+        from_address: str | None = None,
+    ) -> ChainTransferResult:
+        if not wallet_id:
+            raise IntegrationError("Privy Treasury 지갑이 설정되지 않았습니다.")
+        if len(reference_id) > 64:
+            raise IntegrationError("Privy reference_id must not exceed 64 characters")
+        sender = from_address or await self._wallet_address(wallet_id)
         response = await self._client.post(
             f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
             json={
@@ -596,7 +836,7 @@ class PrivySolanaGateway:
                 "caip2": self._settings.solana_caip2,
                 "sponsor": self._settings.privy_sponsor,
                 "params": {
-                    "transaction": base64.b64encode(serialized_transaction).decode("ascii"),
+                    "transaction": base64.b64encode(transaction).decode("ascii"),
                     "encoding": "base64",
                 },
                 "reference_id": reference_id,
@@ -617,10 +857,100 @@ class PrivySolanaGateway:
         return ChainTransferResult(
             signature=signature,
             status=status,
-            from_address=from_address,
+            from_address=sender,
             provider="PRIVY",
             sandbox=False,
         )
+
+    async def _sign_transaction(self, *, wallet_id: str, transaction: bytes) -> bytes:
+        response = await self._client.post(
+            f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
+            json={
+                "method": "signTransaction",
+                "params": {
+                    "transaction": base64.b64encode(transaction).decode("ascii"),
+                    "encoding": "base64",
+                },
+            },
+        )
+        self._raise_for_provider_error(response, "Privy signTransaction")
+        payload = response.json()
+        try:
+            signed = payload["data"]["signed_transaction"]
+            encoding = payload["data"]["encoding"]
+        except (KeyError, TypeError) as exc:
+            raise IntegrationError("Privy signTransaction response is incomplete") from exc
+        if encoding != "base64" or not isinstance(signed, str):
+            raise IntegrationError("Privy signTransaction returned an unsupported encoding")
+        try:
+            return base64.b64decode(signed, validate=True)
+        except ValueError as exc:
+            raise IntegrationError("Privy signTransaction returned invalid base64") from exc
+
+    async def _treasury_address(self) -> str:
+        configured = self.vault_address
+        if not configured or configured.startswith("DEMO_"):
+            raise IntegrationError("Privy Treasury 공개 주소가 설정되지 않았습니다.")
+        try:
+            Pubkey.from_string(configured)
+        except ValueError as exc:
+            raise IntegrationError("Privy Treasury 공개 주소가 올바르지 않습니다.") from exc
+        actual = await self._wallet_address(self._settings.privy_treasury_wallet_id or "")
+        if actual != configured:
+            raise IntegrationError("설정된 Privy Treasury 주소와 지갑 주소가 일치하지 않습니다.")
+        return actual
+
+    def _require_issuer_wallet_id(self) -> str:
+        wallet_id = self._settings.privy_rwa_issuer_wallet_id
+        if not wallet_id:
+            raise IntegrationError("RWA 발행용 Privy Issuer 지갑이 설정되지 않았습니다.")
+        return wallet_id
+
+    async def _unsigned_transaction(self, *, payer: Pubkey, instructions: list[Any]) -> bytes:
+        blockhash = Hash.from_string(await self._latest_blockhash())
+        message = MessageV0.try_compile(payer, instructions, [], blockhash)
+        signatures = [Signature.default()] * message.header.num_required_signatures
+        return bytes(VersionedTransaction.populate(message, signatures))
+
+    async def _partially_signed_transaction(
+        self,
+        *,
+        payer: Pubkey,
+        instructions: list[Any],
+        additional_signers: list[Keypair],
+    ) -> bytes:
+        blockhash = Hash.from_string(await self._latest_blockhash())
+        message = MessageV0.try_compile(payer, instructions, [], blockhash)
+        signatures = [Signature.default()] * message.header.num_required_signatures
+        message_bytes = to_bytes_versioned(message)
+        for signer in additional_signers:
+            try:
+                index = list(message.account_keys).index(signer.pubkey())
+            except ValueError as exc:
+                raise IntegrationError("RWA mint signer is absent from the transaction") from exc
+            if index >= message.header.num_required_signatures:
+                raise IntegrationError("RWA mint signer is not a required transaction signer")
+            signatures[index] = signer.sign_message(message_bytes)
+        return bytes(VersionedTransaction.populate(message, signatures))
+
+    def _token_balance_delta(
+        self,
+        pre_balances: object,
+        post_balances: object,
+        owner: str,
+    ) -> int:
+        def total(balances: object) -> int:
+            if not isinstance(balances, list):
+                return 0
+            return sum(
+                int((balance.get("uiTokenAmount") or {}).get("amount") or 0)
+                for balance in balances
+                if isinstance(balance, dict)
+                and balance.get("owner") == owner
+                and balance.get("mint") == self.stablecoin_mint_address
+            )
+
+        return total(post_balances) - total(pre_balances)
 
     async def aclose(self) -> None:
         if self._owns_client:
@@ -700,6 +1030,12 @@ class PrivySolanaGateway:
         unsigned = VersionedTransaction.populate(message, [Signature.default()])
         return bytes(unsigned)
 
+    async def _minimum_rent(self, size: int) -> int:
+        value = await self._rpc("getMinimumBalanceForRentExemption", [size])
+        if not isinstance(value, int):
+            raise IntegrationError("Solana RPC did not return the mint rent exemption")
+        return value
+
     async def _latest_blockhash(self) -> str:
         payload = await self._rpc("getLatestBlockhash", [{"commitment": "confirmed"}])
         try:
@@ -724,7 +1060,7 @@ class PrivySolanaGateway:
             await asyncio.sleep(0.5)
         return TransactionStatus.PENDING
 
-    async def _rpc(self, method: str, params: list[object]) -> dict[str, object]:
+    async def _rpc(self, method: str, params: list[object]) -> Any:
         response = await self._client.post(
             self._settings.solana_rpc_url,
             json={
@@ -741,8 +1077,6 @@ class PrivySolanaGateway:
         if payload.get("error") is not None:
             raise IntegrationError(f"Solana RPC {method} returned an error")
         result = payload.get("result")
-        if not isinstance(result, dict):
-            raise IntegrationError(f"Solana RPC {method} returned an invalid result")
         return result
 
     @staticmethod

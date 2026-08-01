@@ -21,6 +21,19 @@ def test_auto_modes_use_mock_without_external_credentials() -> None:
     assert settings.resolved_solana_mode() == "mock"
 
 
+def test_auto_mode_prefers_complete_privy_configuration() -> None:
+    settings = BackendSettings(
+        _env_file=None,
+        SOLANA_MODE="auto",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+    )
+    assert settings.resolved_solana_mode() == "privy"
+
+
 def test_explicit_real_agent_requires_gemini_key() -> None:
     with pytest.raises(ValidationError, match="GEMINI_API_KEY"):
         BackendSettings(
