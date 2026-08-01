@@ -132,13 +132,28 @@ class PrivySolanaGateway:
         if len(reference_id) > 64:
             raise IntegrationError("Privy reference_id must not exceed 64 characters")
 
-        from_address = await self._wallet_address(wallet_id)
         try:
-            serialized_transaction = await self._build_transaction(from_address, transfers)
+            return await self._send_usdc_once(
+                wallet_id=wallet_id,
+                transfers=transfers,
+                reference_id=reference_id,
+            )
+        except httpx.HTTPError as exc:
+            raise IntegrationError("Privy or Solana network request failed") from exc
         except ValueError as exc:
             raise IntegrationError(
-                "Solana transaction contains an invalid wallet or token mint address"
+                "Privy/Solana returned invalid data or an address is invalid"
             ) from exc
+
+    async def _send_usdc_once(
+        self,
+        *,
+        wallet_id: str,
+        transfers: list[ChainTransfer],
+        reference_id: str,
+    ) -> ChainTransferResult:
+        from_address = await self._wallet_address(wallet_id)
+        serialized_transaction = await self._build_transaction(from_address, transfers)
         response = await self._client.post(
             f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
             headers={"privy-idempotency-key": f"invoicex:{reference_id}"},

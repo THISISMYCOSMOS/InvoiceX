@@ -13,6 +13,7 @@ from solders.signature import Signature
 from solders.transaction import VersionedTransaction
 
 from invoicex_backend.config import BackendSettings
+from invoicex_backend.errors import IntegrationError
 from invoicex_backend.models import ChainTransfer, TransactionStatus
 from invoicex_backend.solana import MockSolanaGateway, PrivySolanaGateway
 from tests.conftest import mock_settings
@@ -122,3 +123,36 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
     encoded = submitted["params"]["transaction"]  # type: ignore[index]
     transaction = VersionedTransaction.from_bytes(base64.b64decode(encoded))
     assert len(transaction.message.instructions) == 4
+
+
+@pytest.mark.asyncio
+async def test_privy_gateway_wraps_transport_failures(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("offline", request=request)
+
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="privy",
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_API_BASE_URL="https://privy.test",
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = PrivySolanaGateway(settings, http_client=client)
+
+    with pytest.raises(IntegrationError, match="network request failed"):
+        await gateway.send_usdc(
+            wallet_id="treasury",
+            transfers=[
+                ChainTransfer(
+                    to_address=str(Pubkey.new_unique()),
+                    amount_usdc=1,
+                )
+            ],
+            reference_id="funding-INV-TRANSPORT",
+        )
+
+    await client.aclose()
