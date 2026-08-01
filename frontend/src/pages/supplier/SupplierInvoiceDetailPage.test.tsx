@@ -32,7 +32,8 @@ test("shows the transaction receipt for a funded invoice", () => {
     />,
   );
 
-  expect(screen.getByText("Transaction Hash")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your USDC early settlement has been paid" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {
@@ -60,9 +61,15 @@ test("shows extracted information and requests verification after confirmation",
   expect(screen.getByText("Needs review")).toBeInTheDocument();
   expect(screen.getByText("Completed · July 24, 2026")).toBeInTheDocument();
   expect(screen.queryByText("03 · DOCUMENT AGENT REVIEW / 1440 × 900")).not.toBeInTheDocument();
-  expect(screen.getByText("Document Agent complete")).toBeInTheDocument();
+  expect(screen.queryByText("Document Agent complete")).not.toBeInTheDocument();
   expect(screen.getByText("Prime Mobility Co., Ltd.")).toBeInTheDocument();
-  expect(screen.getByText("invoice_INV-2026-001.pdf")).toBeInTheDocument();
+  expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Next document" }));
+  expect(screen.getByText("02_Goods_Supply_Agreement_PM-SUPPLY-2026-04.pdf")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Previous document" }));
+  expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
   expect(onRequestVerification).toHaveBeenCalledTimes(1);

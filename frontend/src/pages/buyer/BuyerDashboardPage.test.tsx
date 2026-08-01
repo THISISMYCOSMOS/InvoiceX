@@ -25,10 +25,13 @@ test("renders the Figma buyer dashboard summary and verification table", async (
   expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
   expect(screen.getByText("New requests")).toBeInTheDocument();
   expect(screen.getByText("Due in 30 days")).toBeInTheDocument();
-  expect(screen.getByText("Completed this month")).toBeInTheDocument();
+  expect(screen.getByText("Completed invoices")).toBeInTheDocument();
   expect(screen.getByRole("table", { name: "New verification requests" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Review INV-2026-001" })).toHaveAttribute(
     "href",
     "/buyer/invoices/INV-2026-001?section=verification",
   );
+  expect(screen.getByText("1 requests")).toBeInTheDocument();
+  expect(screen.getByText("0 payment items")).toBeInTheDocument();
+  expect(screen.getByText("No payments are due right now.")).toBeInTheDocument();
 });

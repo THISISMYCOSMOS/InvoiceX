@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, CurrencyKrw } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CheckCircle, ClipboardText, CurrencyKrw } from "@phosphor-icons/react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import invoicePreview from "../../assets/invoice-preview.png";
 import { ErrorState } from "../../components/ErrorState";
@@ -78,10 +78,12 @@ function BuyerVerificationSection({
   invoice,
   onConfirm,
   canConfirm,
+  isConfirming,
 }: {
   invoice: Invoice;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   canConfirm: boolean;
+  isConfirming: boolean;
 }) {
   const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<(typeof documentTabs)[number]["key"]>("Invoice");
@@ -103,6 +105,16 @@ function BuyerVerificationSection({
     { key: "delivery", label: t("Delivery completed", "납품 완료"), positive: t("Confirmed", "확인"), negative: t("Unconfirmed", "미확인") },
     { key: "dispute", label: t("Dispute or payment hold", "분쟁 또는 결제 보류"), positive: t("None", "없음"), negative: t("Exists", "있음") },
   ], [invoice.dueDate, invoice.invoiceAmountKrw, language, t]);
+
+  const submitConfirmation = async () => {
+    setMessage(undefined);
+    try {
+      await onConfirm();
+      setMessage(t("Invoice confirmation submitted.", "인보이스 확인이 제출되었습니다."));
+    } catch {
+      setMessage(t("We could not submit the invoice confirmation. Please try again.", "인보이스 확인을 제출하지 못했습니다. 다시 시도해 주세요."));
+    }
+  };
 
   return (
     <section className="buyer-verification">
@@ -168,13 +180,10 @@ function BuyerVerificationSection({
             <button
               type="button"
               className="buyer-confirm-button"
-              onClick={() => {
-                onConfirm();
-                setMessage(t("Invoice confirmation submitted.", "인보이스 확인을 제출했습니다."));
-              }}
-              disabled={!canConfirm}
+              onClick={() => void submitConfirmation()}
+              disabled={!canConfirm || isConfirming}
             >
-              {t("Confirm invoice", "인보이스 확인")}
+              {isConfirming ? t("Confirming invoice...", "인보이스 확인 중...") : t("Confirm invoice", "인보이스 확인")}
             </button>
           </footer>
           {message && <p className="inline-status" role="status">{message}</p>}
@@ -260,8 +269,55 @@ function BuyerInvoiceIdleSection({ invoice }: { invoice: Invoice }) {
   const { t } = useLanguage();
   return (
     <section className="buyer-idle-state">
-      <h1>{t(`Invoice ${invoice.id}`, `인보이스 ${invoice.id}`)}</h1>
-      <p>{t("There is no buyer action required for this invoice right now.", "현재 이 인보이스에 대해 구매기업이 수행할 작업은 없습니다.")}</p>
+      <Link className="buyer-back-link" to="/buyer">
+        <ArrowLeft size={13} weight="bold" aria-hidden="true" />
+        {t("Back to overview", "개요로 돌아가기")}
+      </Link>
+      <article className="buyer-complete-card">
+        <header className="buyer-complete-card__heading">
+          <span className="buyer-complete-card__icon" aria-hidden="true">
+            <CheckCircle size={28} weight="fill" />
+          </span>
+          <div>
+            <span className="buyer-complete-card__eyebrow">{t("BUYER CONFIRMATION COMPLETE", "구매기업 확인 완료")}</span>
+            <h1>{t("Invoice verification completed", "인보이스 확인이 완료되었습니다")}</h1>
+            <p>{t(
+              "Your confirmation has been recorded. The supplier can now review the early-settlement offer and request RWA issuance.",
+              "확인 내용이 등록되었습니다. 공급기업은 조기정산 조건을 검토한 뒤 RWA 발행을 요청할 수 있습니다.",
+            )}</p>
+          </div>
+          <span className="buyer-complete-card__status">{t("CONFIRMED", "확인 완료")}</span>
+        </header>
+
+        <dl className="buyer-complete-summary">
+          <div>
+            <dt>{t("Invoice", "인보이스")}</dt>
+            <dd>{invoice.id}</dd>
+          </div>
+          <div>
+            <dt>{t("Supplier", "공급기업")}</dt>
+            <dd>{invoice.supplier.name}</dd>
+          </div>
+          <div>
+            <dt>{t("Invoice amount", "인보이스 금액")}</dt>
+            <dd>{krw.format(invoice.invoiceAmountKrw)}</dd>
+          </div>
+        </dl>
+
+        <ol className="buyer-complete-steps" aria-label={t("Invoice workflow progress", "인보이스 진행 상황")}>
+          <li className="is-complete"><ClipboardText size={15} weight="fill" aria-hidden="true" /><span>{t("Supplier submitted", "공급기업 등록")}</span></li>
+          <li className="is-complete"><CheckCircle size={15} weight="fill" aria-hidden="true" /><span>{t("Buyer verified", "구매기업 확인")}</span></li>
+          <li className="is-next"><ArrowRight size={15} weight="bold" aria-hidden="true" /><span>{t("RWA issuance request", "RWA 발행 요청")}</span></li>
+        </ol>
+
+        <footer className="buyer-complete-card__footer">
+          <p>{t("No further action is required from your organization at this stage.", "현재 단계에서 구매기업이 추가로 수행할 작업은 없습니다.")}</p>
+          <Link className="buyer-complete-card__link" to="/buyer">
+            {t("View all requests", "확인 요청 목록")}
+            <ArrowRight size={14} weight="bold" aria-hidden="true" />
+          </Link>
+        </footer>
+      </article>
     </section>
   );
 }
@@ -270,10 +326,12 @@ export function BuyerInvoiceDetailContent({
   invoice,
   onConfirm,
   view,
+  isConfirming = false,
 }: {
   invoice: Invoice;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   view?: BuyerView;
+  isConfirming?: boolean;
 }) {
   const showPayment = view === "payment" || maturityStatuses.includes(invoice.status);
   const showVerification = invoice.status === "BUYER_REVIEW"
@@ -285,7 +343,8 @@ export function BuyerInvoiceDetailContent({
       <BuyerVerificationSection
         invoice={invoice}
         onConfirm={onConfirm}
-        canConfirm={Boolean(invoice.verificationId) || view === "verification"}
+        canConfirm={Boolean(invoice.verificationId)}
+        isConfirming={isConfirming}
       />
     );
   }
@@ -309,7 +368,13 @@ export function BuyerInvoiceDetailPage() {
     <BuyerInvoiceDetailContent
       invoice={invoice.data}
       view={view}
-      onConfirm={() => invoice.data.verificationId && confirm.mutate(invoice.data.verificationId)}
+      onConfirm={() => {
+        if (!invoice.data.verificationId) {
+          return Promise.reject(new Error("Verification request is unavailable."));
+        }
+        return confirm.mutateAsync(invoice.data.verificationId).then(() => undefined);
+      }}
+      isConfirming={confirm.isPending}
     />
   );
 }
