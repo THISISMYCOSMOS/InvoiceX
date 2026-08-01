@@ -110,6 +110,8 @@ test("shows the institution wallet only in investor setup, never buyer pages", a
   expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("Prime Mobility");
 
   await user.click(screen.getByRole("button", { name: "Buyer allowlist" }));
+  expect(screen.getByPlaceholderText("Search companies")).toBeInTheDocument();
+  expect(screen.queryByText("BUYER_PRIME")).not.toBeInTheDocument();
   expect(screen.getByRole("checkbox", { name: /Orbit Components/ })).not.toBeChecked();
   await user.click(screen.getByRole("checkbox", { name: /Orbit Components/ }));
   expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("2 buyers selected");

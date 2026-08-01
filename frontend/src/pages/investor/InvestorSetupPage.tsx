@@ -1,4 +1,4 @@
-import { CaretDown, CheckCircle, Info, ShieldCheck, SlidersHorizontal, Vault } from "@phosphor-icons/react";
+import { CaretDown, CheckCircle, Info, MagnifyingGlass, ShieldCheck, SlidersHorizontal, SquaresFour, Vault } from "@phosphor-icons/react";
 import bs58 from "bs58";
 import { VersionedTransaction } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -8,10 +8,10 @@ import { SolanaWalletConnection } from "../../components/SolanaWalletConnection"
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const mockBuyerCompanies = [
-  { name: "Prime Mobility", description: "Mobility", koreanDescription: "모빌리티" },
-  { name: "Orbit Components", description: "Components", koreanDescription: "부품 제조" },
-  { name: "Daon Logistics", description: "Logistics", koreanDescription: "물류" },
-  { name: "Vertex Retail", description: "Retail", koreanDescription: "유통" },
+  "Prime Mobility",
+  "Orbit Components",
+  "Daon Logistics",
+  "Vertex Retail",
 ] as const;
 
 interface InvestmentPolicyDraft {
@@ -53,6 +53,7 @@ export function InvestorSetupPage() {
   const [vaultBalance, setVaultBalance] = useState<number | null>(null);
   const [activeMandateId, setActiveMandateId] = useState<string | null>(null);
   const [isBuyerSelectOpen, setIsBuyerSelectOpen] = useState(false);
+  const [buyerSearch, setBuyerSearch] = useState("");
 
   const updatePolicy = <Key extends keyof InvestmentPolicyDraft>(key: Key, value: InvestmentPolicyDraft[Key]) => {
     setPolicy((current) => ({ ...current, [key]: value }));
@@ -184,7 +185,7 @@ export function InvestorSetupPage() {
           </div>
         </section>
 
-        <section className="investor-setup-policy-card">
+        <section className="investor-setup-policy-card investor-investment-criteria-card">
           <header>
             <span className="investor-setup-icon" aria-hidden="true"><SlidersHorizontal size={18} weight="bold" /></span>
             <div>
@@ -208,6 +209,7 @@ export function InvestorSetupPage() {
                   aria-expanded={isBuyerSelectOpen}
                   onClick={() => setIsBuyerSelectOpen((current) => !current)}
                 >
+                  <SquaresFour size={17} weight="fill" aria-hidden="true" />
                   <span>
                     {policy.buyerAllowlist.length === 0
                       ? t("Select buyers", "구매기업 선택")
@@ -218,23 +220,31 @@ export function InvestorSetupPage() {
                   <CaretDown size={15} weight="bold" aria-hidden="true" />
                 </button>
                 {isBuyerSelectOpen && (
-                  <div className="investor-policy-multiselect__menu" role="listbox" aria-multiselectable="true">
-                    {mockBuyerCompanies.map((buyer) => {
-                      const isSelected = policy.buyerAllowlist.includes(buyer.name);
+                  <div className="investor-policy-multiselect__menu">
+                    <label className="investor-policy-multiselect__search">
+                      <span className="sr-only">{t("Search buyer companies", "구매기업 검색")}</span>
+                      <input
+                        value={buyerSearch}
+                        onChange={(event) => setBuyerSearch(event.target.value)}
+                        placeholder={t("Search companies", "기업 검색")}
+                      />
+                      <MagnifyingGlass size={17} aria-hidden="true" />
+                    </label>
+                    <div className="investor-policy-multiselect__options" role="listbox" aria-multiselectable="true">
+                    {mockBuyerCompanies.filter((buyer) => buyer.toLowerCase().includes(buyerSearch.trim().toLowerCase())).map((buyer) => {
+                      const isSelected = policy.buyerAllowlist.includes(buyer);
                       return (
-                        <label key={buyer.name} className={isSelected ? "is-selected" : ""}>
+                        <label key={buyer} className={isSelected ? "is-selected" : ""}>
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => toggleBuyer(buyer.name)}
+                            onChange={() => toggleBuyer(buyer)}
                           />
-                          <span className="investor-policy-multiselect__company">
-                            <span className="investor-policy-multiselect__company-mark" aria-hidden="true">{buyer.name.slice(0, 1)}</span>
-                            <span><strong>{buyer.name}</strong><small>{t(buyer.description, buyer.koreanDescription)}</small></span>
-                          </span>
+                          <span>{buyer}</span>
                         </label>
                       );
                     })}
+                    </div>
                   </div>
                 )}
                 <small>{t("Select one or more buyer companies.", "구매기업을 하나 이상 선택하세요.")}</small>
