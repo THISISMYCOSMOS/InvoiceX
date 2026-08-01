@@ -85,16 +85,6 @@ def test_complete_frontend_contract_workflow(
     assert accepted.status_code == 200
     assert accepted.json()["invoice"]["status"] == "RWA_ISSUED"
 
-    awaiting_investment = client.get(f"/api/v1/invoices/{invoice_id}").json()[
-        "invoice"
-    ]
-    assert awaiting_investment["status"] == "RWA_ISSUED"
-    assert awaiting_investment["fundingTransaction"] is None
-
-    purchased = client.post(f"/api/v1/invoices/{invoice_id}/rwa-purchase")
-    assert purchased.status_code == 200
-    assert purchased.json()["invoice"]["status"] == "FUNDING"
-
     funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert funded["status"] == "FUNDED"
     assert funded["fundingTransaction"]["status"] == "CONFIRMED"
@@ -103,9 +93,12 @@ def test_complete_frontend_contract_workflow(
     assert funded["fundingTransaction"]["sandbox"] is True
     funding_signature = funded["fundingTransaction"]["signature"]
 
-    duplicate_purchase = client.post(f"/api/v1/invoices/{invoice_id}/rwa-purchase")
+    duplicate_accept = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={"response": "ACCEPT"},
+    )
     assert (
-        duplicate_purchase.json()["invoice"]["fundingTransaction"]["signature"]
+        duplicate_accept.json()["invoice"]["fundingTransaction"]["signature"]
         == funding_signature
     )
 
@@ -192,7 +185,6 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/verifications/{verificationId}",
         "/api/v1/verifications/{verificationId}/confirm",
         "/api/v1/invoices/{invoiceId}/offer-response",
-        "/api/v1/invoices/{invoiceId}/rwa-purchase",
         "/api/v1/investor/dashboard",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
     }

@@ -337,8 +337,8 @@ class InvoiceService:
             )
             return self._copy_invoice(invoice)
 
-    async def purchase_rwa(self, invoice_id: str) -> tuple[Invoice, bool]:
-        """Start funding only after an investor purchases an issued RWA."""
+    async def start_mandated_investment(self, invoice_id: str) -> tuple[Invoice, bool]:
+        """Start funding after the Treasury Agent accepts an issued RWA."""
 
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
@@ -352,7 +352,7 @@ class InvoiceService:
                 return self._copy_invoice(invoice), False
             if invoice.status is not InvoiceStatus.RWA_ISSUED:
                 raise StateConflictError(
-                    "RWA_ISSUED 상태에서만 투자기관 RWA 매수를 실행할 수 있습니다."
+                    "RWA_ISSUED 상태에서만 Treasury Agent 자동 투자를 실행할 수 있습니다."
                 )
 
             invoice.status = InvoiceStatus.FUNDING
@@ -361,9 +361,19 @@ class InvoiceService:
                 source="TREASURY_AGENT",
                 target="SETTLEMENT_AGENT",
                 status="WORKING",
-                summary="투자기관 RWA 매수를 확인하고 공급기업 조기정산 USDC 지급을 시작합니다.",
+                summary=(
+                    "AP2 Mandate와 자체 투자 정책을 통과해 자동 투자 및 "
+                    "공급기업 조기정산 USDC 지급을 시작합니다."
+                ),
             )
             return self._copy_invoice(invoice), True
+
+    async def execute_mandated_investment(self, invoice_id: str) -> None:
+        """Run the no-human-in-the-loop investment step after RWA issuance."""
+
+        invoice, should_schedule = await self.start_mandated_investment(invoice_id)
+        if should_schedule:
+            await self.complete_funding(invoice.id)
 
     async def complete_funding(self, invoice_id: str) -> None:
         async with self._invoice_lock(invoice_id):

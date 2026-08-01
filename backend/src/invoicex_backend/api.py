@@ -22,6 +22,7 @@ from invoicex_backend.models import (
     InvestorDashboard,
     InvoiceListResponse,
     InvoiceResponse,
+    OfferResponse,
     OfferResponseRequest,
     UploadedDocument,
     VerificationListResponse,
@@ -220,30 +221,15 @@ async def confirm_verification(
 async def respond_to_offer(
     invoice_id: InvoiceId,
     payload: OfferResponseRequest,
+    background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
     invoice = await service.respond_to_offer(
         invoice_id,
         payload.response,
     )
-    return InvoiceResponse(invoice=invoice)
-
-
-@router.post(
-    "/invoices/{invoiceId}/rwa-purchase",
-    response_model=InvoiceResponse,
-    responses=documented_errors(404, 409),
-    tags=["Funding"],
-    summary="Investor RWA 매수 및 조기정산 지급 시작",
-)
-async def purchase_rwa(
-    invoice_id: InvoiceId,
-    background_tasks: BackgroundTasks,
-    service: InvoiceServiceDependency,
-) -> InvoiceResponse:
-    invoice, should_schedule = await service.purchase_rwa(invoice_id)
-    if should_schedule:
-        background_tasks.add_task(service.complete_funding, invoice_id)
+    if payload.response is OfferResponse.ACCEPT:
+        background_tasks.add_task(service.execute_mandated_investment, invoice_id)
     return InvoiceResponse(invoice=invoice)
 
 
