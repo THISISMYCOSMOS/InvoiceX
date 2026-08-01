@@ -96,6 +96,29 @@ test("shows Agent policy evaluation details while funding is in progress", () =>
   expect(screen.getAllByText("Passed")).toHaveLength(2);
 });
 
+test("labels a capped live Devnet payment as a demo transfer", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "FUNDED",
+        riskPassport: {
+          ...DEMO_RISK_PASSPORT,
+          suggestedAdvanceAmountUsdc: 2,
+        },
+        fundingTransaction: {
+          ...DEMO_FUNDING_TRANSACTION,
+          amountUsdc: 1,
+        },
+      }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Devnet demo transfer confirmed" })).toBeInTheDocument();
+  expect(screen.getByText("Demo transfer only · Offer amount 2 USDC")).toBeInTheDocument();
+});
+
 test("shows extracted information and requests verification after confirmation", async () => {
   const user = userEvent.setup();
   const onRequestVerification = vi.fn();

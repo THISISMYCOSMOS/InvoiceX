@@ -1,4 +1,11 @@
-import type { InvestorDashboard, Invoice, InvoiceStatus, VerificationRequest } from "../../types/invoice";
+import type {
+  InvestorDashboard,
+  InvestorDeposit,
+  InvestorDepositPreparation,
+  Invoice,
+  InvoiceStatus,
+  VerificationRequest,
+} from "../../types/invoice";
 import type { OfferResponse, ScenarioAdapter } from "./contracts";
 
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -76,7 +83,19 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
   const request = async <T>(path: string, init: RequestInit): Promise<T> => {
     const response = await fetchImpl(`${base}${path}`, init);
     if (!response.ok) {
-      throw new HttpError(response.status, await response.text());
+      const rawMessage = await response.text();
+      let message = rawMessage;
+      try {
+        const payload = JSON.parse(rawMessage) as {
+          detail?: unknown;
+          message?: unknown;
+        };
+        if (typeof payload.message === "string") message = payload.message;
+        else if (typeof payload.detail === "string") message = payload.detail;
+      } catch {
+        // Preserve non-JSON provider and proxy errors verbatim.
+      }
+      throw new HttpError(response.status, message);
     }
 
     return response.json() as Promise<T>;
@@ -121,11 +140,11 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async confirmVerification(verificationId) {
       return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/confirm`, { method: "POST" }));
     },
-    async respondToOffer(invoiceId, response: OfferResponse) {
+    async respondToOffer(invoiceId, response: OfferResponse, supplierWalletAddress) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/offer-response`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ response }),
+        body: JSON.stringify({ response, supplierWalletAddress }),
       }));
     },
     runFunding: () => unavailable("Treasury Agent 투자 실행"),
@@ -135,6 +154,20 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     runSettlement: () => unavailable("Settlement 실행"),
     async getInvestorDashboard() {
       return (await request<unknown>("/investor/dashboard", { method: "GET" })) as InvestorDashboard;
+    },
+    async prepareInvestorDeposit(investorWalletAddress, amountUsdc) {
+      return (await request<unknown>("/investor/deposits/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ investorWalletAddress, amountUsdc }),
+      })) as InvestorDepositPreparation;
+    },
+    async confirmInvestorDeposit(referenceId, signature) {
+      return (await request<unknown>("/investor/deposits/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referenceId, signature }),
+      })) as InvestorDeposit;
     },
     reset: () => unavailable("데모 초기화"),
   };

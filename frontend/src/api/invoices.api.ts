@@ -7,6 +7,10 @@ export const invoiceApi = {
   getInvoice: (invoiceId: string) => scenarioAdapter.getInvoice(invoiceId),
   analyzeInvoice: (invoiceId: string) => scenarioAdapter.analyzeInvoice(invoiceId),
   requestVerification: (invoiceId: string) => scenarioAdapter.requestVerification(invoiceId),
-  respondToOffer: (invoiceId: string, response: OfferResponse) => scenarioAdapter.respondToOffer(invoiceId, response),
+  respondToOffer: (
+    invoiceId: string,
+    response: OfferResponse,
+    supplierWalletAddress?: string,
+  ) => scenarioAdapter.respondToOffer(invoiceId, response, supplierWalletAddress),
   runFunding: (invoiceId: string) => scenarioAdapter.runFunding(invoiceId),
 };

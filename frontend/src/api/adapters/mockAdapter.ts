@@ -155,6 +155,12 @@ export function createMockAdapter(): ScenarioAdapter {
     async getInvestorDashboard() {
       return clone(DEMO_INVESTOR_DASHBOARD);
     },
+    async prepareInvestorDeposit() {
+      throw new Error("Devnet USDC 예치는 실제 API 모드에서만 사용할 수 있습니다.");
+    },
+    async confirmInvestorDeposit() {
+      throw new Error("Devnet USDC 예치는 실제 API 모드에서만 사용할 수 있습니다.");
+    },
     async reset() {
       invoice = clone(DEMO_INVOICE);
       verification = undefined;

@@ -19,5 +19,7 @@ function ensureStorage(name: "localStorage" | "sessionStorage") {
   Object.defineProperty(globalThis, name, { configurable: true, value: storage });
 }
 
-ensureStorage("localStorage");
-ensureStorage("sessionStorage");
+if (typeof window !== "undefined") {
+  ensureStorage("localStorage");
+  ensureStorage("sessionStorage");
+}

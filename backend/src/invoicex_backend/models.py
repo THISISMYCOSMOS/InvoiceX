@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from solders.pubkey import Pubkey
 
 
 def to_camel(value: str) -> str:
@@ -305,6 +307,61 @@ class VerificationListResponse(ApiModel):
 
 class OfferResponseRequest(ApiModel):
     response: OfferResponse
+    supplier_wallet_address: str | None = None
+
+    @field_validator("supplier_wallet_address")
+    @classmethod
+    def validate_supplier_wallet_address(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        address = value.strip()
+        try:
+            Pubkey.from_string(address)
+        except ValueError as exc:
+            raise ValueError("supplierWalletAddress must be a Solana address") from exc
+        return address
+
+
+class InvestorDepositPrepareRequest(ApiModel):
+    investor_wallet_address: str
+    amount_usdc: int = Field(gt=0)
+
+    @field_validator("investor_wallet_address")
+    @classmethod
+    def validate_investor_wallet_address(cls, value: str) -> str:
+        address = value.strip()
+        try:
+            Pubkey.from_string(address)
+        except ValueError as exc:
+            raise ValueError("investorWalletAddress must be a Solana address") from exc
+        return address
+
+
+class InvestorDepositPreparation(ApiModel):
+    reference_id: str
+    investor_wallet_address: str
+    treasury_wallet_address: str
+    usdc_mint: str
+    amount_usdc: int
+    decimals: int
+    network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
+
+
+class InvestorDepositConfirmRequest(ApiModel):
+    reference_id: str = Field(min_length=1, max_length=64)
+    signature: str = Field(min_length=1, max_length=128)
+
+
+class InvestorDeposit(ApiModel):
+    reference_id: str
+    investor_wallet_address: str
+    treasury_wallet_address: str
+    amount_usdc: int
+    signature: str
+    status: TransactionStatus
+    network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
+    explorer_url: str
+    confirmed_at: datetime
 
 
 class SaveSupplierWalletRequest(ApiModel):
@@ -359,6 +416,9 @@ class InvestorDashboard(ApiModel):
     available_vault_usdc: int
     outstanding_principal_usdc: int
     recent_agent_traces: list[AgentTrace]
+    wallet_address: str | None = None
+    vault_address: str | None = None
+    latest_deposit: InvestorDeposit | None = None
 
 
 class ErrorResponse(ApiModel):
