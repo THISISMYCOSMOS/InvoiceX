@@ -37,7 +37,7 @@ test("shows the transaction receipt for a funded invoice", () => {
   expect(screen.queryByRole("heading", { name: "INV-2026-001" })).not.toBeInTheDocument();
 });
 
-test("shows the investor-purchase waiting state after RWA issuance", () => {
+test("shows the automated-investment state after RWA issuance", () => {
   render(
     <SupplierInvoiceDetailContent
       invoice={{ ...DEMO_INVOICE, status: "RWA_ISSUED", riskPassport: DEMO_RISK_PASSPORT }}
@@ -45,9 +45,9 @@ test("shows the investor-purchase waiting state after RWA issuance", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Your RWA is ready for investor purchase" })).toBeInTheDocument();
-  expect(screen.getByText("AWAITING INVESTMENT")).toBeInTheDocument();
-  expect(screen.getByText("Investor purchase")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Treasury Agent is processing the RWA investment" })).toBeInTheDocument();
+  expect(screen.getByText("AGENT PROCESSING")).toBeInTheDocument();
+  expect(screen.getByText("Automated Agent investment")).toBeInTheDocument();
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {

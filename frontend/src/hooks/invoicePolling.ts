@@ -4,6 +4,7 @@ const processingStatuses: ReadonlySet<InvoiceStatus> = new Set([
   "DOCUMENT_UPLOADING",
   "DOCUMENT_ANALYZING",
   "RISK_ASSESSING",
+  "RWA_ISSUED",
   "FUNDING",
   "SETTLING",
 ]);
