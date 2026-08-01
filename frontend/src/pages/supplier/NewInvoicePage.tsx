@@ -37,7 +37,6 @@ export function NewInvoicePage() {
     <section className="new-invoice-page">
       <header className="new-invoice-heading">
         <div>
-          <p className="breadcrumb">{t("Invoices / New invoice", "인보이스 / 새 인보이스")}</p>
           <h1>{t("Register a new invoice", "새 인보이스 등록")}</h1>
           <p>{isMockApi
             ? t("Register a ready-made sample invoice to preview the workflow.", "샘플 인보이스를 바로 등록해 전체 흐름을 빠르게 확인하세요.")

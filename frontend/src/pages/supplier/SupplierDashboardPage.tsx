@@ -50,7 +50,7 @@ export function SupplierDashboardPage() {
       <header className="page-heading">
         <div>
           <h1>{t("Good morning, Minjun", "좋은 아침이에요, 민준님")}</h1>
-          <p>{t("Track invoices and access working capital faster.", "인보이스를 관리하고 운전자금을 더 빠르게 확보하세요.")}</p>
+          <p>{t("Track invoices and access working capital faster.", "인보이스를 관리하고 운용자금을 더 빠르게 확보하세요.")}</p>
         </div>
         <Link className="primary-button compact-button" to="/supplier/invoices/new">
           <Plus aria-hidden="true" size={14} weight="bold" />

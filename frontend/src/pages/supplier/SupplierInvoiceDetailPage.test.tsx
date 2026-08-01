@@ -52,7 +52,48 @@ test("shows the supplier RWA issuance summary after RWA issuance", () => {
   expect(screen.getByText("Supplier")).toBeInTheDocument();
   expect(screen.getByText("Buyer")).toBeInTheDocument();
   expect(screen.getByText("Risk Passport score")).toBeInTheDocument();
+  expect(screen.getByText("RWA asset details")).toBeInTheDocument();
+  expect(screen.getByText("Delivery date")).toBeInTheDocument();
   expect(screen.queryByText("Treasury Agent is processing the RWA investment")).not.toBeInTheDocument();
+});
+
+test("shows the shared lifecycle for an in-progress risk assessment", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "RISK_ASSESSING" }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("list", { name: "Invoice lifecycle" })).toHaveTextContent("Document analysis");
+  expect(screen.getByRole("list", { name: "Invoice lifecycle" })).toHaveTextContent("Maturity settlement");
+  expect(screen.getByRole("heading", { name: "Generating the Risk Passport" })).toBeInTheDocument();
+});
+
+test("shows Agent policy evaluation details while funding is in progress", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "FUNDING",
+        riskPassport: DEMO_RISK_PASSPORT,
+        agentDecision: {
+          invoiceId: DEMO_INVOICE.id,
+          status: "APPROVED",
+          checks: { minimumRiskScore: true, buyerAllowlist: true },
+          amountUsdc: 1,
+          reason: "All signed investment criteria passed.",
+          createdAt: "2026-07-30T09:06:00.000Z",
+        },
+      }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Treasury Agent is evaluating this issued RWA" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Policy checks" })).toBeInTheDocument();
+  expect(screen.getByText("minimumRiskScore")).toBeInTheDocument();
+  expect(screen.getAllByText("Passed")).toHaveLength(2);
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {

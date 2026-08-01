@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
+import { InvoiceProgress } from "../../components/InvoiceProgress";
 import { LoadingState } from "../../components/LoadingState";
 import { useAcceptOffer } from "../../hooks/useAcceptOffer";
 import { useInvoice } from "../../hooks/useInvoice";
@@ -10,6 +11,7 @@ import { DocumentReviewSection } from "./sections/DocumentReviewSection";
 import { EarlySettlementOfferSection } from "./sections/EarlySettlementOfferSection";
 import { FundingProgressSection } from "./sections/FundingProgressSection";
 import { FundingReceiptSection } from "./sections/FundingReceiptSection";
+import { InvoiceWorkflowStatusSection } from "./sections/InvoiceWorkflowStatusSection";
 import { RwaIssuedSection } from "./sections/RwaIssuedSection";
 import { SettlementReceiptSection } from "./sections/SettlementReceiptSection";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -25,42 +27,54 @@ export function SupplierInvoiceDetailContent({
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
 }) {
-  const { t } = useLanguage();
+  const renderContent = () => {
+    if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
+      return (
+        <DocumentReviewSection
+          invoice={invoice}
+          onConfirm={onRequestVerification}
+          isPending={isRequestingVerification}
+        />
+      );
+    }
+
+    if (invoice.status === "BUYER_REVIEW") {
+      return <BuyerReviewPendingSection invoice={invoice} />;
+    }
+
+    if (invoice.status === "OFFER_READY") {
+      return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} />;
+    }
+
+    if (invoice.status === "RWA_ISSUED") {
+      return <RwaIssuedSection invoice={invoice} />;
+    }
+
+    if (invoice.status === "FUNDING") {
+      return <FundingProgressSection invoice={invoice} />;
+    }
+
+    if (invoice.status === "FUNDED") {
+      return <FundingReceiptSection invoice={invoice} />;
+    }
+
+    if (invoice.status === "SETTLED") {
+      return <SettlementReceiptSection invoice={invoice} />;
+    }
+
+    return <InvoiceWorkflowStatusSection invoice={invoice} />;
+  };
+
   if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
-    return (
-      <DocumentReviewSection
-        invoice={invoice}
-        onConfirm={onRequestVerification}
-        isPending={isRequestingVerification}
-      />
-    );
+    return renderContent();
   }
 
-  if (invoice.status === "BUYER_REVIEW") {
-    return <BuyerReviewPendingSection invoice={invoice} />;
-  }
-
-  if (invoice.status === "OFFER_READY") {
-    return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} />;
-  }
-
-  if (invoice.status === "RWA_ISSUED") {
-    return <RwaIssuedSection invoice={invoice} />;
-  }
-
-  if (invoice.status === "FUNDING") {
-    return <FundingProgressSection />;
-  }
-
-  if (invoice.status === "FUNDED") {
-    return <FundingReceiptSection invoice={invoice} />;
-  }
-
-  if (invoice.status === "SETTLED") {
-    return <SettlementReceiptSection invoice={invoice} />;
-  }
-
-  return <section><h1>{t("Invoice progress", "인보이스 진행 상태")}</h1></section>;
+  return (
+    <div className="supplier-invoice-workflow">
+      {invoice.status !== "BUYER_REVIEW" && <InvoiceProgress status={invoice.status} />}
+      {renderContent()}
+    </div>
+  );
 }
 
 export function SupplierInvoiceDetailPage() {

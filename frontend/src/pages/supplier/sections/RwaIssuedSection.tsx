@@ -4,7 +4,7 @@ import { useLanguage } from "../../../i18n/LanguageContext";
 
 export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
   const { language, t } = useLanguage();
-  const amount = invoice.riskPassport?.suggestedAdvanceAmountUsdc;
+  const amount = invoice.agentDecision?.amountUsdc ?? invoice.riskPassport?.suggestedAdvanceAmountUsdc;
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "2-digit",
@@ -16,6 +16,20 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
     maximumFractionDigits: 0,
   });
   const advanceRate = invoice.riskPassport?.suggestedAdvanceRateBps;
+  const issueTransaction = invoice.rwaAsset?.issueTransaction;
+  const shortenAddress = (address?: string) => {
+    if (!address) return "—";
+    return address.length > 18 ? `${address.slice(0, 8)}...${address.slice(-6)}` : address;
+  };
+  const issuedAt = issueTransaction?.createdAt
+    ? new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(issueTransaction.createdAt))
+    : "—";
 
   return (
     <section className="rwa-issued">
@@ -41,19 +55,33 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
               <div><dt>{t("Buyer", "구매기업")}</dt><dd>{invoice.buyer.name}</dd></div>
               <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{krwFormatter.format(invoice.invoiceAmountKrw)}</dd></div>
               <div><dt>{t("Issue date", "발행일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.issueDate}T00:00:00`))}</dd></div>
+              <div><dt>{t("Delivery date", "납품일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.deliveryDate}T00:00:00`))}</dd></div>
               <div><dt>{t("Due date", "만기일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.dueDate}T00:00:00`))}</dd></div>
               <div><dt>{t("Contract number", "계약 번호")}</dt><dd>{invoice.contractNumber}</dd></div>
               <div><dt>{t("Purchase order number", "발주 번호")}</dt><dd>{invoice.purchaseOrderNumber}</dd></div>
             </dl>
           </section>
           <section className="rwa-issued-card__group">
-            <h2>{t("RWA issuance details", "RWA 발행 정보")}</h2>
+            <h2>Risk Passport</h2>
             <dl>
+              <div><dt>{t("Eligibility", "적격 여부")}</dt><dd>{invoice.riskPassport?.eligibility ?? "—"}</dd></div>
               <div><dt>{t("Risk Passport score", "Risk Passport 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
               <div><dt>{t("Advance rate", "조기정산 비율")}</dt><dd>{advanceRate === null || advanceRate === undefined ? "—" : `${advanceRate / 100}%`}</dd></div>
               <div><dt>{t("Expected settlement", "조기정산 예정 금액")}</dt><dd>{amount?.toLocaleString() ?? "—"} USDC</dd></div>
+              <div><dt>{t("Policy version", "정책 버전")}</dt><dd>{invoice.riskPassport?.policyVersion ?? "—"}</dd></div>
+              <div><dt>{t("Analysis documents", "분석 문서")}</dt><dd>{invoice.documents.length} {t("files", "개")}</dd></div>
+            </dl>
+          </section>
+          <section className="rwa-issued-card__group">
+            <h2>{t("RWA asset details", "RWA 자산 정보")}</h2>
+            <dl>
               <div><dt>{t("Issuance status", "RWA 발행 상태")}</dt><dd>{t("Issued", "발행 완료")}</dd></div>
-              <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={invoice.rwaAsset?.mintAddress}>{invoice.rwaAsset?.mintAddress ?? "—"}</dd></div>
+              <div><dt>{t("Asset status", "자산 상태")}</dt><dd>{invoice.rwaAsset?.status ?? "—"}</dd></div>
+              <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={invoice.rwaAsset?.mintAddress}>{shortenAddress(invoice.rwaAsset?.mintAddress)}</dd></div>
+              <div><dt>{t("Escrow account", "에스크로 계정")}</dt><dd title={invoice.rwaAsset?.escrowTokenAccount}>{shortenAddress(invoice.rwaAsset?.escrowTokenAccount)}</dd></div>
+              <div><dt>{t("Current owner Vault", "현재 보유 Vault")}</dt><dd title={invoice.rwaAsset?.ownerVaultAddress}>{shortenAddress(invoice.rwaAsset?.ownerVaultAddress)}</dd></div>
+              <div><dt>{t("Issued at", "발행 시각")}</dt><dd>{issuedAt}</dd></div>
+              <div><dt>{t("Issue transaction", "발행 트랜잭션")}</dt><dd title={issueTransaction?.signature}>{shortenAddress(issueTransaction?.signature)}</dd></div>
             </dl>
           </section>
         </div>

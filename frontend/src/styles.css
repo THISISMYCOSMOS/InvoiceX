@@ -950,6 +950,11 @@ a {
   background: #dcfce7;
 }
 
+.investor-setup-draft.is-resign-required {
+  color: #a16207;
+  background: #fef3c7;
+}
+
 .investor-setup-stack {
   display: grid;
   max-width: 840px;
@@ -1063,6 +1068,96 @@ a {
 
 .investor-authorization-card__body footer p svg {
   flex: 0 0 auto;
+}
+
+.investor-mandate-steps {
+  display: grid;
+  margin: 16px 0 0;
+  padding: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+}
+
+.investor-mandate-steps li {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  color: #94a3b8;
+}
+
+.investor-mandate-steps li::after {
+  position: absolute;
+  z-index: 0;
+  top: 12px;
+  right: 8px;
+  left: 29px;
+  height: 1px;
+  background: #e2e8f0;
+  content: "";
+}
+
+.investor-mandate-steps li:last-child::after {
+  display: none;
+}
+
+.investor-mandate-steps li > span {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  color: #64748b;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.investor-mandate-steps li > div {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding-right: 10px;
+  background: #fff;
+}
+
+.investor-mandate-steps strong,
+.investor-mandate-steps small {
+  display: block;
+}
+
+.investor-mandate-steps strong {
+  color: inherit;
+  font-size: 10px;
+}
+
+.investor-mandate-steps small {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.investor-mandate-steps li.is-complete,
+.investor-mandate-steps li.is-current {
+  color: #6d28d9;
+}
+
+.investor-mandate-steps li.is-complete > span,
+.investor-mandate-steps li.is-current > span {
+  border-color: #8b5cf6;
+  color: #fff;
+  background: #7c3aed;
+}
+
+.investor-mandate-steps li.is-complete::after {
+  background: #c4b5fd;
 }
 
 .investor-authorization-card__body .investor-primary-button {
@@ -1336,6 +1431,142 @@ a {
   white-space: nowrap;
 }
 
+.investor-vault-progress {
+  border-top: 1px solid #e5e9f0;
+  padding: 13px 17px 15px;
+  background: #fbfcfe;
+}
+
+.investor-vault-progress__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #5b21b6;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.investor-vault-progress__spin,
+.funding-progress__spin,
+.invoice-workflow-status__spin {
+  animation: invoice-spin 900ms linear infinite;
+}
+
+.investor-vault-progress ol {
+  display: grid;
+  margin: 12px 0 0;
+  padding: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+}
+
+.investor-vault-progress li {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 7px;
+  color: #94a3b8;
+}
+
+.investor-vault-progress li::after {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  left: 25px;
+  height: 1px;
+  background: #e2e8f0;
+  content: "";
+}
+
+.investor-vault-progress li:last-child::after {
+  display: none;
+}
+
+.investor-vault-progress li > span {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  color: #64748b;
+  background: #fbfcfe;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.investor-vault-progress li > div {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  background: #fbfcfe;
+}
+
+.investor-vault-progress li strong,
+.investor-vault-progress li small {
+  display: block;
+}
+
+.investor-vault-progress li strong {
+  color: inherit;
+  font-size: 9px;
+}
+
+.investor-vault-progress li small {
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 8px;
+}
+
+.investor-vault-progress li.is-current,
+.investor-vault-progress li.is-complete {
+  color: #6d28d9;
+}
+
+.investor-vault-progress li.is-current > span,
+.investor-vault-progress li.is-complete > span {
+  border-color: #8b5cf6;
+  color: #fff;
+  background: #7c3aed;
+}
+
+.investor-vault-progress li.is-complete::after {
+  background: #c4b5fd;
+}
+
+.investor-vault-progress dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 13px 0 0;
+}
+
+.investor-vault-progress dl > div {
+  min-width: 0;
+}
+
+.investor-vault-progress dt {
+  color: #64748b;
+  font-size: 8px;
+}
+
+.investor-vault-progress dd {
+  margin: 3px 0 0;
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+@keyframes invoice-spin {
+  to { transform: rotate(360deg); }
+}
+
 .wallet-connect-button {
   display: inline-flex;
   width: auto;
@@ -1459,6 +1690,18 @@ a {
   font-weight: 700;
 }
 
+.recent-invoices > p {
+  display: flex;
+  min-height: 112px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 24px 28px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
@@ -1551,7 +1794,7 @@ a {
 
 .new-invoice-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
 }
@@ -1565,9 +1808,10 @@ a {
 .new-invoice-heading h1 {
   margin: 0;
   color: #172033;
-  font-size: 25px;
+  font-size: 26px;
+  font-weight: 700;
   letter-spacing: -0.65px;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .new-invoice-heading h1 + p {
@@ -3830,6 +4074,12 @@ a {
   margin: 20px 0 24px;
 }
 
+.invoice-progress--lifecycle {
+  max-width: none;
+  margin: 0 0 24px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .invoice-progress li {
   min-height: 24px;
 }
@@ -3853,6 +4103,275 @@ a {
   border-color: #16a34a;
   color: #fff;
   background: #16a34a;
+}
+
+.supplier-invoice-workflow {
+  max-width: 950px;
+}
+
+.invoice-workflow-status {
+  overflow: hidden;
+  border: 1px solid #d9dee8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.invoice-workflow-status > .invoice-progress {
+  margin: 0;
+  border-bottom: 1px solid #e5e9f0;
+  padding: 18px 22px;
+  background: #fbfcfe;
+}
+
+.invoice-workflow-status > article {
+  display: grid;
+  min-height: 168px;
+  align-items: center;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 24px 22px;
+}
+
+.invoice-workflow-status__icon {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #2563eb;
+  background: #dbeafe;
+}
+
+.invoice-workflow-status--attention .invoice-workflow-status__icon {
+  color: #a16207;
+  background: #fef3c7;
+}
+
+.invoice-workflow-status--blocked .invoice-workflow-status__icon {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.invoice-workflow-status__eyebrow {
+  display: block;
+  color: #2563eb;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.invoice-workflow-status--attention .invoice-workflow-status__eyebrow {
+  color: #a16207;
+}
+
+.invoice-workflow-status--blocked .invoice-workflow-status__eyebrow {
+  color: #b91c1c;
+}
+
+.invoice-workflow-status h1 {
+  margin: 6px 0 0;
+  color: #172033;
+  font-size: 22px;
+  letter-spacing: -0.45px;
+  line-height: 1.25;
+}
+
+.invoice-workflow-status p {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.invoice-workflow-status__live {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.funding-progress {
+  overflow: hidden;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.funding-progress__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #dbeafe;
+  padding: 22px;
+  background: linear-gradient(125deg, #f5f9ff, #fff);
+}
+
+.funding-progress__heading > div > span {
+  display: block;
+  color: #2563eb;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.funding-progress__heading h1 {
+  margin: 6px 0 0;
+  color: #172033;
+  font-size: 23px;
+  letter-spacing: -0.55px;
+  line-height: 1.2;
+}
+
+.funding-progress__heading p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.funding-progress__status {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.funding-progress__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 22px;
+}
+
+.funding-progress__grid article {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 9px;
+  padding: 14px;
+  background: #f8fbff;
+}
+
+.funding-progress__icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.funding-progress__icon--violet {
+  color: #6d28d9;
+  background: #f1edff;
+}
+
+.funding-progress__icon--slate {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.funding-progress__grid article > div {
+  min-width: 0;
+}
+
+.funding-progress__grid article span,
+.funding-progress__grid article strong,
+.funding-progress__grid article p {
+  display: block;
+}
+
+.funding-progress__grid article > div > span {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.funding-progress__grid article strong {
+  overflow: hidden;
+  margin-top: 5px;
+  color: #172033;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.funding-progress__grid article p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.funding-progress__checks {
+  border-top: 1px solid #e5e9f0;
+  padding: 17px 22px 20px;
+}
+
+.funding-progress__checks h2 {
+  margin: 0 0 10px;
+  color: #334155;
+  font-size: 12px;
+}
+
+.funding-progress__checks ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+}
+
+.funding-progress__checks li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #e5e9f0;
+  border-radius: 7px;
+  padding: 8px 9px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.funding-progress__checks li span {
+  overflow: hidden;
+  flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.funding-progress__checks li strong {
+  color: inherit;
+  font-size: 9px;
+}
+
+.funding-progress__checks li.is-passed {
+  color: #15803d;
+  background: #f0fdf4;
 }
 
 .funding-receipt {
@@ -4193,7 +4712,8 @@ a {
   .buyer-verification-grid,
   .buyer-payment-grid,
   .early-offer__grid,
-  .funding-receipt__summary {
+  .funding-receipt__summary,
+  .funding-progress__grid {
     grid-template-columns: 1fr;
   }
 
@@ -4213,12 +4733,26 @@ a {
   .rwa-issued-card__group dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .invoice-progress--lifecycle {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 14px;
+  }
+
+  .invoice-progress--lifecycle li:nth-child(3)::after {
+    display: none;
+  }
+
+  .funding-progress__checks ul {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
   .buyer-detail-heading,
   .early-offer__heading,
   .funding-receipt__heading,
+  .funding-progress__heading,
   .investor-purchase-card > header {
     align-items: flex-start;
     flex-direction: column;
@@ -4301,6 +4835,17 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .investor-mandate-steps,
+  .investor-vault-progress ol {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .investor-mandate-steps li::after,
+  .investor-vault-progress li::after {
+    display: none;
+  }
+
   .buyer-complete-steps li {
     grid-template-columns: 19px max-content;
   }
@@ -4340,6 +4885,32 @@ a {
   }
 
   .rwa-issued-card__body {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .invoice-workflow-status > .invoice-progress {
+    padding: 16px 18px;
+  }
+
+  .invoice-workflow-status > article {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .invoice-workflow-status__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .invoice-workflow-status__live {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .funding-progress__heading,
+  .funding-progress__grid,
+  .funding-progress__checks {
     padding-right: 18px;
     padding-left: 18px;
   }
