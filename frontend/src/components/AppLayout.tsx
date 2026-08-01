@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useInvoice } from "../hooks/useInvoice";
+import { useInvoices } from "../hooks/useInvoices";
 import { useLanguage } from "../i18n/LanguageContext";
 import { Brand } from "./Brand";
 import { LanguageToggle } from "./LanguageToggle";
@@ -16,6 +17,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isInvestorSetup = pathname === "/investor/setup";
   const detailInvoiceId = pathname.match(/^\/(?:supplier|buyer)\/invoices\/([^/]+)/)?.[1] ?? "";
   const detailInvoice = useInvoice(detailInvoiceId, Boolean(detailInvoiceId));
+  // The nav must follow the invoice the demo produced, not a fixed id.
+  const invoices = useInvoices(isInvestor);
+  const latestInvoiceId = invoices.data?.[0]?.id;
   const role = isSupplier ? "SUPPLIER" : isBuyer ? "BUYER" : isInvestor ? "INVESTOR" : "DEMO";
   const company = isSupplier
     ? "Alpha Components"
@@ -113,7 +117,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </Link>
                 <Link
                   className={isInvestorActivity ? "is-active" : ""}
-                  to="/investor/activities/INV-2026-001"
+                  to={latestInvoiceId ? `/investor/activities/${latestInvoiceId}` : "/investor"}
                 >
                   {t("Agent Activity", "에이전트 활동")}
                 </Link>

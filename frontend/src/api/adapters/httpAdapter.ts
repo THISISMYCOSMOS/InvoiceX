@@ -78,12 +78,30 @@ function stripTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+async function responseErrorMessage(response: Response): Promise<string> {
+  const text = await response.text();
+  try {
+    const payload = JSON.parse(text) as unknown;
+    if (
+      typeof payload === "object"
+      && payload !== null
+      && "message" in payload
+      && typeof payload.message === "string"
+    ) {
+      return payload.message;
+    }
+  } catch {
+    // Non-JSON upstream errors are already suitable fallback messages.
+  }
+  return text || `HTTP ${response.status}`;
+}
+
 export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: string): ScenarioAdapter {
   const base = stripTrailingSlash(baseUrl);
   const request = async <T>(path: string, init: RequestInit): Promise<T> => {
     const response = await fetchImpl(`${base}${path}`, init);
     if (!response.ok) {
-      throw new HttpError(response.status, await response.text());
+      throw new HttpError(response.status, await responseErrorMessage(response));
     }
 
     return response.json() as Promise<T>;
@@ -137,11 +155,14 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async requestRevision(verificationId) {
       return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/revision-request`, { method: "POST" }));
     },
-    async respondToOffer(invoiceId, response: OfferResponse) {
+    async respondToOffer(invoiceId, response: OfferResponse, supplierWalletAddress?: string) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/offer-response`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ response }),
+        body: JSON.stringify({
+          response,
+          ...(supplierWalletAddress === undefined ? {} : { supplierWalletAddress }),
+        }),
       }));
     },
     async runFunding(invoiceId) {

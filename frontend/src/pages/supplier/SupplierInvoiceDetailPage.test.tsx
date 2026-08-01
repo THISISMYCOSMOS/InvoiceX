@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import {
   DEMO_ANALYSIS,
   DEMO_DOCUMENTS,
@@ -24,6 +25,24 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
   expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
 });
 
+test("requires the connected payout wallet before accepting a real offer", () => {
+  render(
+    <MemoryRouter>
+      <SupplierInvoiceDetailContent
+        invoice={{ ...DEMO_INVOICE, status: "OFFER_READY", riskPassport: DEMO_RISK_PASSPORT }}
+        onAccept={() => undefined}
+        requireConnectedWallet
+        acceptOfferError={new Error("Treasury transfer is not ready.")}
+      />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByText("Connect the supplier payout wallet before accepting the offer.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Connect wallet" })).toHaveAttribute("href", "/supplier/company-wallet");
+  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeDisabled();
+  expect(screen.getByRole("alert")).toHaveTextContent("Treasury transfer is not ready.");
+});
+
 test("shows the transaction receipt for a funded invoice", () => {
   render(
     <SupplierInvoiceDetailContent
@@ -32,7 +51,9 @@ test("shows the transaction receipt for a funded invoice", () => {
     />,
   );
 
-  expect(screen.getByText("Transaction Hash")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your USDC early settlement has been paid" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
+  expect(screen.getAllByText(/DEVNET/).length).toBeGreaterThan(0);
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {
@@ -60,9 +81,16 @@ test("shows extracted information and requests verification after confirmation",
   expect(screen.getByText("Needs review")).toBeInTheDocument();
   expect(screen.getByText("Completed · July 24, 2026")).toBeInTheDocument();
   expect(screen.queryByText("03 · DOCUMENT AGENT REVIEW / 1440 × 900")).not.toBeInTheDocument();
-  expect(screen.getByText("Document Agent complete")).toBeInTheDocument();
+  expect(screen.queryByText("Document Agent complete")).not.toBeInTheDocument();
   expect(screen.getByText("Prime Mobility Co., Ltd.")).toBeInTheDocument();
-  expect(screen.getByText("invoice_INV-2026-001.pdf")).toBeInTheDocument();
+  // The preview header names the uploaded file, whatever the invoice id is.
+  expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Next document" }));
+  expect(screen.getByText("02_Goods_Supply_Agreement_PM-SUPPLY-2026-04.pdf")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Previous document" }));
+  expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
   expect(onRequestVerification).toHaveBeenCalledTimes(1);

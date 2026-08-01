@@ -10,6 +10,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from invoicex_backend.models import PaymentInstructions
 
+SolanaCluster = Literal["devnet", "testnet"]
+
+# Per-cluster chain constants. Keeping them in one table stops a cluster switch
+# from silently leaving an RPC or explorer link pointing at the wrong network.
+SOLANA_RPC_URLS: dict[str, str] = {
+    "devnet": "https://api.devnet.solana.com",
+    "testnet": "https://api.testnet.solana.com",
+}
+SOLANA_NETWORK_NAMES: dict[str, str] = {
+    "devnet": "SOLANA_DEVNET",
+    "testnet": "SOLANA_TESTNET",
+}
+SOLANA_CAIP2_IDS: dict[str, str] = {
+    "devnet": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    "testnet": "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z",
+}
+SOLANA_DEVNET_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+
 # backend/src/invoicex_backend/config.py -> backend/seed
 DEFAULT_SEED_DIRECTORY = Path(__file__).resolve().parents[2] / "seed"
 
@@ -99,20 +117,20 @@ class BackendSettings(BaseSettings):
         validation_alias="PRIVY_API_BASE_URL",
     )
 
-    solana_cluster: Literal["devnet"] = Field(
+    solana_cluster: SolanaCluster = Field(
         default="devnet",
         validation_alias="SOLANA_CLUSTER",
     )
-    solana_rpc_url: str = Field(
-        default="https://api.devnet.solana.com",
+    solana_rpc_url: str | None = Field(
+        default=None,
         validation_alias="SOLANA_RPC_URL",
     )
-    solana_caip2: str = Field(
-        default="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    solana_caip2: str | None = Field(
+        default=None,
         validation_alias="SOLANA_CAIP2",
     )
     solana_usdc_mint: str = Field(
-        default="4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        default=SOLANA_DEVNET_USDC_MINT,
         validation_alias="SOLANA_USDC_MINT",
     )
     solana_usdc_decimals: int = Field(
@@ -183,6 +201,23 @@ class BackendSettings(BaseSettings):
             return self.state_file
         return self.upload_directory.parent / "state.json"
 
+    def resolved_rpc_url(self) -> str:
+        return self.solana_rpc_url or SOLANA_RPC_URLS[self.solana_cluster]
+
+    def solana_network_name(self) -> str:
+        """The network label the frontend renders on a transaction receipt."""
+
+        return SOLANA_NETWORK_NAMES[self.solana_cluster]
+
+    def resolved_caip2(self) -> str:
+        return self.solana_caip2 or SOLANA_CAIP2_IDS[self.solana_cluster]
+
+    def explorer_url(self, signature: str) -> str:
+        return (
+            f"https://explorer.solana.com/tx/{signature}"
+            f"?cluster={self.solana_cluster}"
+        )
+
     def resolved_seed_directory(self) -> Path:
         """Resolve the demo seed relative to the package, not the working directory."""
 
@@ -201,12 +236,32 @@ class BackendSettings(BaseSettings):
         return self.solana_mode
 
     def missing_privy_configuration(self) -> list[str]:
+        """Return the configuration required to execute supplier funding.
+
+        Settlement destinations are checked when settlement runs so an otherwise
+        complete Treasury wallet can fund a connected supplier independently.
+        """
+
         values = {
             "PRIVY_APP_ID": self.privy_app_id,
             "PRIVY_APP_SECRET": self.privy_app_secret,
             "PRIVY_WALLET_ID": self.privy_treasury_wallet_id,
+        }
+        missing = [
+            name
+            for name, value in values.items()
+            if not self._non_blank(value) or str(value).startswith("DEMO_")
+        ]
+        if (
+            self.solana_cluster == "testnet"
+            and self.solana_usdc_mint == SOLANA_DEVNET_USDC_MINT
+        ):
+            missing.append("SOLANA_USDC_MINT (testnet-compatible SPL token)")
+        return missing
+
+    def missing_privy_settlement_configuration(self) -> list[str]:
+        values = {
             "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
-            "SUPPLIER_WALLET_ADDRESS": self.supplier_wallet_address,
             "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (
                 self.investor_settlement_wallet_address
             ),

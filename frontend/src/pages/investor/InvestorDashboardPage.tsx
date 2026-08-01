@@ -91,7 +91,7 @@ export function InvestorDashboardPage() {
       <section className="investor-activity-card">
         <header>
           <h2>{t("Recent Treasury Agent activity", "최근 Treasury Agent 활동")}</h2>
-          <Link className="investor-secondary-button" to="/investor/activities/INV-2026-001">
+          <Link className="investor-secondary-button" to={`/investor/activities/${demoActivityRows[0].invoiceId}`}>
             {t("View all", "전체 보기")}
           </Link>
         </header>

@@ -3,6 +3,7 @@ import { useWallet, type Wallet as AdapterWallet } from "@solana/wallet-adapter-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConnectedSolanaWallet } from "../hooks/useConnectedSolanaWallet";
 import { useLanguage } from "../i18n/LanguageContext";
+import { solanaNetworkLabel } from "../wallet/solanaNetwork";
 import { shortenWalletAddress, walletErrorMessage, type WalletConnectionStatus } from "../wallet/walletConnectionUtils";
 
 interface SolanaWalletConnectionProps {
@@ -28,7 +29,7 @@ export function SolanaWalletConnection({
   onWalletDisconnected,
 }: SolanaWalletConnectionProps) {
   const { connect, disconnect, select, wallet, wallets } = useWallet();
-  const { connected, connecting, publicKey, walletName } = useConnectedSolanaWallet();
+  const { connected, publicKey, walletName } = useConnectedSolanaWallet();
   const { t } = useLanguage();
   const [isChooserOpen, setIsChooserOpen] = useState(false);
   const [pendingWalletName, setPendingWalletName] = useState<string | null>(null);
@@ -50,12 +51,12 @@ export function SolanaWalletConnection({
     ? "ERROR"
     : connected && publicKey
       ? "CONNECTED"
-      : connecting || pendingWalletName
+      : pendingWalletName
         ? "CONNECTING"
         : "DISCONNECTED";
 
   useEffect(() => {
-    if (!pendingWalletName || wallet?.adapter.name !== pendingWalletName || connected || connecting) {
+    if (!pendingWalletName || wallet?.adapter.name !== pendingWalletName || connected) {
       return;
     }
 
@@ -76,7 +77,7 @@ export function SolanaWalletConnection({
     return () => {
       isCurrent = false;
     };
-  }, [connect, connected, connecting, pendingWalletName, select, wallet]);
+  }, [connect, connected, pendingWalletName, select, wallet]);
 
   useEffect(() => {
     if (connected && publicKey && connectedAddressRef.current !== publicKey) {
@@ -127,11 +128,15 @@ export function SolanaWalletConnection({
 
   const disconnectWallet = async () => {
     isManualDisconnectRef.current = true;
+    setPendingWalletName(null);
+    setIsChooserOpen(false);
     try {
       await disconnect();
     } catch {
       isManualDisconnectRef.current = false;
       setError("지갑 연결을 해제하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      select(null);
     }
   };
 
@@ -143,7 +148,7 @@ export function SolanaWalletConnection({
         </span>
         <div>
           <h2>{title}</h2>
-          <p>Solana Devnet</p>
+          <p>{solanaNetworkLabel}</p>
         </div>
         <span className={`wallet-status ${status === "CONNECTED" ? "is-connected" : status === "ERROR" ? "is-error" : ""}`}>
           <span aria-hidden="true" />
@@ -181,7 +186,7 @@ export function SolanaWalletConnection({
             </div>
             <div>
               <span>{t("Network", "네트워크")}</span>
-              <strong>Solana Devnet</strong>
+              <strong>{solanaNetworkLabel}</strong>
             </div>
             <div>
               <span>{t("Connection status", "연결 상태")}</span>

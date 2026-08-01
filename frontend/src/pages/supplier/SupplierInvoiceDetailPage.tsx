@@ -4,6 +4,7 @@ import { InvoiceProgress } from "../../components/InvoiceProgress";
 import { LoadingState } from "../../components/LoadingState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAcceptOffer } from "../../hooks/useAcceptOffer";
+import { useConnectedSolanaWallet } from "../../hooks/useConnectedSolanaWallet";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useRequestVerification } from "../../hooks/useRequestVerification";
 import { isExceptionStatus, type Invoice } from "../../types/invoice";
@@ -22,12 +23,20 @@ export function SupplierInvoiceDetailContent({
   onDecline = () => undefined,
   onRequestVerification = () => undefined,
   isRequestingVerification = false,
+  connectedWalletAddress,
+  requireConnectedWallet = false,
+  isAcceptingOffer = false,
+  acceptOfferError,
 }: {
   invoice: Invoice;
   onAccept: () => void;
   onDecline?: () => void;
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
+  connectedWalletAddress?: string | null;
+  requireConnectedWallet?: boolean;
+  isAcceptingOffer?: boolean;
+  acceptOfferError?: unknown;
 }) {
   const { t } = useLanguage();
   if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
@@ -45,7 +54,17 @@ export function SupplierInvoiceDetailContent({
   }
 
   if (invoice.status === "OFFER_READY") {
-    return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} onDecline={onDecline} />;
+    return (
+      <EarlySettlementOfferSection
+        invoice={invoice}
+        onAccept={onAccept}
+        onDecline={onDecline}
+        connectedWalletAddress={connectedWalletAddress}
+        requireConnectedWallet={requireConnectedWallet}
+        isAccepting={isAcceptingOffer}
+        error={acceptOfferError}
+      />
+    );
   }
 
   if (isExceptionStatus(invoice.status)) {
@@ -63,6 +82,7 @@ export function SupplierInvoiceDetailPage() {
   const { t } = useLanguage();
   const { invoiceId = "" } = useParams();
   const invoice = useInvoice(invoiceId);
+  const wallet = useConnectedSolanaWallet();
   const acceptOffer = useAcceptOffer();
   const requestVerification = useRequestVerification();
   if (invoice.isLoading) return <LoadingState />;
@@ -70,10 +90,21 @@ export function SupplierInvoiceDetailPage() {
   return (
     <SupplierInvoiceDetailContent
       invoice={invoice.data}
-      onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
+      onAccept={() => {
+        if (!wallet.publicKey) return;
+        acceptOffer.mutate({
+          invoiceId: invoice.data.id,
+          response: "ACCEPT",
+          supplierWalletAddress: wallet.publicKey,
+        });
+      }}
       onDecline={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "DECLINE" })}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
+      connectedWalletAddress={wallet.publicKey}
+      requireConnectedWallet
+      isAcceptingOffer={acceptOffer.isPending}
+      acceptOfferError={acceptOffer.error}
     />
   );
 }

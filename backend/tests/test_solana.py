@@ -57,6 +57,9 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
             )
         if request.url.host == "privy.test":
             submitted.update(payload)
+            submitted["idempotency_key"] = request.headers.get(
+                "privy-idempotency-key"
+            )
             return httpx.Response(200, json={"data": {"hash": signature}})
         if payload["method"] == "getLatestBlockhash":
             return httpx.Response(
@@ -113,8 +116,9 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
     assert result.signature == signature
     assert result.status is TransactionStatus.CONFIRMED
     assert submitted["method"] == "signAndSendTransaction"
-    assert submitted["caip2"] == settings.solana_caip2
+    assert submitted["caip2"] == settings.resolved_caip2()
     assert submitted["reference_id"] == "settlement-INV-2026-001"
+    assert submitted["idempotency_key"] == "invoicex:settlement-INV-2026-001"
     encoded = submitted["params"]["transaction"]  # type: ignore[index]
     transaction = VersionedTransaction.from_bytes(base64.b64decode(encoded))
     assert len(transaction.message.instructions) == 4

@@ -13,6 +13,7 @@ from invoicex_agents.exceptions import AgentError
 from invoicex_agents.models.common import SourceEvidence
 from invoicex_agents.models.document import DocumentAnalysisResult
 from invoicex_agents.models.risk import RiskAnalysisRequest, RiskFactorContext
+from solders.pubkey import Pubkey
 
 from invoicex_backend.agents import AgentDocument, AgentGateway
 from invoicex_backend.config import BackendSettings
@@ -601,6 +602,8 @@ class InvoiceService:
         self,
         invoice_id: str,
         response: OfferResponse,
+        *,
+        supplier_wallet_address: str | None = None,
     ) -> tuple[Invoice, bool]:
         """Apply an offer response and report whether funding should be scheduled."""
 
@@ -632,6 +635,15 @@ class InvoiceService:
                 await self._persist()
                 return self._copy_invoice(invoice), False
 
+            payout_address = supplier_wallet_address or invoice.supplier.wallet_address
+            if self._solana.mode == "privy" and not self._is_solana_address(
+                payout_address
+            ):
+                raise StateConflictError(
+                    "실제 조기정산 전송 전에 유효한 공급기업 Solana 지갑을 연결해야 합니다."
+                )
+            if supplier_wallet_address is not None:
+                invoice.supplier.wallet_address = supplier_wallet_address
             invoice.status = InvoiceStatus.FUNDING
             await self._persist()
             return self._copy_invoice(invoice), True
@@ -674,6 +686,19 @@ class InvoiceService:
                 )
                 await self._persist()
                 return
+            if self._solana.mode == "privy" and not self._is_solana_address(
+                invoice.supplier.wallet_address
+            ):
+                invoice.status = InvoiceStatus.ERROR
+                self._append_trace(
+                    invoice,
+                    source="TREASURY_AGENT",
+                    target="SETTLEMENT_AGENT",
+                    status="FAILED",
+                    summary="유효한 공급기업 Solana 지갑 주소가 없어 전송을 중단했습니다.",
+                )
+                await self._persist()
+                return
             amount = passport.suggested_advance_amount_usdc
             try:
                 result = await self._solana.send_usdc(
@@ -712,9 +737,22 @@ class InvoiceService:
                     source="TREASURY_AGENT",
                     target="SETTLEMENT_AGENT",
                     status="COMPLETED",
-                    summary="AP2 Mandate 검증과 Solana Devnet USDC 전송을 완료했습니다.",
+                    summary=(
+                        "AP2 Mandate 검증과 Solana "
+                        f"{self._settings.solana_cluster.title()} USDC 전송을 완료했습니다."
+                    ),
                 )
             await self._persist()
+
+    @staticmethod
+    def _is_solana_address(value: str | None) -> bool:
+        if not value:
+            return False
+        try:
+            Pubkey.from_string(value)
+        except ValueError:
+            return False
+        return True
 
     async def settle_mock_payment(self, invoice_id: str) -> Invoice:
         async with self._invoice_lock(invoice_id):
@@ -752,6 +790,14 @@ class InvoiceService:
         """Move USDC to the investor and the platform. Caller holds the invoice lock."""
 
         invoice.status = InvoiceStatus.SETTLING
+        if self._solana.mode == "privy":
+            missing = self._settings.missing_privy_settlement_configuration()
+            if missing:
+                invoice.status = InvoiceStatus.ERROR
+                await self._persist()
+                raise IntegrationError(
+                    "실제 정산 전송에 필요한 설정이 없습니다: " + ", ".join(missing)
+                )
         try:
             result = await self._solana.send_usdc(
                 wallet_id=self._settings.privy_settlement_wallet_id
@@ -1134,8 +1180,8 @@ class InvoiceService:
             source_evidence=source_evidence,
         )
 
-    @staticmethod
     def _transaction(
+        self,
         *,
         result: ChainTransferResult,
         amount_usdc: int,
@@ -1144,12 +1190,11 @@ class InvoiceService:
         return BlockchainTransaction(
             signature=result.signature,
             status=result.status,
+            network=self._settings.solana_network_name(),
             amount_usdc=amount_usdc,
             from_address=result.from_address,
             to_address=to_address,
-            explorer_url=(
-                f"https://explorer.solana.com/tx/{result.signature}?cluster=devnet"
-            ),
+            explorer_url=self._settings.explorer_url(result.signature),
             created_at=datetime.now(UTC).isoformat(),
             sandbox=result.sandbox,
             provider=result.provider,

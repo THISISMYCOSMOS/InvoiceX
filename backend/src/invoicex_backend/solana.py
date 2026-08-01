@@ -133,12 +133,18 @@ class PrivySolanaGateway:
             raise IntegrationError("Privy reference_id must not exceed 64 characters")
 
         from_address = await self._wallet_address(wallet_id)
-        serialized_transaction = await self._build_transaction(from_address, transfers)
+        try:
+            serialized_transaction = await self._build_transaction(from_address, transfers)
+        except ValueError as exc:
+            raise IntegrationError(
+                "Solana transaction contains an invalid wallet or token mint address"
+            ) from exc
         response = await self._client.post(
             f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
+            headers={"privy-idempotency-key": f"invoicex:{reference_id}"},
             json={
                 "method": "signAndSendTransaction",
-                "caip2": self._settings.solana_caip2,
+                "caip2": self._settings.resolved_caip2(),
                 "sponsor": self._settings.privy_sponsor,
                 "params": {
                     "transaction": base64.b64encode(serialized_transaction).decode("ascii"),
@@ -271,7 +277,7 @@ class PrivySolanaGateway:
 
     async def _rpc(self, method: str, params: list[object]) -> dict[str, object]:
         response = await self._client.post(
-            self._settings.solana_rpc_url,
+            self._settings.resolved_rpc_url(),
             json={
                 "jsonrpc": "2.0",
                 "id": 1,

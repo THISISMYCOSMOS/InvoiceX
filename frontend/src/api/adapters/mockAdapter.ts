@@ -113,13 +113,19 @@ export function createMockAdapter(): ScenarioAdapter {
       invoice = { ...invoice, status: "REVISION_REQUESTED" };
       return clone(invoice);
     },
-    async respondToOffer(invoiceId, response) {
+    async respondToOffer(invoiceId, response, supplierWalletAddress) {
       const current = ensureInvoice(invoiceId);
       if (current.status !== "OFFER_READY") {
         return invalidTransition(current, "조건 응답");
       }
 
-      invoice = { ...current, status: response === "ACCEPT" ? "FUNDING" : "BLOCKED" };
+      invoice = {
+        ...current,
+        supplier: response === "ACCEPT" && supplierWalletAddress
+          ? { ...current.supplier, walletAddress: supplierWalletAddress }
+          : current.supplier,
+        status: response === "ACCEPT" ? "FUNDING" : "BLOCKED",
+      };
       return clone(invoice);
     },
     async runFunding(invoiceId) {

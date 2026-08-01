@@ -263,6 +263,7 @@ async def respond_to_offer(
     invoice, should_schedule = await service.respond_to_offer(
         invoice_id,
         payload.response,
+        supplier_wallet_address=payload.supplier_wallet_address,
     )
     if should_schedule:
         background_tasks.add_task(service.complete_funding, invoice_id)

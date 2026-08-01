@@ -2,23 +2,24 @@ import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useDemoControl } from "../../hooks/useDemoControl";
-import { useInvoice } from "../../hooks/useInvoice";
+import { useInvoices } from "../../hooks/useInvoices";
 import type { InvoiceStatus } from "../../types/invoice";
 import { useLanguage } from "../../i18n/LanguageContext";
-
-const invoiceId = "INV-2026-001";
 
 function enabled(status: InvoiceStatus, allowed: InvoiceStatus[]) {
   return allowed.includes(status);
 }
 
 export function DemoControlPage() {
-  const invoice = useInvoice(invoiceId);
+  // Drive whichever invoice the demo actually produced; the id changes after a
+  // reset or a second upload, so pinning it to a literal breaks the controls.
+  const invoices = useInvoices();
   const controls = useDemoControl();
   const { t } = useLanguage();
-  if (invoice.isLoading) return <LoadingState />;
-  if (invoice.error || !invoice.data) return <ErrorState error={invoice.error ?? new Error(t("Demo data not found.", "데모 데이터를 찾을 수 없습니다."))} />;
-  const current = invoice.data;
+  if (invoices.isLoading) return <LoadingState />;
+  const current = invoices.data?.[0];
+  if (invoices.error || !current) return <ErrorState error={invoices.error ?? new Error(t("Demo data not found.", "데모 데이터를 찾을 수 없습니다."))} />;
+  const invoiceId = current.id;
   const anyPending = Object.values(controls).some((control) => control.isPending);
   const anyError = Object.values(controls).find((control) => control.error)?.error;
 

@@ -89,17 +89,23 @@ def test_complete_frontend_contract_workflow(
     )
     assert duplicate_confirm.json()["invoice"]["status"] == "OFFER_READY"
 
+    supplier_wallet = "So11111111111111111111111111111111111111112"
     accepted = client.post(
         f"/api/v1/invoices/{invoice_id}/offer-response",
-        json={"response": "ACCEPT"},
+        json={
+            "response": "ACCEPT",
+            "supplierWalletAddress": supplier_wallet,
+        },
     )
     assert accepted.status_code == 200
     assert accepted.json()["invoice"]["status"] == "FUNDING"
+    assert accepted.json()["invoice"]["supplier"]["walletAddress"] == supplier_wallet
 
     funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert funded["status"] == "FUNDED"
     assert funded["fundingTransaction"]["status"] == "CONFIRMED"
     assert funded["fundingTransaction"]["amountUsdc"] == 18_800
+    assert funded["fundingTransaction"]["toAddress"] == supplier_wallet
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
     funding_signature = funded["fundingTransaction"]["signature"]

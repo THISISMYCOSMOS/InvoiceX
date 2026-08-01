@@ -18,7 +18,7 @@ export interface RiskPassport {
 
 export interface BlockchainTransaction {
   signature: string;
-  network: "SOLANA_DEVNET";
+  network: "SOLANA_DEVNET" | "SOLANA_TESTNET";
   status: "PENDING" | "CONFIRMED" | "FAILED";
   amountUsdc: number;
   fromAddress: string;

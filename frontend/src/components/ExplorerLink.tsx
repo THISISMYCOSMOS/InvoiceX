@@ -1,6 +1,7 @@
 import { useLanguage } from "../i18n/LanguageContext";
 
-export function ExplorerLink({ signature }: { signature: string }) {
+/** Uses the URL the backend built, so the cluster always matches the chain it used. */
+export function ExplorerLink({ explorerUrl }: { explorerUrl: string }) {
   const { t } = useLanguage();
-  return <a href={`https://explorer.solana.com/tx/${encodeURIComponent(signature)}?cluster=devnet`} target="_blank" rel="noreferrer">{t("View on Solana Explorer", "Solana Explorer에서 보기")}</a>;
+  return <a href={explorerUrl} target="_blank" rel="noreferrer">{t("View on Solana Explorer", "Solana Explorer에서 보기")}</a>;
 }

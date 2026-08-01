@@ -79,7 +79,7 @@ export function SupplierCompanyWalletPage() {
             "Early-settlement funds will be paid in USDC to the connected Solana wallet.",
             "조기정산 금액은 연결된 Solana 지갑으로 USDC 지급됩니다.",
           )}
-          balanceUsdc={wallet.receivedUsdc}
+          balanceUsdc={wallet.totalReceivedUsdc}
           onWalletConnected={() => undefined}
           onWalletDisconnected={() => undefined}
         />
@@ -91,8 +91,8 @@ export function SupplierCompanyWalletPage() {
           <strong>{t("Wallet security", "지갑 보안")}</strong>
           <p>
             {t(
-              "InvoiceX never stores private keys. The connected address is not saved until a separate settlement API is integrated.",
-              "InvoiceX는 개인키를 저장하지 않으며, 별도 정산 API가 연동되기 전까지 연결된 주소도 저장하지 않습니다.",
+              "InvoiceX never stores private keys. The connected public address is saved to the invoice only when you accept an early-settlement offer.",
+              "InvoiceX는 개인키를 저장하지 않으며, 연결된 공개 주소는 조기정산 제안을 수락할 때 해당 인보이스에만 저장됩니다.",
             )}
           </p>
         </div>

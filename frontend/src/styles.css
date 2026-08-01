@@ -3265,3 +3265,613 @@ a {
     flex-direction: column;
   }
 }
+
+/* Work-branch verification and settlement flow */
+.buyer-empty-row {
+  height: 58px;
+  color: #64748b;
+  text-align: center !important;
+}
+
+.document-review-preview {
+  overflow: hidden;
+  min-height: 420px;
+  border: 1px solid #d9dee8;
+  border-radius: 10px;
+  background: #eef2f7;
+}
+
+.document-review-preview__header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #d9dee8;
+  padding: 10px 14px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.document-review-preview__header > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.document-review-preview__type {
+  color: #2563eb;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.document-review-preview__header strong {
+  overflow: hidden;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-review-preview__count {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.document-review-preview__body {
+  display: grid;
+  min-height: 360px;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 18px;
+}
+
+.document-review-preview__nav {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #475569;
+  background: #fff;
+}
+
+.document-review-preview__nav:hover:not(:disabled) {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.document-review-preview__nav:disabled {
+  cursor: default;
+  color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.document-review-preview__frame {
+  display: flex;
+  height: 328px;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #d9dee8;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.document-review-preview__frame iframe,
+.document-review-preview__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.document-review-preview__frame img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.buyer-idle-state {
+  min-height: 560px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.buyer-complete-card,
+.funding-receipt__summary,
+.transaction-receipt {
+  overflow: hidden;
+  border: 1px solid #d9dee8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.buyer-complete-card {
+  max-width: 930px;
+  margin: 4px auto 0;
+}
+
+.buyer-complete-card__heading {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+  border-bottom: 1px solid #e8ebf0;
+  padding: 24px;
+}
+
+.buyer-complete-card__icon,
+.funding-receipt__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.buyer-complete-card__icon {
+  width: 50px;
+  height: 50px;
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.buyer-complete-card__eyebrow,
+.transaction-receipt header > div > span {
+  display: block;
+  color: #15803d;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.buyer-complete-card h1,
+.funding-receipt__heading h1 {
+  margin: 6px 0 0;
+  color: #172033;
+  font-size: 23px;
+  letter-spacing: -0.55px;
+  line-height: 1.2;
+}
+
+.buyer-complete-card__heading p,
+.funding-receipt__heading > div > p:last-child {
+  margin: 7px 0 0;
+  color: #667085;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.buyer-complete-card__status,
+.funding-receipt__chip,
+.transaction-receipt__status {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #15803d;
+  background: #dcfce7;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.buyer-complete-summary {
+  display: grid;
+  margin: 0;
+  padding: 18px 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.buyer-complete-summary > div {
+  min-width: 0;
+  border: 1px solid #e5eaf1;
+  border-radius: 9px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.buyer-complete-summary dt,
+.funding-receipt__details dt,
+.transaction-receipt dt {
+  color: #64748b;
+  font-size: 9px;
+}
+
+.buyer-complete-summary dd,
+.funding-receipt__details dd,
+.transaction-receipt dd {
+  overflow: hidden;
+  margin: 7px 0 0;
+  color: #172033;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buyer-complete-steps,
+.invoice-progress {
+  display: grid;
+  margin: 2px 24px 0;
+  padding: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+}
+
+.buyer-complete-steps li,
+.invoice-progress li {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.buyer-complete-steps li::after,
+.invoice-progress li::after {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: 4px;
+  left: 23px;
+  height: 1px;
+  background: #d9dee8;
+  content: "";
+}
+
+.buyer-complete-steps li:last-child::after,
+.invoice-progress li:last-child::after {
+  display: none;
+}
+
+.buyer-complete-steps svg,
+.buyer-complete-steps span,
+.invoice-progress span {
+  position: relative;
+  z-index: 1;
+}
+
+.buyer-complete-steps svg {
+  flex: 0 0 auto;
+  padding: 2px;
+  color: #94a3b8;
+  background: #fff;
+}
+
+.buyer-complete-steps li.is-complete,
+.invoice-progress li.is-complete,
+.invoice-progress li.is-current {
+  color: #15803d;
+}
+
+.buyer-complete-steps li.is-complete::after,
+.invoice-progress li.is-complete::after {
+  background: #86efac;
+}
+
+.buyer-complete-steps li.is-complete svg {
+  color: #16a34a;
+}
+
+.buyer-complete-steps li.is-next {
+  color: #2563eb;
+}
+
+.buyer-complete-steps li.is-next svg {
+  color: #2563eb;
+}
+
+.buyer-complete-card__footer {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid #e8ebf0;
+  margin-top: 22px;
+  padding: 0 24px;
+  background: #fbfefc;
+}
+
+.buyer-complete-card__footer p {
+  margin: 0;
+  color: #64748b;
+  font-size: 9.5px;
+}
+
+.buyer-complete-card__link,
+.transaction-receipt footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #15803d;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.invoice-progress {
+  max-width: 620px;
+  margin: 20px 0 24px;
+}
+
+.invoice-progress li {
+  min-height: 24px;
+}
+
+.invoice-progress__number {
+  display: inline-flex;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  color: #64748b;
+  background: #fff;
+  font-size: 9px;
+}
+
+.invoice-progress li.is-complete .invoice-progress__number,
+.invoice-progress li.is-current .invoice-progress__number {
+  border-color: #16a34a;
+  color: #fff;
+  background: #16a34a;
+}
+
+.funding-receipt {
+  max-width: 950px;
+}
+
+.funding-receipt__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.funding-receipt__chip {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.funding-receipt__summary {
+  display: grid;
+  margin-top: 22px;
+  grid-template-columns: minmax(260px, 0.88fr) minmax(0, 1.12fr);
+}
+
+.funding-receipt__amount {
+  display: flex;
+  min-height: 166px;
+  align-items: center;
+  gap: 15px;
+  padding: 22px;
+  background: #eff6ff;
+}
+
+.funding-receipt__icon {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  color: #2563eb;
+  background: #dbeafe;
+}
+
+.funding-receipt__amount > div > span {
+  display: block;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.funding-receipt__amount strong {
+  display: block;
+  margin-top: 7px;
+  color: #172033;
+  font-size: 28px;
+  letter-spacing: -0.65px;
+  line-height: 1;
+}
+
+.funding-receipt__amount small {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.funding-receipt__amount p {
+  margin: 9px 0 0;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.funding-receipt__details {
+  display: grid;
+  margin: 0;
+  padding: 14px 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 26px;
+}
+
+.funding-receipt__details > div {
+  min-width: 0;
+  min-height: 58px;
+  border-bottom: 1px solid #edf0f4;
+  padding: 10px 0;
+}
+
+.funding-receipt__details > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.funding-receipt__details dd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transaction-receipt {
+  margin-top: 14px;
+}
+
+.transaction-receipt > header {
+  display: flex;
+  min-height: 59px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e8ebf0;
+  padding: 10px 18px;
+}
+
+.transaction-receipt h2 {
+  margin: 3px 0 0;
+  color: #172033;
+  font-size: 12px;
+}
+
+.transaction-receipt__status--pending {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.transaction-receipt__status--failed {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.transaction-receipt dl {
+  display: grid;
+  margin: 0;
+  padding: 4px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 30px;
+}
+
+.transaction-receipt dl > div {
+  min-width: 0;
+  min-height: 55px;
+  border-bottom: 1px solid #edf0f4;
+  padding: 11px 0;
+}
+
+.transaction-receipt .transaction-receipt__signature {
+  grid-column: 1 / -1;
+}
+
+.transaction-receipt dd {
+  color: #334155;
+}
+
+.transaction-receipt__signature dd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+}
+
+.transaction-receipt > footer {
+  display: flex;
+  min-height: 49px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 18px;
+  background: #f8fafc;
+}
+
+@media (max-width: 900px) {
+  .document-review-preview__frame {
+    height: 390px;
+  }
+
+  .funding-receipt__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-complete-card__heading,
+  .funding-receipt__heading {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .document-review-preview__body {
+    min-height: 285px;
+    grid-template-columns: 28px minmax(0, 1fr) 28px;
+    gap: 5px;
+    padding: 10px 6px 14px;
+  }
+
+  .document-review-preview__nav {
+    width: 26px;
+    height: 26px;
+  }
+
+  .document-review-preview__frame {
+    height: 270px;
+  }
+
+  .buyer-idle-state {
+    min-height: 0;
+  }
+
+  .buyer-complete-card__heading {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .buyer-complete-card__status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .buyer-complete-summary,
+  .funding-receipt__details,
+  .transaction-receipt dl {
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-complete-steps,
+  .invoice-progress {
+    gap: 10px;
+    margin-right: 18px;
+    margin-left: 18px;
+    grid-template-columns: 1fr;
+  }
+
+  .buyer-complete-steps li::after,
+  .invoice-progress li::after {
+    display: none;
+  }
+
+  .buyer-complete-card__footer,
+  .funding-receipt__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .funding-receipt__details > div:nth-last-child(-n + 2) {
+    border-bottom: 1px solid #edf0f4;
+  }
+
+  .funding-receipt__details > div:last-child,
+  .transaction-receipt dl > div:last-child {
+    border-bottom: 0;
+  }
+}
