@@ -10,7 +10,7 @@ beforeEach(async () => {
   await scenarioAdapter.reset();
 });
 
-test("navigates to the returned invoice after uploading all required documents", async () => {
+test("navigates to the returned invoice from the mock quick-registration action", async () => {
   const user = userEvent.setup();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -24,12 +24,7 @@ test("navigates to the returned invoice after uploading all required documents",
     </QueryClientProvider>,
   );
 
-  const file = new File(["invoice"], "invoice.pdf", { type: "application/pdf" });
-  await user.upload(screen.getByLabelText("Invoice file"), file);
-  await user.upload(screen.getByLabelText("Contract file"), file);
-  await user.upload(screen.getByLabelText("Purchase order file"), file);
-  await user.upload(screen.getByLabelText("Proof of delivery file"), file);
-  await user.click(screen.getByRole("button", { name: "Analyze documents" }));
+  await user.click(screen.getByRole("button", { name: "Register demo invoice" }));
 
   expect(await screen.findByText("Invoice detail route")).toBeInTheDocument();
 });

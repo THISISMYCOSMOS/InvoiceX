@@ -96,7 +96,6 @@ test("shows the supplier wallet connection without a hard-coded demo address", a
 });
 
 test("shows the institution wallet only in investor setup, never buyer pages", async () => {
-  const user = userEvent.setup();
   const investor = renderAt("/investor/setup");
 
   expect(await screen.findByRole("heading", { name: "Institution wallet" })).toBeInTheDocument();
@@ -104,9 +103,8 @@ test("shows the institution wallet only in investor setup, never buyer pages", a
   expect(screen.getByRole("heading", { name: "Investment policy" })).toBeInTheDocument();
   expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("50,000");
   expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeInTheDocument();
-
-  await user.click(screen.getByRole("button", { name: "Save policy draft" }));
-  expect(screen.getByRole("status")).toHaveTextContent("Policy draft is ready for the future mandate API integration.");
+  expect(screen.getByRole("button", { name: "Sign and activate mandate" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Sign Vault deposit" })).toBeDisabled();
 
   investor.unmount();
   renderAt("/buyer");
@@ -229,8 +227,8 @@ test("shows the supplier RWA issuance request after buyer confirmation", async (
   buyer.unmount();
   renderAt("/supplier/invoices/INV-2026-001");
 
-  expect(await screen.findByRole("heading", { name: "Your early settlement offer is ready" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
 });
 
 test("translates buyer and investor screens into Korean", async () => {

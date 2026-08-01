@@ -182,7 +182,7 @@ class BlockchainTransaction(ApiModel):
     explorer_url: str
     created_at: str
     sandbox: bool
-    provider: Literal["PRIVY", "MOCK"]
+    provider: Literal["PRIVY", "DIRECT", "MOCK"]
 
 
 class Settlement(ApiModel):
@@ -208,6 +208,55 @@ class AgentTrace(ApiModel):
     completed_at: str | None = None
 
 
+class RwaAsset(ApiModel):
+    """The one-unit Devnet RWA issued for an eligible invoice."""
+
+    invoice_id: str
+    mint_address: str
+    escrow_token_account: str
+    status: Literal["ISSUED", "SOLD"]
+    issue_transaction: BlockchainTransaction
+    purchase_transaction: BlockchainTransaction | None = None
+    owner_vault_address: str | None = None
+
+
+class MandatePolicy(ApiModel):
+    total_investment_limit_usdc: int = Field(gt=0)
+    per_invoice_limit_usdc: int = Field(gt=0)
+    buyer_allowlist: list[str] = Field(min_length=1)
+    minimum_risk_score: int = Field(ge=0, le=100)
+    maximum_remaining_term_days: int = Field(gt=0)
+    expires_at: str
+
+
+class InvestorMandate(ApiModel):
+    id: str
+    owner_wallet_address: str
+    vault_address: str
+    policy: MandatePolicy
+    canonical_message: str
+    signature: str
+    status: Literal["ACTIVE", "REVOKED"] = "ACTIVE"
+    created_at: str
+
+
+class VaultBalance(ApiModel):
+    owner_wallet_address: str
+    vault_address: str
+    available_usdc: int = Field(ge=0)
+    updated_at: str
+
+
+class AgentDecision(ApiModel):
+    invoice_id: str
+    mandate_id: str | None = None
+    status: Literal["PENDING", "APPROVED", "REJECTED", "EXECUTED", "FAILED"]
+    checks: dict[str, bool]
+    amount_usdc: int = Field(default=0, ge=0)
+    reason: str | None = None
+    created_at: str
+
+
 class Invoice(ApiModel):
     id: str
     supplier: InvoiceParty
@@ -228,6 +277,8 @@ class Invoice(ApiModel):
     settlement_transaction: BlockchainTransaction | None
     settlement: Settlement | None
     agent_traces: list[AgentTrace]
+    rwa_asset: RwaAsset | None = None
+    agent_decision: AgentDecision | None = None
 
 
 class Verification(ApiModel):
@@ -254,6 +305,42 @@ class VerificationListResponse(ApiModel):
 
 class OfferResponseRequest(ApiModel):
     response: OfferResponse
+
+
+class SaveSupplierWalletRequest(ApiModel):
+    wallet_address: str
+
+
+class CreateMandateRequest(ApiModel):
+    owner_wallet_address: str
+    policy: MandatePolicy
+    signature: str
+
+
+class PrepareMandateRequest(ApiModel):
+    owner_wallet_address: str
+    policy: MandatePolicy
+
+
+class MandateSigningPayload(ApiModel):
+    canonical_message: str
+
+
+class PrepareVaultDepositRequest(ApiModel):
+    owner_wallet_address: str
+    amount_usdc: int = Field(gt=0)
+
+
+class VaultDepositPreparation(ApiModel):
+    transaction_base64: str
+    vault_address: str
+    stablecoin_mint_address: str
+
+
+class ConfirmVaultDepositRequest(ApiModel):
+    owner_wallet_address: str
+    amount_usdc: int = Field(gt=0)
+    signature: str
 
 
 class InvestorDashboard(ApiModel):

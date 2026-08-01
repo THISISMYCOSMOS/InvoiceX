@@ -10,6 +10,7 @@ from fastapi import (
     Depends,
     File,
     Path,
+    Query,
     Request,
     UploadFile,
     status,
@@ -17,14 +18,22 @@ from fastapi import (
 
 from invoicex_backend.errors import DocumentValidationError
 from invoicex_backend.models import (
+    ConfirmVaultDepositRequest,
+    CreateMandateRequest,
     DocumentType,
     ErrorResponse,
     InvestorDashboard,
+    InvestorMandate,
     InvoiceListResponse,
     InvoiceResponse,
-    OfferResponse,
+    MandateSigningPayload,
     OfferResponseRequest,
+    PrepareMandateRequest,
+    PrepareVaultDepositRequest,
+    SaveSupplierWalletRequest,
     UploadedDocument,
+    VaultBalance,
+    VaultDepositPreparation,
     VerificationListResponse,
     VerificationResponse,
 )
@@ -42,8 +51,7 @@ def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
         502: "Gemini, Privy, or Solana integration failed",
     }
     return {
-        code: {"model": ErrorResponse, "description": descriptions[code]}
-        for code in status_codes
+        code: {"model": ErrorResponse, "description": descriptions[code]} for code in status_codes
     }
 
 
@@ -190,9 +198,7 @@ async def get_verification(
     verification_id: VerificationId,
     service: InvoiceServiceDependency,
 ) -> VerificationResponse:
-    return VerificationResponse(
-        verification=service.get_verification(verification_id)
-    )
+    return VerificationResponse(verification=service.get_verification(verification_id))
 
 
 @router.post(
@@ -206,9 +212,7 @@ async def confirm_verification(
     verification_id: VerificationId,
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
-    return InvoiceResponse(
-        invoice=await service.confirm_verification(verification_id)
-    )
+    return InvoiceResponse(invoice=await service.confirm_verification(verification_id))
 
 
 @router.post(
@@ -224,13 +228,116 @@ async def respond_to_offer(
     background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
-    invoice = await service.respond_to_offer(
+    invoice, should_schedule = await service.respond_to_offer(
         invoice_id,
         payload.response,
     )
-    if payload.response is OfferResponse.ACCEPT:
+    if should_schedule:
         background_tasks.add_task(service.execute_mandated_investment, invoice_id)
     return InvoiceResponse(invoice=invoice)
+
+
+@router.post(
+    "/supplier/wallet",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=documented_errors(409, 422),
+    tags=["Funding"],
+    summary="공급기업 정산 지갑 저장",
+)
+async def save_supplier_wallet(
+    payload: SaveSupplierWalletRequest,
+    service: InvoiceServiceDependency,
+) -> None:
+    service.save_supplier_wallet(payload.wallet_address)
+
+
+@router.post(
+    "/investor/mandates/prepare",
+    response_model=MandateSigningPayload,
+    responses=documented_errors(409, 422),
+    tags=["Investor"],
+    summary="Mandate 지갑 서명 메시지 준비",
+)
+async def prepare_mandate(
+    payload: PrepareMandateRequest,
+    service: InvoiceServiceDependency,
+) -> MandateSigningPayload:
+    return MandateSigningPayload(
+        canonical_message=service.prepare_mandate_message(
+            owner_wallet_address=payload.owner_wallet_address,
+            policy=payload.policy,
+        )
+    )
+
+
+@router.post(
+    "/investor/mandates",
+    response_model=InvestorMandate,
+    responses=documented_errors(409, 422),
+    tags=["Investor"],
+    summary="지갑 서명 Mandate 활성화",
+)
+async def create_mandate(
+    payload: CreateMandateRequest,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> InvestorMandate:
+    mandate = service.create_mandate(payload)
+    background_tasks.add_task(service.execute_pending_investments)
+    return mandate
+
+
+@router.get(
+    "/investor/vault",
+    response_model=VaultBalance,
+    responses=documented_errors(409, 422),
+    tags=["Investor"],
+    summary="Agent Vault 잔액 조회",
+)
+async def get_vault(
+    service: InvoiceServiceDependency,
+    owner_wallet_address: str = Query(alias="ownerWalletAddress"),
+) -> VaultBalance:
+    return service.get_vault(owner_wallet_address)
+
+
+@router.post(
+    "/investor/vault/deposits/prepare",
+    response_model=VaultDepositPreparation,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="Agent Vault 예치 트랜잭션 준비",
+)
+async def prepare_vault_deposit(
+    payload: PrepareVaultDepositRequest,
+    service: InvoiceServiceDependency,
+) -> VaultDepositPreparation:
+    prepared = await service.prepare_vault_deposit(
+        owner_wallet_address=payload.owner_wallet_address,
+        amount_usdc=payload.amount_usdc,
+    )
+    return VaultDepositPreparation(
+        transaction_base64=prepared.transaction_base64,
+        vault_address=prepared.vault_address,
+        stablecoin_mint_address=prepared.stablecoin_mint_address,
+    )
+
+
+@router.post(
+    "/investor/vault/deposits/confirm",
+    response_model=VaultBalance,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="Agent Vault 예치 확인",
+)
+async def confirm_vault_deposit(
+    payload: ConfirmVaultDepositRequest,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> VaultBalance:
+    vault = await service.confirm_vault_deposit(payload)
+    background_tasks.add_task(service.execute_pending_investments)
+    return vault
 
 
 @router.get(
@@ -269,9 +376,7 @@ async def _read_upload(
     finally:
         await upload.close()
     if len(data) > max_bytes:
-        raise DocumentValidationError(
-            f"{document_type.value} 파일은 20MB를 초과할 수 없습니다."
-        )
+        raise DocumentValidationError(f"{document_type.value} 파일은 20MB를 초과할 수 없습니다.")
     return UploadedDocument(
         type=document_type,
         file_name=upload.filename or f"{document_type.value}.bin",

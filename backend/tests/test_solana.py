@@ -8,13 +8,18 @@ from pathlib import Path
 import httpx
 import pytest
 from solders.hash import Hash
+from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 from solders.transaction import VersionedTransaction
 
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.models import ChainTransfer, TransactionStatus
-from invoicex_backend.solana import MockSolanaGateway, PrivySolanaGateway
+from invoicex_backend.solana import (
+    DirectSolanaGateway,
+    MockSolanaGateway,
+    PrivySolanaGateway,
+)
 from tests.conftest import mock_settings
 
 
@@ -118,3 +123,60 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
     encoded = submitted["params"]["transaction"]  # type: ignore[index]
     transaction = VersionedTransaction.from_bytes(base64.b64decode(encoded))
     assert len(transaction.message.instructions) == 4
+
+
+@pytest.mark.asyncio
+async def test_direct_gateway_issues_and_atomically_purchases_rwa(
+    tmp_path: Path,
+) -> None:
+    platform = Keypair()
+    vault = Keypair()
+    stablecoin_mint = Pubkey.new_unique()
+    supplier = Pubkey.new_unique()
+    signatures: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        method = payload["method"]
+        if method == "getMinimumBalanceForRentExemption":
+            result: object = 1_000_000
+        elif method == "getLatestBlockhash":
+            result = {"value": {"blockhash": str(Hash.default())}}
+        elif method == "sendTransaction":
+            transaction = VersionedTransaction.from_bytes(
+                base64.b64decode(payload["params"][0])
+            )
+            signatures.append(str(transaction.signatures[0]))
+            result = signatures[-1]
+        elif method == "getSignatureStatuses":
+            result = {"value": [{"err": None, "confirmationStatus": "confirmed"}]}
+        else:
+            raise AssertionError(f"unexpected RPC method: {method}")
+        return httpx.Response(200, json={"jsonrpc": "2.0", "result": result, "id": 1})
+
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="direct",
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        SOLANA_RPC_URL="https://rpc.test",
+        SOLANA_PLATFORM_KEYPAIR=str(platform),
+        SOLANA_AGENT_VAULT_KEYPAIR=str(vault),
+        DEMO_STABLECOIN_MINT=str(stablecoin_mint),
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = DirectSolanaGateway(settings, http_client=client)
+    issued = await gateway.issue_rwa(invoice_id="INV-2026-001")
+    purchase = await gateway.purchase_rwa(
+        invoice_id="INV-2026-001",
+        rwa_mint_address=issued.mint_address,
+        escrow_token_account=issued.escrow_token_account,
+        supplier_wallet_address=str(supplier),
+        amount_usdc=18_800,
+    )
+    await client.aclose()
+
+    assert issued.transaction.status is TransactionStatus.CONFIRMED
+    assert purchase.status is TransactionStatus.CONFIRMED
+    assert purchase.provider == "DIRECT"
+    assert len(signatures) == 2

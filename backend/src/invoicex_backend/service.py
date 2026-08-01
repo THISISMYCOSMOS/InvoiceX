@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import re
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
 from invoicex_agents.exceptions import AgentError
 from invoicex_agents.models.common import SourceEvidence
 from invoicex_agents.models.document import DocumentAnalysisResult
 from invoicex_agents.models.risk import RiskAnalysisRequest, RiskFactorContext
+from solders.pubkey import Pubkey
+from solders.signature import Signature
 
 from invoicex_backend.agents import AgentDocument, AgentGateway
 from invoicex_backend.config import BackendSettings
@@ -23,25 +27,32 @@ from invoicex_backend.errors import (
     StateConflictError,
 )
 from invoicex_backend.models import (
+    AgentDecision,
     AgentTrace,
     AnalysisStatus,
     BlockchainTransaction,
     ChainTransfer,
     ChainTransferResult,
+    ConfirmVaultDepositRequest,
+    CreateMandateRequest,
     DocumentAnalysis,
     DocumentType,
     ExtractedFieldStatus,
     InvestorDashboard,
+    InvestorMandate,
     Invoice,
     InvoiceParty,
     InvoiceStatus,
+    MandatePolicy,
     OfferResponse,
     PositiveFactor,
     RiskFactor,
     RiskPassport,
+    RwaAsset,
     Settlement,
     TransactionStatus,
     UploadedDocument,
+    VaultBalance,
     Verification,
     VerificationStatus,
 )
@@ -50,14 +61,13 @@ from invoicex_backend.policy import (
     RiskDecision,
     TreasuryMandatePolicy,
 )
+from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.solana import SolanaGateway
 from invoicex_backend.storage import LocalDocumentStorage
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_MIME_TYPES = frozenset(
-    {"application/pdf", "image/jpeg", "image/jpg", "image/png"}
-)
+ALLOWED_MIME_TYPES = frozenset({"application/pdf", "image/jpeg", "image/jpg", "image/png"})
 REQUIRED_DOCUMENT_TYPES = frozenset(DocumentType)
 TraceSource = Literal[
     "DOCUMENT_AGENT",
@@ -79,11 +89,13 @@ class InvoiceService:
         agent_gateway: AgentGateway,
         solana_gateway: SolanaGateway,
         storage: LocalDocumentStorage,
+        repository: RwaRepository | None = None,
     ) -> None:
         self._settings = settings
         self._agents = agent_gateway
         self._solana = solana_gateway
         self._storage = storage
+        self._repository = repository or SQLiteRwaRepository(settings.rwa_database_path)
         self._risk_policy = DeterministicRiskPolicy()
         self._mandate_policy = TreasuryMandatePolicy(settings)
         self._invoices: dict[str, Invoice] = {}
@@ -194,6 +206,98 @@ class InvoiceService:
     def get_invoice(self, invoice_id: str) -> Invoice:
         return self._copy_invoice(self._invoice(invoice_id))
 
+    def save_supplier_wallet(self, wallet_address: str) -> None:
+        self._validate_wallet_address(wallet_address)
+        self._repository.save_supplier_wallet(wallet_address)
+
+    def create_mandate(self, request: CreateMandateRequest) -> InvestorMandate:
+        self._validate_wallet_address(request.owner_wallet_address)
+        expires_at = self._parse_iso_date(request.policy.expires_at, "Mandate 만료일")
+        if expires_at < datetime.now(UTC).date():
+            raise StateConflictError("만료된 날짜로 Mandate를 활성화할 수 없습니다.")
+        message = self._canonical_mandate_message(request.owner_wallet_address, request.policy)
+        try:
+            is_valid = Signature.from_string(request.signature).verify(
+                Pubkey.from_string(request.owner_wallet_address), message.encode("utf-8")
+            )
+        except ValueError as exc:
+            raise StateConflictError(
+                "Mandate 서명 또는 지갑 주소 형식이 올바르지 않습니다."
+            ) from exc
+        if not is_valid:
+            raise StateConflictError("Mandate 서명을 검증하지 못했습니다.")
+        now = datetime.now(UTC).isoformat()
+        mandate = InvestorMandate(
+            id=f"MAN-{hashlib.sha256(message.encode('utf-8')).hexdigest()[:16]}",
+            owner_wallet_address=request.owner_wallet_address,
+            vault_address=self._solana.vault_address,
+            policy=request.policy,
+            canonical_message=message,
+            signature=request.signature,
+            created_at=now,
+        )
+        self._repository.save_mandate(mandate)
+        if self._repository.get_vault(mandate.owner_wallet_address) is None:
+            self._repository.save_vault(
+                VaultBalance(
+                    owner_wallet_address=mandate.owner_wallet_address,
+                    vault_address=mandate.vault_address,
+                    available_usdc=0,
+                    updated_at=now,
+                )
+            )
+        return mandate
+
+    def prepare_mandate_message(
+        self,
+        *,
+        owner_wallet_address: str,
+        policy: MandatePolicy,
+    ) -> str:
+        self._validate_wallet_address(owner_wallet_address)
+        expires_at = self._parse_iso_date(policy.expires_at, "Mandate 만료일")
+        if expires_at < datetime.now(UTC).date():
+            raise StateConflictError("만료된 날짜로 Mandate를 준비할 수 없습니다.")
+        return self._canonical_mandate_message(owner_wallet_address, policy)
+
+    def get_vault(self, owner_wallet_address: str) -> VaultBalance:
+        self._validate_wallet_address(owner_wallet_address)
+        existing = self._repository.get_vault(owner_wallet_address)
+        if existing is not None:
+            return existing
+        return VaultBalance(
+            owner_wallet_address=owner_wallet_address,
+            vault_address=self._solana.vault_address,
+            available_usdc=0,
+            updated_at=datetime.now(UTC).isoformat(),
+        )
+
+    async def prepare_vault_deposit(self, *, owner_wallet_address: str, amount_usdc: int):
+        self._validate_wallet_address(owner_wallet_address)
+        return await self._solana.prepare_vault_deposit(
+            owner_wallet_address=owner_wallet_address, amount_usdc=amount_usdc
+        )
+
+    async def confirm_vault_deposit(self, request: ConfirmVaultDepositRequest) -> VaultBalance:
+        self._validate_wallet_address(request.owner_wallet_address)
+        if not await self._solana.verify_vault_deposit(
+            signature=request.signature,
+            owner_wallet_address=request.owner_wallet_address,
+            amount_usdc=request.amount_usdc,
+        ):
+            raise StateConflictError("Agent Vault 예치 트랜잭션을 확인하지 못했습니다.")
+        if not self._repository.claim_deposit(request.signature):
+            return self.get_vault(request.owner_wallet_address)
+        current = self.get_vault(request.owner_wallet_address)
+        updated = current.model_copy(
+            update={
+                "available_usdc": current.available_usdc + request.amount_usdc,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        self._repository.save_vault(updated)
+        return updated
+
     async def request_verification(self, invoice_id: str) -> Invoice:
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
@@ -206,8 +310,7 @@ class InvoiceService:
             async with self._sequence_lock:
                 self._verification_sequence += 1
                 verification_id = (
-                    f"VER-{datetime.now(UTC).year}-"
-                    f"{str(self._verification_sequence).zfill(3)}"
+                    f"VER-{datetime.now(UTC).year}-{str(self._verification_sequence).zfill(3)}"
                 )
             verification = Verification(
                 id=verification_id,
@@ -259,8 +362,7 @@ class InvoiceService:
                 raise IntegrationError(f"Gemini Risk 설명 생성에 실패했습니다: {exc}") from exc
 
             reasons = {
-                reason.factor_code: reason.explanation
-                for reason in risk_result.risk_reasons
+                reason.factor_code: reason.explanation for reason in risk_result.risk_reasons
             }
             positive_codes = {"BUYER_CONFIRMED", "DOCUMENT_CONSISTENCY"}
             invoice.risk_passport = RiskPassport(
@@ -277,9 +379,7 @@ class InvoiceService:
                 ],
                 risk_factors=[
                     RiskFactor(
-                        severity=(
-                            "HIGH" if factor.code == "DOCUMENT_MISMATCH" else "LOW"
-                        ),
+                        severity=("HIGH" if factor.code == "DOCUMENT_MISMATCH" else "LOW"),
                         title=factor.title,
                         description=reasons[factor.code],
                     )
@@ -306,8 +406,8 @@ class InvoiceService:
         self,
         invoice_id: str,
         response: OfferResponse,
-    ) -> Invoice:
-        """Apply the supplier response and create the RWA purchase opportunity."""
+    ) -> tuple[Invoice, bool]:
+        """Issue one RWA unit and then queue automatic mandate evaluation."""
 
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
@@ -316,64 +416,170 @@ class InvoiceService:
                 InvoiceStatus.FUNDING,
                 InvoiceStatus.FUNDED,
             }:
-                return self._copy_invoice(invoice)
+                return self._copy_invoice(invoice), False
             if response is OfferResponse.DECLINE and invoice.status is InvoiceStatus.BLOCKED:
-                return self._copy_invoice(invoice)
+                return self._copy_invoice(invoice), False
             if invoice.status is not InvoiceStatus.OFFER_READY:
                 raise StateConflictError(
                     "OFFER_READY 상태에서만 조기정산 조건에 응답할 수 있습니다."
                 )
             if response is OfferResponse.DECLINE:
                 invoice.status = InvoiceStatus.BLOCKED
-                return self._copy_invoice(invoice)
+                return self._copy_invoice(invoice), False
 
+            supplier_wallet = (
+                self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
+            )
+            if not supplier_wallet or supplier_wallet.startswith("DEMO_"):
+                if self._solana.mode == "direct":
+                    raise StateConflictError("RWA 발행 전 공급기업 정산 지갑을 연결해 주세요.")
+                supplier_wallet = "DEMO_SUPPLIER_WALLET"
+            if self._solana.mode == "direct":
+                self._validate_wallet_address(supplier_wallet)
+            invoice.supplier.wallet_address = supplier_wallet
+            issued = await self._solana.issue_rwa(invoice_id=invoice.id)
+            asset = RwaAsset(
+                invoice_id=invoice.id,
+                mint_address=issued.mint_address,
+                escrow_token_account=issued.escrow_token_account,
+                status="ISSUED",
+                issue_transaction=self._transaction(
+                    result=issued.transaction,
+                    amount_usdc=0,
+                    to_address=issued.escrow_token_account,
+                ),
+            )
+            self._repository.save_rwa_asset(asset)
+            invoice.rwa_asset = asset
             invoice.status = InvoiceStatus.RWA_ISSUED
             self._append_trace(
                 invoice,
                 source="TREASURY_AGENT",
                 target="TREASURY_AGENT",
                 status="COMPLETED",
-                summary="공급기업 조건 수락에 따라 RWA 발행을 완료하고 투자자 매수를 대기합니다.",
+                summary="인보이스별 RWA 1개를 Devnet 에스크로에 발행했습니다.",
             )
-            return self._copy_invoice(invoice)
+            return self._copy_invoice(invoice), True
 
-    async def start_mandated_investment(self, invoice_id: str) -> tuple[Invoice, bool]:
-        """Start funding after the Treasury Agent accepts an issued RWA."""
+    async def execute_mandated_investment(self, invoice_id: str) -> None:
+        """Evaluate all active mandates and atomically buy the issued RWA when eligible."""
 
+        if not self._repository.claim_execution(invoice_id):
+            return
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
-            if invoice.status is InvoiceStatus.FUNDING:
-                should_schedule = (
-                    invoice.funding_transaction is None
-                    or invoice.funding_transaction.status is TransactionStatus.PENDING
+            asset = self._repository.get_rwa_asset(invoice_id)
+            if invoice.status is not InvoiceStatus.RWA_ISSUED or asset is None:
+                self._repository.finish_execution(invoice_id, "FAILED")
+                return
+            invoice.rwa_asset = asset
+            candidates = self._repository.active_mandates()
+            if not candidates:
+                decision = AgentDecision(
+                    invoice_id=invoice_id,
+                    status="PENDING",
+                    checks={"activeMandate": False},
+                    reason="활성화된 투자 Mandate를 기다리고 있습니다.",
+                    created_at=datetime.now(UTC).isoformat(),
                 )
-                return self._copy_invoice(invoice), should_schedule
-            if invoice.status is InvoiceStatus.FUNDED:
-                return self._copy_invoice(invoice), False
-            if invoice.status is not InvoiceStatus.RWA_ISSUED:
-                raise StateConflictError(
-                    "RWA_ISSUED 상태에서만 Treasury Agent 자동 투자를 실행할 수 있습니다."
-                )
+                self._repository.save_decision(decision)
+                invoice.agent_decision = decision
+                self._repository.finish_execution(invoice_id, "WAITING")
+                return
 
+            approved: tuple[InvestorMandate, VaultBalance, AgentDecision] | None = None
+            for mandate in candidates:
+                vault = self.get_vault(mandate.owner_wallet_address)
+                decision = self._evaluate_mandate(invoice, mandate, vault)
+                self._repository.save_decision(decision)
+                invoice.agent_decision = decision
+                if decision.status == "APPROVED":
+                    approved = (mandate, vault, decision)
+                    break
+            if approved is None:
+                self._repository.finish_execution(invoice_id, "WAITING")
+                return
+
+            mandate, vault, decision = approved
             invoice.status = InvoiceStatus.FUNDING
             self._append_trace(
                 invoice,
                 source="TREASURY_AGENT",
                 target="SETTLEMENT_AGENT",
                 status="WORKING",
-                summary=(
-                    "AP2 Mandate와 자체 투자 정책을 통과해 자동 투자 및 "
-                    "공급기업 조기정산 USDC 지급을 시작합니다."
-                ),
+                summary="Mandate 기준을 통과해 Agent Vault 자동 매수를 실행합니다.",
             )
-            return self._copy_invoice(invoice), True
+            amount = decision.amount_usdc
+            try:
+                result = await self._solana.purchase_rwa(
+                    invoice_id=invoice.id,
+                    rwa_mint_address=asset.mint_address,
+                    escrow_token_account=asset.escrow_token_account,
+                    supplier_wallet_address=invoice.supplier.wallet_address or "",
+                    amount_usdc=amount,
+                )
+            except IntegrationError as exc:
+                invoice.status = InvoiceStatus.ERROR
+                failed = decision.model_copy(
+                    update={
+                        "status": "FAILED",
+                        "reason": "Devnet 자동 매수 트랜잭션에 실패했습니다.",
+                    }
+                )
+                self._repository.save_decision(failed)
+                invoice.agent_decision = failed
+                self._repository.finish_execution(invoice_id, "FAILED")
+                logger.error("RWA automatic purchase failed for %s: %s", invoice.id, exc)
+                return
 
-    async def execute_mandated_investment(self, invoice_id: str) -> None:
-        """Run the no-human-in-the-loop investment step after RWA issuance."""
+            invoice.funding_transaction = self._transaction(
+                result=result, amount_usdc=amount, to_address=invoice.supplier.wallet_address or ""
+            )
+            if result.status is TransactionStatus.CONFIRMED:
+                sold_asset = asset.model_copy(
+                    update={
+                        "status": "SOLD",
+                        "purchase_transaction": invoice.funding_transaction,
+                        "owner_vault_address": vault.vault_address,
+                    }
+                )
+                completed = decision.model_copy(update={"status": "EXECUTED"})
+                self._repository.save_rwa_asset(sold_asset)
+                self._repository.save_decision(completed)
+                self._repository.save_vault(
+                    vault.model_copy(
+                        update={
+                            "available_usdc": vault.available_usdc - amount,
+                            "updated_at": datetime.now(UTC).isoformat(),
+                        }
+                    )
+                )
+                invoice.rwa_asset = sold_asset
+                invoice.agent_decision = completed
+                invoice.status = InvoiceStatus.FUNDED
+                self._append_trace(
+                    invoice,
+                    source="TREASURY_AGENT",
+                    target="SETTLEMENT_AGENT",
+                    status="COMPLETED",
+                    summary=(
+                        "Agent Vault가 RWA를 자동 매수하고 공급기업 지갑에 USDC를 지급했습니다."
+                    ),
+                )
+                self._repository.finish_execution(invoice_id, "COMPLETED")
+            else:
+                self._repository.finish_execution(invoice_id, "WAITING")
 
-        invoice, should_schedule = await self.start_mandated_investment(invoice_id)
-        if should_schedule:
-            await self.complete_funding(invoice.id)
+    async def execute_pending_investments(self) -> None:
+        """Re-evaluate issued RWAs after a Mandate or Vault balance changes."""
+
+        await asyncio.gather(
+            *(
+                self.execute_mandated_investment(invoice.id)
+                for invoice in self._invoices.values()
+                if invoice.status is InvoiceStatus.RWA_ISSUED
+            )
+        )
 
     async def complete_funding(self, invoice_id: str) -> None:
         async with self._invoice_lock(invoice_id):
@@ -399,8 +605,7 @@ class InvoiceService:
             amount = passport.suggested_advance_amount_usdc
             try:
                 result = await self._solana.send_usdc(
-                    wallet_id=self._settings.privy_treasury_wallet_id
-                    or "MOCK_TREASURY",
+                    wallet_id=self._settings.privy_treasury_wallet_id or "MOCK_TREASURY",
                     transfers=[
                         ChainTransfer(
                             to_address=invoice.supplier.wallet_address or "",
@@ -446,15 +651,12 @@ class InvoiceService:
                 InvoiceStatus.REPAYMENT_PENDING,
                 InvoiceStatus.SETTLING,
             }:
-                raise StateConflictError(
-                    "펀딩 완료 후에만 Mock 입금과 정산을 처리할 수 있습니다."
-                )
+                raise StateConflictError("펀딩 완료 후에만 Mock 입금과 정산을 처리할 수 있습니다.")
 
             invoice.status = InvoiceStatus.SETTLING
             try:
                 result = await self._solana.send_usdc(
-                    wallet_id=self._settings.privy_settlement_wallet_id
-                    or "MOCK_SETTLEMENT",
+                    wallet_id=self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT",
                     transfers=[
                         ChainTransfer(
                             to_address=self._settings.investor_settlement_wallet_address,
@@ -508,25 +710,24 @@ class InvoiceService:
             if invoice.status in active and invoice.risk_passport is not None
         )
         traces = sorted(
-            (
-                trace
-                for invoice in self._invoices.values()
-                for trace in invoice.agent_traces
-            ),
+            (trace for invoice in self._invoices.values() for trace in invoice.agent_traces),
             key=lambda trace: trace.created_at,
             reverse=True,
         )[:20]
+        mandates = self._repository.active_mandates()
+        vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
         return InvestorDashboard(
             investor_name="Nova Capital",
             automated_investment_active=True,
-            mandate_status="ACTIVE",
-            available_vault_usdc=50_000,
+            mandate_status="ACTIVE" if mandates else "DRAFT",
+            available_vault_usdc=vault.available_usdc if vault else 0,
             outstanding_principal_usdc=outstanding,
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
         )
 
     async def close(self) -> None:
         await self._solana.aclose()
+        self._repository.close()
 
     @property
     def settings(self) -> BackendSettings:
@@ -535,10 +736,7 @@ class InvoiceService:
     async def _reserve_invoice_ids(self, document_count: int) -> tuple[str, list[str]]:
         async with self._sequence_lock:
             self._invoice_sequence += 1
-            invoice_id = (
-                f"INV-{datetime.now(UTC).year}-"
-                f"{str(self._invoice_sequence).zfill(3)}"
-            )
+            invoice_id = f"INV-{datetime.now(UTC).year}-{str(self._invoice_sequence).zfill(3)}"
             document_ids = []
             for _ in range(document_count):
                 self._document_sequence += 1
@@ -592,11 +790,7 @@ class InvoiceService:
                         "status": ExtractedFieldStatus.REVIEW_REQUIRED,
                     }
                 source = next(
-                    (
-                        evidence
-                        for evidence in document.source_evidence
-                        if evidence.field == alias
-                    ),
+                    (evidence for evidence in document.source_evidence if evidence.field == alias),
                     None,
                 )
                 evidence_dto = (
@@ -648,9 +842,7 @@ class InvoiceService:
             return
         invoice.invoice_amount_krw = analysis.amount_krw.value or invoice.invoice_amount_krw
         invoice.due_date = analysis.due_date.value or invoice.due_date
-        invoice.contract_number = (
-            analysis.contract_number.value or invoice.contract_number
-        )
+        invoice.contract_number = analysis.contract_number.value or invoice.contract_number
         invoice.purchase_order_number = (
             analysis.purchase_order_number.value or invoice.purchase_order_number
         )
@@ -667,9 +859,7 @@ class InvoiceService:
         decision: RiskDecision,
     ) -> RiskAnalysisRequest:
         source_evidence = [
-            evidence
-            for document in analysis.documents
-            for evidence in document.source_evidence
+            evidence for document in analysis.documents for evidence in document.source_evidence
         ]
         buyer_evidence = SourceEvidence(
             evidence_id=f"{invoice.id}-buyer-confirmed",
@@ -688,16 +878,8 @@ class InvoiceService:
                 source_evidence_ids=[buyer_evidence.evidence_id],
             ),
             RiskFactorContext(
-                code=(
-                    "DOCUMENT_MISMATCH"
-                    if analysis.mismatches
-                    else "DOCUMENT_CONSISTENCY"
-                ),
-                title=(
-                    "문서 불일치 검토 필요"
-                    if analysis.mismatches
-                    else "핵심 문서 조건 일치"
-                ),
+                code=("DOCUMENT_MISMATCH" if analysis.mismatches else "DOCUMENT_CONSISTENCY"),
+                title=("문서 불일치 검토 필요" if analysis.mismatches else "핵심 문서 조건 일치"),
                 facts=[
                     (
                         "제출 문서 사이에 불일치가 존재합니다."
@@ -736,9 +918,7 @@ class InvoiceService:
             amount_usdc=amount_usdc,
             from_address=result.from_address,
             to_address=to_address,
-            explorer_url=(
-                f"https://explorer.solana.com/tx/{result.signature}?cluster=devnet"
-            ),
+            explorer_url=(f"https://explorer.solana.com/tx/{result.signature}?cluster=devnet"),
             created_at=datetime.now(UTC).isoformat(),
             sandbox=result.sandbox,
             provider=result.provider,
@@ -778,16 +958,80 @@ class InvoiceService:
         try:
             return self._verifications[verification_id]
         except KeyError as exc:
-            raise NotFoundError(
-                f"Verification {verification_id}를 찾을 수 없습니다."
-            ) from exc
+            raise NotFoundError(f"Verification {verification_id}를 찾을 수 없습니다.") from exc
 
     def _invoice_lock(self, invoice_id: str) -> asyncio.Lock:
         return self._invoice_locks.setdefault(invoice_id, asyncio.Lock())
 
+    def _copy_invoice(self, invoice: Invoice) -> Invoice:
+        copy = invoice.model_copy(deep=True)
+        copy.rwa_asset = self._repository.get_rwa_asset(invoice.id)
+        copy.agent_decision = self._repository.get_decision(invoice.id)
+        return copy
+
+    def _evaluate_mandate(
+        self, invoice: Invoice, mandate: InvestorMandate, vault: VaultBalance
+    ) -> AgentDecision:
+        passport = invoice.risk_passport
+        amount = passport.suggested_advance_amount_usdc if passport else None
+        due_date = self._parse_iso_date(invoice.due_date, "인보이스 만기일")
+        remaining_days = max(0, (due_date - date.today()).days)
+        policy = mandate.policy
+        is_policy_active = self._parse_iso_date(policy.expires_at, "Mandate 만료일") >= date.today()
+        is_minimum_risk_score = bool(
+            passport
+            and passport.risk_score is not None
+            and passport.risk_score >= policy.minimum_risk_score
+        )
+        is_total_investment_within_limit = bool(
+            amount is not None
+            and self._repository.committed_for_mandate(mandate.id) + amount
+            <= policy.total_investment_limit_usdc
+        )
+        checks = {
+            "policyActive": is_policy_active,
+            "riskEligible": bool(passport and passport.eligibility.value == "ELIGIBLE"),
+            "minimumRiskScore": is_minimum_risk_score,
+            "buyerAllowlist": invoice.buyer.name in policy.buyer_allowlist,
+            "maximumRemainingTerm": remaining_days <= policy.maximum_remaining_term_days,
+            "perInvoiceLimit": bool(amount is not None and amount <= policy.per_invoice_limit_usdc),
+            "totalInvestmentLimit": is_total_investment_within_limit,
+            "vaultAvailableBalance": bool(amount is not None and vault.available_usdc >= amount),
+        }
+        rejected = [name for name, passed in checks.items() if not passed]
+        return AgentDecision(
+            invoice_id=invoice.id,
+            mandate_id=mandate.id,
+            status="APPROVED" if not rejected else "REJECTED",
+            checks=checks,
+            amount_usdc=amount or 0,
+            reason=None if not rejected else f"Mandate 기준 미충족: {', '.join(rejected)}",
+            created_at=datetime.now(UTC).isoformat(),
+        )
+
     @staticmethod
-    def _copy_invoice(invoice: Invoice) -> Invoice:
-        return invoice.model_copy(deep=True)
+    def _canonical_mandate_message(owner_wallet_address: str, policy: MandatePolicy) -> str:
+        payload = {
+            "domain": "InvoiceX AP2 Mandate",
+            "version": 1,
+            "ownerWalletAddress": owner_wallet_address,
+            "policy": policy.model_dump(by_alias=True, mode="json"),
+        }
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+    @staticmethod
+    def _parse_iso_date(value: str, label: str) -> date:
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise StateConflictError(f"{label} 형식이 올바르지 않습니다.") from exc
+
+    @staticmethod
+    def _validate_wallet_address(wallet_address: str) -> None:
+        try:
+            Pubkey.from_string(wallet_address)
+        except ValueError as exc:
+            raise StateConflictError("유효한 Solana 지갑 주소가 필요합니다.") from exc
 
     @staticmethod
     def _parse_amount(value: object) -> int:

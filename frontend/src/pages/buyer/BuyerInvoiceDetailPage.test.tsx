@@ -44,5 +44,5 @@ test("shows the Figma maturity-payment screen for a funded invoice", () => {
   expect(screen.getByRole("heading", { name: "Pay invoice amount" })).toBeInTheDocument();
   expect(screen.getByText("₩20,000,000")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Copy account number" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Download payment guide" })).toHaveAttribute("download");
+  expect(screen.queryByRole("link", { name: "Download payment guide" })).not.toBeInTheDocument();
 });
