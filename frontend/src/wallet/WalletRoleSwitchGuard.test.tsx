@@ -51,15 +51,15 @@ describe("WalletRoleSwitchGuard", () => {
     expect(walletRoleFromPath("/buyer")).toBeNull();
   });
 
-  test("keeps the browser wallet connected when switching from supplier to investor", async () => {
+  test("clears the active wallet when switching from supplier to investor", async () => {
     const user = userEvent.setup();
     renderGuard();
 
     await user.click(screen.getByRole("button", { name: "Investor setup" }));
 
     await waitFor(() => expect(screen.getByText("/investor/setup")).toBeInTheDocument());
-    expect(walletState.select).not.toHaveBeenCalled();
-    expect(walletState.disconnect).not.toHaveBeenCalled();
+    expect(walletState.select).toHaveBeenCalledWith(null);
+    expect(walletState.disconnect).toHaveBeenCalledTimes(1);
   });
 
   test("keeps the wallet connected while moving within the same role", async () => {
