@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 .uv-cache/
 .pytest_cache/
@@ -11,3 +13,6 @@ dist/
 build/
 tmp/
 *.egg-info/
+backend/.env
+backend/uploads/*
+!backend/uploads/.gitkeep
