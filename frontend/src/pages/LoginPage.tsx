@@ -49,11 +49,11 @@ export function LoginPage() {
         <section className="login-hero" aria-label="InvoiceX introduction">
           <Brand className="login-hero__brand" />
           <div className="login-hero__copy">
-            <p className="login-hero__title">{t("Turn verified invoices into faster working capital.", "검증된 인보이스를 더 빠른 운전자금으로 전환하세요.")}</p>
+            <p className="login-hero__title">{t("Connect verified invoices to funding and investment opportunities.", "검증된 인보이스를 자금조달과 투자 기회로 연결하세요.")}</p>
             <p className="login-hero__description">
               {t(
-                "Manage the complete journey with Buyer Verification and AI Risk Passport, from early funding to settlement.",
-                "구매자 검증과 AI Risk Passport로 조기 자금조달부터 정산까지 전체 여정을 관리하세요.",
+                "Connect supplier funding with automated investment through Buyer Verification and AI-powered risk assessment, with settlement executed transparently on Solana.",
+                "구매기업 확인과 AI 기반 위험 분석으로 공급기업의 조기정산과 투자자의 자동 투자를 연결하고, 정산은 Solana에서 투명하게 처리합니다.",
               )}
             </p>
           </div>

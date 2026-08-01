@@ -75,5 +75,28 @@ describe("SolanaWalletConnection", () => {
 
     await user.click(screen.getByRole("button", { name: "Disconnect wallet" }));
     expect(walletState.disconnect).toHaveBeenCalledTimes(1);
+    expect(walletState.select).toHaveBeenCalledWith(null);
+  });
+
+  test("reactivates the connection button when an adapter leaves a stale connecting state", async () => {
+    const user = userEvent.setup();
+    walletState.connected = true;
+    walletState.publicKey = { toBase58: () => address };
+    walletState.wallet = { adapter: { name: "Phantom" } };
+    const view = renderConnection();
+
+    await user.click(screen.getByRole("button", { name: "Disconnect wallet" }));
+    walletState.connected = false;
+    walletState.connecting = true;
+    walletState.publicKey = null;
+    walletState.wallet = null;
+    view.rerender(
+      <LanguageProvider>
+        <SolanaWalletConnection title="Settlement wallet" description="Wallet description" />
+      </LanguageProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Connecting wallet..." })).not.toBeInTheDocument();
   });
 });
