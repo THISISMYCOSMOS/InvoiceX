@@ -306,30 +306,63 @@ class InvoiceService:
         self,
         invoice_id: str,
         response: OfferResponse,
-    ) -> tuple[Invoice, bool]:
-        """Apply an offer response and report whether funding should be scheduled."""
+    ) -> Invoice:
+        """Apply the supplier response and create the RWA purchase opportunity."""
 
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
-            if response is OfferResponse.ACCEPT and invoice.status is InvoiceStatus.FUNDING:
-                should_schedule = (
-                    invoice.funding_transaction is None
-                    or invoice.funding_transaction.status is TransactionStatus.PENDING
-                )
-                return self._copy_invoice(invoice), should_schedule
-            if response is OfferResponse.ACCEPT and invoice.status is InvoiceStatus.FUNDED:
-                return self._copy_invoice(invoice), False
+            if response is OfferResponse.ACCEPT and invoice.status in {
+                InvoiceStatus.RWA_ISSUED,
+                InvoiceStatus.FUNDING,
+                InvoiceStatus.FUNDED,
+            }:
+                return self._copy_invoice(invoice)
             if response is OfferResponse.DECLINE and invoice.status is InvoiceStatus.BLOCKED:
-                return self._copy_invoice(invoice), False
+                return self._copy_invoice(invoice)
             if invoice.status is not InvoiceStatus.OFFER_READY:
                 raise StateConflictError(
                     "OFFER_READY 상태에서만 조기정산 조건에 응답할 수 있습니다."
                 )
             if response is OfferResponse.DECLINE:
                 invoice.status = InvoiceStatus.BLOCKED
+                return self._copy_invoice(invoice)
+
+            invoice.status = InvoiceStatus.RWA_ISSUED
+            self._append_trace(
+                invoice,
+                source="TREASURY_AGENT",
+                target="TREASURY_AGENT",
+                status="COMPLETED",
+                summary="공급기업 조건 수락에 따라 RWA 발행을 완료하고 투자자 매수를 대기합니다.",
+            )
+            return self._copy_invoice(invoice)
+
+    async def purchase_rwa(self, invoice_id: str) -> tuple[Invoice, bool]:
+        """Start funding only after an investor purchases an issued RWA."""
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoice(invoice_id)
+            if invoice.status is InvoiceStatus.FUNDING:
+                should_schedule = (
+                    invoice.funding_transaction is None
+                    or invoice.funding_transaction.status is TransactionStatus.PENDING
+                )
+                return self._copy_invoice(invoice), should_schedule
+            if invoice.status is InvoiceStatus.FUNDED:
                 return self._copy_invoice(invoice), False
+            if invoice.status is not InvoiceStatus.RWA_ISSUED:
+                raise StateConflictError(
+                    "RWA_ISSUED 상태에서만 투자기관 RWA 매수를 실행할 수 있습니다."
+                )
 
             invoice.status = InvoiceStatus.FUNDING
+            self._append_trace(
+                invoice,
+                source="TREASURY_AGENT",
+                target="SETTLEMENT_AGENT",
+                status="WORKING",
+                summary="투자기관 RWA 매수를 확인하고 공급기업 조기정산 USDC 지급을 시작합니다.",
+            )
             return self._copy_invoice(invoice), True
 
     async def complete_funding(self, invoice_id: str) -> None:
