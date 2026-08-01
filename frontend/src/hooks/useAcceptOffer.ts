@@ -7,8 +7,15 @@ export function useAcceptOffer() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ invoiceId, response }: { invoiceId: string; response: OfferResponse }) =>
-      invoiceApi.respondToOffer(invoiceId, response),
+    mutationFn: ({
+      invoiceId,
+      response,
+      supplierWalletAddress,
+    }: {
+      invoiceId: string;
+      response: OfferResponse;
+      supplierWalletAddress?: string;
+    }) => invoiceApi.respondToOffer(invoiceId, response, supplierWalletAddress),
     onSuccess: async (invoice) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.invoice(invoice.id) }),

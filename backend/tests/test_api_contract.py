@@ -80,7 +80,10 @@ def test_complete_frontend_contract_workflow(
 
     accepted = client.post(
         f"/api/v1/invoices/{invoice_id}/offer-response",
-        json={"response": "ACCEPT"},
+        json={
+            "response": "ACCEPT",
+            "supplierWalletAddress": "So11111111111111111111111111111111111111112",
+        },
     )
     assert accepted.status_code == 200
     assert accepted.json()["invoice"]["status"] == "FUNDING"
@@ -91,6 +94,9 @@ def test_complete_frontend_contract_workflow(
     assert funded["fundingTransaction"]["amountUsdc"] == 18_800
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
+    assert funded["fundingTransaction"]["toAddress"] == (
+        "So11111111111111111111111111111111111111112"
+    )
     funding_signature = funded["fundingTransaction"]["signature"]
 
     duplicate_accept = client.post(
@@ -128,6 +134,38 @@ def test_complete_frontend_contract_workflow(
         duplicate_settlement.json()["invoice"]["settlementTransaction"]["signature"]
         == settlement_signature
     )
+
+
+def test_privy_devnet_caps_the_demo_transfer_to_connected_wallet(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    invoice = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]
+    invoice_id = invoice["id"]
+    verification = client.post(
+        f"/api/v1/invoices/{invoice_id}/verification-request"
+    ).json()["invoice"]
+    client.post(f"/api/v1/verifications/{verification['verificationId']}/confirm")
+
+    service = client.app.state.invoice_service
+    service._solana.mode = "privy"
+    supplier_wallet = "So11111111111111111111111111111111111111112"
+    accepted = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={
+            "response": "ACCEPT",
+            "supplierWalletAddress": supplier_wallet,
+        },
+    )
+
+    assert accepted.status_code == 200
+    funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+    assert funded["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
+    assert funded["fundingTransaction"]["amountUsdc"] == 1
+    assert funded["fundingTransaction"]["toAddress"] == supplier_wallet
+    assert client.get("/api/v1/investor/dashboard").json()[
+        "outstandingPrincipalUsdc"
+    ] == 1
 
 
 def test_contract_validation_and_sanitized_errors(

@@ -306,6 +306,7 @@ class InvoiceService:
         self,
         invoice_id: str,
         response: OfferResponse,
+        supplier_wallet_address: str | None = None,
     ) -> tuple[Invoice, bool]:
         """Apply an offer response and report whether funding should be scheduled."""
 
@@ -328,6 +329,16 @@ class InvoiceService:
             if response is OfferResponse.DECLINE:
                 invoice.status = InvoiceStatus.BLOCKED
                 return self._copy_invoice(invoice), False
+
+            if supplier_wallet_address is not None:
+                invoice.supplier.wallet_address = supplier_wallet_address
+            if self._solana.mode == "privy" and (
+                not invoice.supplier.wallet_address
+                or invoice.supplier.wallet_address.startswith("DEMO_")
+            ):
+                raise StateConflictError(
+                    "실제 Devnet 전송을 받으려면 Solana 지갑을 연결해야 합니다."
+                )
 
             invoice.status = InvoiceStatus.FUNDING
             return self._copy_invoice(invoice), True
@@ -353,7 +364,16 @@ class InvoiceService:
             if passport is None or passport.suggested_advance_amount_usdc is None:
                 invoice.status = InvoiceStatus.BLOCKED
                 return
-            amount = passport.suggested_advance_amount_usdc
+            offered_amount = passport.suggested_advance_amount_usdc
+            amount = (
+                min(
+                    offered_amount,
+                    self._settings.solana_demo_transfer_amount_usdc,
+                )
+                if self._solana.mode == "privy"
+                and self._settings.solana_cluster == "devnet"
+                else offered_amount
+            )
             try:
                 result = await self._solana.send_usdc(
                     wallet_id=self._settings.privy_treasury_wallet_id
@@ -406,6 +426,15 @@ class InvoiceService:
                 raise StateConflictError(
                     "펀딩 완료 후에만 Mock 입금과 정산을 처리할 수 있습니다."
                 )
+
+            if self._solana.mode == "privy":
+                missing = self._settings.missing_privy_settlement_configuration()
+                if missing:
+                    invoice.status = InvoiceStatus.ERROR
+                    raise IntegrationError(
+                        "실제 정산 전송에 필요한 설정이 없습니다: "
+                        + ", ".join(missing)
+                    )
 
             invoice.status = InvoiceStatus.SETTLING
             try:
@@ -460,7 +489,11 @@ class InvoiceService:
             InvoiceStatus.SETTLING,
         }
         outstanding = sum(
-            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            (
+                invoice.funding_transaction.amount_usdc
+                if invoice.funding_transaction is not None
+                else invoice.risk_passport.suggested_advance_amount_usdc or 0
+            )
             for invoice in self._invoices.values()
             if invoice.status in active and invoice.risk_passport is not None
         )

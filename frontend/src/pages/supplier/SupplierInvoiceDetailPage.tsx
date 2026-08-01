@@ -14,6 +14,7 @@ import { FundingProgressSection } from "./sections/FundingProgressSection";
 import { FundingReceiptSection } from "./sections/FundingReceiptSection";
 import { SettlementReceiptSection } from "./sections/SettlementReceiptSection";
 import { useLanguage } from "../../i18n/LanguageContext";
+import { useConnectedSolanaWallet } from "../../hooks/useConnectedSolanaWallet";
 
 export function SupplierInvoiceDetailContent({
   invoice,
@@ -21,12 +22,14 @@ export function SupplierInvoiceDetailContent({
   onDecline = () => undefined,
   onRequestVerification = () => undefined,
   isRequestingVerification = false,
+  offerError,
 }: {
   invoice: Invoice;
   onAccept: () => void;
   onDecline?: () => void;
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
+  offerError?: unknown;
 }) {
   const { t } = useLanguage();
   if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
@@ -44,7 +47,12 @@ export function SupplierInvoiceDetailContent({
   }
 
   if (invoice.status === "OFFER_READY") {
-    return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} onDecline={onDecline} />;
+    return (
+      <>
+        <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} onDecline={onDecline} />
+        {offerError ? <ErrorState error={offerError} /> : null}
+      </>
+    );
   }
 
   let section = <section><h2>{t("Invoice progress", "인보이스 진행 상태")}</h2></section>;
@@ -59,16 +67,22 @@ export function SupplierInvoiceDetailPage() {
   const { invoiceId = "" } = useParams();
   const invoice = useInvoice(invoiceId);
   const acceptOffer = useAcceptOffer();
+  const connectedWallet = useConnectedSolanaWallet();
   const requestVerification = useRequestVerification();
   if (invoice.isLoading) return <LoadingState />;
   if (invoice.error || !invoice.data) return <ErrorState error={invoice.error ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))} />;
   return (
     <SupplierInvoiceDetailContent
       invoice={invoice.data}
-      onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
+      onAccept={() => acceptOffer.mutate({
+        invoiceId: invoice.data.id,
+        response: "ACCEPT",
+        supplierWalletAddress: connectedWallet.publicKey ?? undefined,
+      })}
       onDecline={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "DECLINE" })}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
+      offerError={acceptOffer.error}
     />
   );
 }

@@ -132,27 +132,39 @@ class PrivySolanaGateway:
         if len(reference_id) > 64:
             raise IntegrationError("Privy reference_id must not exceed 64 characters")
 
-        from_address = await self._wallet_address(wallet_id)
-        serialized_transaction = await self._build_transaction(from_address, transfers)
-        response = await self._client.post(
-            f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
-            json={
-                "method": "signAndSendTransaction",
-                "caip2": self._settings.solana_caip2,
-                "sponsor": self._settings.privy_sponsor,
-                "params": {
-                    "transaction": base64.b64encode(serialized_transaction).decode("ascii"),
-                    "encoding": "base64",
-                },
-                "reference_id": reference_id,
-            },
-        )
-        self._raise_for_provider_error(response, "Privy signAndSendTransaction")
-        payload = response.json()
         try:
+            from_address = await self._wallet_address(wallet_id)
+            serialized_transaction = await self._build_transaction(
+                from_address,
+                transfers,
+            )
+            response = await self._client.post(
+                f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
+                headers={"privy-idempotency-key": f"invoicex:{reference_id}"},
+                json={
+                    "method": "signAndSendTransaction",
+                    "caip2": self._settings.solana_caip2,
+                    "sponsor": self._settings.privy_sponsor,
+                    "params": {
+                        "transaction": base64.b64encode(
+                            serialized_transaction
+                        ).decode("ascii"),
+                        "encoding": "base64",
+                    },
+                    "reference_id": reference_id,
+                },
+            )
+            self._raise_for_provider_error(response, "Privy signAndSendTransaction")
+            payload = response.json()
             signature = str(payload["data"]["hash"])
         except (KeyError, TypeError) as exc:
             raise IntegrationError("Privy response did not contain a transaction hash") from exc
+        except httpx.HTTPError as exc:
+            raise IntegrationError("Privy or Solana network request failed") from exc
+        except ValueError as exc:
+            raise IntegrationError(
+                "Privy/Solana returned invalid data or an address is invalid"
+            ) from exc
         if not signature:
             raise IntegrationError(
                 "Privy returned an empty transaction hash; custodial screening is still pending"

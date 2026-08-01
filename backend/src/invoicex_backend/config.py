@@ -102,6 +102,11 @@ class BackendSettings(BaseSettings):
         gt=0,
         le=120,
     )
+    solana_demo_transfer_amount_usdc: int = Field(
+        default=1,
+        validation_alias="SOLANA_DEMO_TRANSFER_AMOUNT_USDC",
+        gt=0,
+    )
 
     supplier_wallet_address: str = Field(
         default="DEMO_SUPPLIER_WALLET",
@@ -132,7 +137,7 @@ class BackendSettings(BaseSettings):
         if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
             raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")
         if self.solana_mode == "privy":
-            missing = self.missing_privy_configuration()
+            missing = self.missing_privy_funding_configuration()
             if missing:
                 raise ValueError(
                     "SOLANA_MODE=privy requires configuration: " + ", ".join(missing)
@@ -146,21 +151,38 @@ class BackendSettings(BaseSettings):
 
     def resolved_solana_mode(self) -> Literal["privy", "mock"]:
         if self.solana_mode == "auto":
-            return "privy" if not self.missing_privy_configuration() else "mock"
+            return (
+                "privy"
+                if not self.missing_privy_funding_configuration()
+                else "mock"
+            )
         return self.solana_mode
 
-    def missing_privy_configuration(self) -> list[str]:
+    def missing_privy_funding_configuration(self) -> list[str]:
         values = {
             "PRIVY_APP_ID": self.privy_app_id,
             "PRIVY_APP_SECRET": self.privy_app_secret,
             "PRIVY_WALLET_ID": self.privy_treasury_wallet_id,
+        }
+        return self._missing_configuration(values)
+
+    def missing_privy_settlement_configuration(self) -> list[str]:
+        values = {
             "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
-            "SUPPLIER_WALLET_ADDRESS": self.supplier_wallet_address,
             "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (
                 self.investor_settlement_wallet_address
             ),
             "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
         }
+        return self._missing_configuration(values)
+
+    def missing_privy_configuration(self) -> list[str]:
+        return [
+            *self.missing_privy_funding_configuration(),
+            *self.missing_privy_settlement_configuration(),
+        ]
+
+    def _missing_configuration(self, values: dict[str, str | None]) -> list[str]:
         return [
             name
             for name, value in values.items()

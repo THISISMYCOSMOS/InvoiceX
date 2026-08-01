@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from solders.pubkey import Pubkey
 
 
 def to_camel(value: str) -> str:
@@ -253,6 +254,19 @@ class VerificationListResponse(ApiModel):
 
 class OfferResponseRequest(ApiModel):
     response: OfferResponse
+    supplier_wallet_address: str | None = None
+
+    @field_validator("supplier_wallet_address")
+    @classmethod
+    def validate_supplier_wallet_address(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        address = value.strip()
+        try:
+            Pubkey.from_string(address)
+        except ValueError as exc:
+            raise ValueError("supplierWalletAddress must be a Solana address") from exc
+        return address
 
 
 class InvestorDashboard(ApiModel):

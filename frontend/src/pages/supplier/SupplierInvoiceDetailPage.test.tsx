@@ -36,6 +36,26 @@ test("shows the transaction receipt for a funded invoice", () => {
   expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
 });
 
+test("labels a capped live Devnet payment as a demo transfer", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "FUNDED",
+        riskPassport: DEMO_RISK_PASSPORT,
+        fundingTransaction: {
+          ...DEMO_FUNDING_TRANSACTION,
+          amountUsdc: 1,
+        },
+      }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Devnet demo transfer confirmed" })).toBeInTheDocument();
+  expect(screen.getByText("Demo transfer only · Offer amount 18,800 USDC")).toBeInTheDocument();
+});
+
 test("shows extracted information and requests verification after confirmation", async () => {
   const user = userEvent.setup();
   const onRequestVerification = vi.fn();
