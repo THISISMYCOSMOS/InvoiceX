@@ -8,10 +8,10 @@ import { SolanaWalletConnection } from "../../components/SolanaWalletConnection"
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const mockBuyerCompanies = [
-  { name: "Prime Mobility", description: "Mobility · BUYER_PRIME" },
-  { name: "Orbit Components", description: "Components · BUYER_ORBIT" },
-  { name: "Daon Logistics", description: "Logistics · BUYER_DAON" },
-  { name: "Vertex Retail", description: "Retail · BUYER_VERTEX" },
+  { name: "Prime Mobility", description: "Mobility", koreanDescription: "모빌리티" },
+  { name: "Orbit Components", description: "Components", koreanDescription: "부품 제조" },
+  { name: "Daon Logistics", description: "Logistics", koreanDescription: "물류" },
+  { name: "Vertex Retail", description: "Retail", koreanDescription: "유통" },
 ] as const;
 
 interface InvestmentPolicyDraft {
@@ -228,8 +228,10 @@ export function InvestorSetupPage() {
                             checked={isSelected}
                             onChange={() => toggleBuyer(buyer.name)}
                           />
-                          <span><strong>{buyer.name}</strong><small>{buyer.description}</small></span>
-                          {isSelected && <CheckCircle size={16} weight="fill" aria-hidden="true" />}
+                          <span className="investor-policy-multiselect__company">
+                            <span className="investor-policy-multiselect__company-mark" aria-hidden="true">{buyer.name.slice(0, 1)}</span>
+                            <span><strong>{buyer.name}</strong><small>{t(buyer.description, buyer.koreanDescription)}</small></span>
+                          </span>
                         </label>
                       );
                     })}
