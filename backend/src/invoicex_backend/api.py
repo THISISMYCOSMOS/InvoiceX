@@ -38,7 +38,7 @@ def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
         404: "Invoice or Verification was not found",
         409: "The requested state transition is not allowed",
         422: "The request does not match the API contract",
-        502: "Gemini, Privy, or Solana integration failed",
+        502: "Firebase, Gemini, Privy, or Solana integration failed",
     }
     return {
         code: {"model": ErrorResponse, "description": descriptions[code]}

@@ -8,5 +8,9 @@ __pycache__/
 .coverage
 htmlcov/
 backend/.env
+*service-account*.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 backend/uploads/*
 !backend/uploads/.gitkeep

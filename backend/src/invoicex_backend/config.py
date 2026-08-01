@@ -38,6 +38,38 @@ class BackendSettings(BaseSettings):
         ge=1,
     )
 
+    firebase_mode: Literal["auto", "firebase", "local"] = Field(
+        default="auto",
+        validation_alias="FIREBASE_MODE",
+    )
+    firebase_project_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "FIREBASE_PROJECT_ID",
+            "GOOGLE_CLOUD_PROJECT",
+            "GCLOUD_PROJECT",
+        ),
+    )
+    firebase_storage_bucket: str | None = Field(
+        default=None,
+        validation_alias="FIREBASE_STORAGE_BUCKET",
+    )
+    firebase_firestore_database: str = Field(
+        default="(default)",
+        validation_alias="FIREBASE_FIRESTORE_DATABASE",
+        min_length=1,
+    )
+    firebase_collection_prefix: str = Field(
+        default="invoicex",
+        validation_alias="FIREBASE_COLLECTION_PREFIX",
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+    firebase_app_name: str = Field(
+        default="invoicex-backend",
+        validation_alias="FIREBASE_APP_NAME",
+        min_length=1,
+    )
+
     agent_mode: Literal["auto", "real", "mock"] = Field(
         default="auto",
         validation_alias="AGENT_MODE",
@@ -129,6 +161,13 @@ class BackendSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_explicit_real_modes(self) -> BackendSettings:
+        if self.firebase_mode == "firebase":
+            missing = self.missing_firebase_configuration()
+            if missing:
+                raise ValueError(
+                    "FIREBASE_MODE=firebase requires configuration: "
+                    + ", ".join(missing)
+                )
         if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
             raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")
         if self.solana_mode == "privy":
@@ -138,6 +177,29 @@ class BackendSettings(BaseSettings):
                     "SOLANA_MODE=privy requires configuration: " + ", ".join(missing)
                 )
         return self
+
+    def resolved_firebase_mode(self) -> Literal["firebase", "local"]:
+        if self.firebase_mode == "auto":
+            return (
+                "firebase"
+                if self._non_blank(self.firebase_project_id)
+                else "local"
+            )
+        return self.firebase_mode
+
+    def resolved_firebase_storage_bucket(self) -> str:
+        if self._non_blank(self.firebase_storage_bucket):
+            return str(self.firebase_storage_bucket).strip()
+        if self._non_blank(self.firebase_project_id):
+            return f"{str(self.firebase_project_id).strip()}.firebasestorage.app"
+        raise ValueError("FIREBASE_PROJECT_ID is required to derive the storage bucket")
+
+    def missing_firebase_configuration(self) -> list[str]:
+        return (
+            []
+            if self._non_blank(self.firebase_project_id)
+            else ["FIREBASE_PROJECT_ID"]
+        )
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
         if self.agent_mode == "auto":

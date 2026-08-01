@@ -7,9 +7,12 @@ import asyncio
 import statistics
 import tempfile
 import time
+from io import BytesIO
 from pathlib import Path
 
 import httpx
+from PIL import Image
+from pypdf import PdfWriter
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
@@ -19,6 +22,7 @@ async def run(iterations: int, concurrency: int) -> None:
     with tempfile.TemporaryDirectory(prefix="invoicex-stress-") as directory:
         settings = BackendSettings(
             _env_file=None,
+            FIREBASE_MODE="local",
             AGENT_MODE="mock",
             SOLANA_MODE="mock",
             UPLOAD_DIRECTORY=Path(directory),
@@ -28,7 +32,14 @@ async def run(iterations: int, concurrency: int) -> None:
         transport = httpx.ASGITransport(app=app)
         semaphore = asyncio.Semaphore(concurrency)
         latencies: list[float] = []
-        pdf = b"%PDF-1.4\nInvoiceX stress document\n%%EOF"
+        pdf_buffer = BytesIO()
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        writer.write(pdf_buffer)
+        pdf = pdf_buffer.getvalue()
+        image_buffer = BytesIO()
+        Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
+        png = image_buffer.getvalue()
 
         async with httpx.AsyncClient(
             transport=transport,
@@ -49,7 +60,7 @@ async def run(iterations: int, concurrency: int) -> None:
                         ),
                         "DELIVERY_PROOF": (
                             f"delivery-{index}.png",
-                            b"\x89PNG\r\n\x1a\n",
+                            png,
                             "image/png",
                         ),
                     }
