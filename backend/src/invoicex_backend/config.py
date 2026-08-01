@@ -145,6 +145,11 @@ class BackendSettings(BaseSettings):
         gt=0,
         le=120,
     )
+    solana_demo_transfer_amount_usdc: int = Field(
+        default=1,
+        validation_alias="SOLANA_DEMO_TRANSFER_AMOUNT_USDC",
+        gt=0,
+    )
 
     supplier_wallet_address: str = Field(
         default="DEMO_SUPPLIER_WALLET",

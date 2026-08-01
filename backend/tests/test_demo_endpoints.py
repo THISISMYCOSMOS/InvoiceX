@@ -96,6 +96,37 @@ def test_funding_endpoint_completes_a_funding_invoice(tmp_path: Path) -> None:
         assert invoice["fundingTransaction"]["amountUsdc"] == 18_800
 
 
+def test_real_devnet_mode_caps_only_the_onchain_demo_transfer(tmp_path: Path) -> None:
+    with demo_client(tmp_path) as client:
+        seeded = client.post("/api/v1/demo/reset").json()["invoice"]
+        invoice_id = seeded["id"]
+        client.post(f"/api/v1/invoices/{invoice_id}/analyze")
+        verification_id = client.post(
+            f"/api/v1/invoices/{invoice_id}/verification-request"
+        ).json()["invoice"]["verificationId"]
+        client.post(f"/api/v1/verifications/{verification_id}/confirm")
+
+        # Exercise the real-mode service branch with the deterministic test gateway.
+        service = client.app.state.invoice_service
+        service._solana.mode = "privy"
+        supplier_wallet = "So11111111111111111111111111111111111111112"
+        client.post(
+            f"/api/v1/invoices/{invoice_id}/offer-response",
+            json={
+                "response": "ACCEPT",
+                "supplierWalletAddress": supplier_wallet,
+            },
+        )
+
+        invoice = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+        assert invoice["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
+        assert invoice["fundingTransaction"]["amountUsdc"] == 1
+        assert invoice["fundingTransaction"]["toAddress"] == supplier_wallet
+        assert client.get("/api/v1/investor/dashboard").json()[
+            "outstandingPrincipalUsdc"
+        ] == 1
+
+
 def test_funding_endpoint_is_idempotent(tmp_path: Path) -> None:
     with demo_client(tmp_path) as client:
         seeded = client.post("/api/v1/demo/reset").json()["invoice"]

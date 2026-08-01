@@ -699,7 +699,16 @@ class InvoiceService:
                 )
                 await self._persist()
                 return
-            amount = passport.suggested_advance_amount_usdc
+            offered_amount = passport.suggested_advance_amount_usdc
+            amount = (
+                min(
+                    offered_amount,
+                    self._settings.solana_demo_transfer_amount_usdc,
+                )
+                if self._solana.mode == "privy"
+                and self._settings.solana_cluster == "devnet"
+                else offered_amount
+            )
             try:
                 result = await self._solana.send_usdc(
                     wallet_id=self._settings.privy_treasury_wallet_id
@@ -738,8 +747,12 @@ class InvoiceService:
                     target="SETTLEMENT_AGENT",
                     status="COMPLETED",
                     summary=(
-                        "AP2 Mandate 검증과 Solana "
-                        f"{self._settings.solana_cluster.title()} USDC 전송을 완료했습니다."
+                        f"Solana Devnet 데모 USDC {amount} 전송을 완료했습니다."
+                        if amount != offered_amount
+                        else (
+                            "AP2 Mandate 검증과 Solana "
+                            f"{self._settings.solana_cluster.title()} USDC 전송을 완료했습니다."
+                        )
                     ),
                 )
             await self._persist()
@@ -872,20 +885,26 @@ class InvoiceService:
 
     def _outstanding_principal(self, exclude: str | None = None) -> int:
         return sum(
-            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            self._funded_principal(invoice)
             for invoice in self._outstanding_invoices(exclude)
-            if invoice.risk_passport is not None
         )
+
+    @staticmethod
+    def _funded_principal(invoice: Invoice) -> int:
+        if invoice.funding_transaction is not None:
+            return invoice.funding_transaction.amount_usdc
+        if invoice.risk_passport is not None:
+            return invoice.risk_passport.suggested_advance_amount_usdc or 0
+        return 0
 
     def investor_dashboard(self) -> InvestorDashboard:
         outstanding_invoices = self._outstanding_invoices()
         outstanding = self._outstanding_principal()
         horizon = datetime.now(UTC).date() + timedelta(days=30)
         due_soon = sum(
-            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            self._funded_principal(invoice)
             for invoice in outstanding_invoices
-            if invoice.risk_passport is not None
-            and self._due_on_or_before(invoice.due_date, horizon)
+            if self._due_on_or_before(invoice.due_date, horizon)
         )
         traces = sorted(
             (

@@ -13,6 +13,7 @@ def test_solana_defaults_to_devnet() -> None:
     assert settings.resolved_rpc_url() == "https://api.devnet.solana.com"
     assert settings.resolved_caip2() == "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
     assert settings.solana_network_name() == "SOLANA_DEVNET"
+    assert settings.solana_demo_transfer_amount_usdc == 1
 
 
 def test_auto_modes_use_mock_without_external_credentials() -> None:
