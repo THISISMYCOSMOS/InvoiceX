@@ -22,6 +22,7 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
   return (
     <ConnectionProvider endpoint={devnetRpcUrl}>
       <WalletProvider
+        autoConnect={import.meta.env.MODE !== "test"}
         localStorageKey="invoicex-wallet-adapter"
         onError={() => undefined}
         wallets={wallets}
