@@ -1,8 +1,6 @@
 import { useParams } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
-import { InvoiceProgress } from "../../components/InvoiceProgress";
 import { LoadingState } from "../../components/LoadingState";
-import { StatusBadge } from "../../components/StatusBadge";
 import { useAcceptOffer } from "../../hooks/useAcceptOffer";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useRequestVerification } from "../../hooks/useRequestVerification";
@@ -12,6 +10,7 @@ import { DocumentReviewSection } from "./sections/DocumentReviewSection";
 import { EarlySettlementOfferSection } from "./sections/EarlySettlementOfferSection";
 import { FundingProgressSection } from "./sections/FundingProgressSection";
 import { FundingReceiptSection } from "./sections/FundingReceiptSection";
+import { RwaIssuedSection } from "./sections/RwaIssuedSection";
 import { SettlementReceiptSection } from "./sections/SettlementReceiptSection";
 import { useLanguage } from "../../i18n/LanguageContext";
 
@@ -47,11 +46,23 @@ export function SupplierInvoiceDetailContent({
     return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} onDecline={onDecline} />;
   }
 
-  let section = <section><h2>{t("Invoice progress", "인보이스 진행 상태")}</h2></section>;
-  if (invoice.status === "FUNDING") section = <FundingProgressSection />;
-  if (invoice.status === "FUNDED") section = <FundingReceiptSection invoice={invoice} />;
-  if (invoice.status === "SETTLED") section = <SettlementReceiptSection invoice={invoice} />;
-  return <><h1>{invoice.id}</h1><StatusBadge status={invoice.status} /><InvoiceProgress status={invoice.status} />{section}</>;
+  if (invoice.status === "RWA_ISSUED") {
+    return <RwaIssuedSection invoice={invoice} />;
+  }
+
+  if (invoice.status === "FUNDING") {
+    return <FundingProgressSection />;
+  }
+
+  if (invoice.status === "FUNDED") {
+    return <FundingReceiptSection invoice={invoice} />;
+  }
+
+  if (invoice.status === "SETTLED") {
+    return <SettlementReceiptSection invoice={invoice} />;
+  }
+
+  return <section><h1>{t("Invoice progress", "인보이스 진행 상태")}</h1></section>;
 }
 
 export function SupplierInvoiceDetailPage() {

@@ -159,6 +159,11 @@ test("switches demo roles from the topbar dropdown", async () => {
 });
 
 test("renders the investor Figma navigation and agent decision route", async () => {
+  await scenarioAdapter.analyzeInvoice("INV-2026-001");
+  await scenarioAdapter.requestVerification("INV-2026-001");
+  await scenarioAdapter.confirmVerification("VER-2026-001");
+  await scenarioAdapter.respondToOffer("INV-2026-001", "ACCEPT");
+
   const user = userEvent.setup();
   renderAt("/investor");
 
@@ -196,7 +201,7 @@ test("opens a due invoice from the buyer dashboard payment queue", async () => {
   await scenarioAdapter.requestVerification("INV-2026-001");
   await scenarioAdapter.confirmVerification("VER-2026-001");
   await scenarioAdapter.respondToOffer("INV-2026-001", "ACCEPT");
-  await scenarioAdapter.runFunding("INV-2026-001");
+  await scenarioAdapter.purchaseRwa("INV-2026-001");
 
   const user = userEvent.setup();
   renderAt("/buyer");
