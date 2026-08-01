@@ -1,4 +1,4 @@
-import { CheckCircle, Info, ShieldCheck, SlidersHorizontal, Vault } from "@phosphor-icons/react";
+import { CaretDown, CheckCircle, Info, ShieldCheck, SlidersHorizontal, Vault } from "@phosphor-icons/react";
 import bs58 from "bs58";
 import { VersionedTransaction } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -7,10 +7,26 @@ import { rwaApi, type MandatePolicyInput } from "../../api/rwa.api";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
 import { useLanguage } from "../../i18n/LanguageContext";
 
-const defaultPolicy = {
+const mockBuyerCompanies = [
+  { name: "Prime Mobility", description: "Mobility · BUYER_PRIME" },
+  { name: "Orbit Components", description: "Components · BUYER_ORBIT" },
+  { name: "Daon Logistics", description: "Logistics · BUYER_DAON" },
+  { name: "Vertex Retail", description: "Retail · BUYER_VERTEX" },
+] as const;
+
+interface InvestmentPolicyDraft {
+  totalLimit: string;
+  perInvoiceLimit: string;
+  buyerAllowlist: string[];
+  minimumScore: string;
+  maximumTerm: string;
+  policyTerm: string;
+}
+
+const defaultPolicy: InvestmentPolicyDraft = {
   totalLimit: "5",
   perInvoiceLimit: "1",
-  buyerAllowlist: "Prime Mobility",
+  buyerAllowlist: ["Prime Mobility"],
   minimumScore: "80",
   maximumTerm: "120",
   policyTerm: "2026-12-31",
@@ -36,16 +52,27 @@ export function InvestorSetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [vaultBalance, setVaultBalance] = useState<number | null>(null);
   const [activeMandateId, setActiveMandateId] = useState<string | null>(null);
+  const [isBuyerSelectOpen, setIsBuyerSelectOpen] = useState(false);
 
-  const updatePolicy = (key: keyof typeof defaultPolicy, value: string) => {
+  const updatePolicy = <Key extends keyof InvestmentPolicyDraft>(key: Key, value: InvestmentPolicyDraft[Key]) => {
     setPolicy((current) => ({ ...current, [key]: value }));
+    setActiveMandateId(null);
+  };
+
+  const toggleBuyer = (buyerName: string) => {
+    setPolicy((current) => ({
+      ...current,
+      buyerAllowlist: current.buyerAllowlist.includes(buyerName)
+        ? current.buyerAllowlist.filter((name) => name !== buyerName)
+        : [...current.buyerAllowlist, buyerName],
+    }));
     setActiveMandateId(null);
   };
 
   const createPolicy = (): MandatePolicyInput => ({
     totalInvestmentLimitUsdc: parseAmount(policy.totalLimit),
     perInvoiceLimitUsdc: parseAmount(policy.perInvoiceLimit),
-    buyerAllowlist: policy.buyerAllowlist.split(",").map((name) => name.trim()).filter(Boolean),
+    buyerAllowlist: policy.buyerAllowlist,
     minimumRiskScore: parseAmount(policy.minimumScore),
     maximumRemainingTermDays: parseAmount(policy.maximumTerm),
     expiresAt: policy.policyTerm,
@@ -171,7 +198,45 @@ export function InvestorSetupPage() {
             <div className="investor-policy-form__grid">
               <label htmlFor="totalLimit"><span>{t("Total investment limit", "총 투자 한도")}</span><div><input id="totalLimit" inputMode="numeric" value={policy.totalLimit} onChange={(event) => updatePolicy("totalLimit", event.target.value)} /><small>USDC</small></div></label>
               <label htmlFor="perInvoiceLimit"><span>{t("Maximum per invoice", "인보이스당 최대 금액")}</span><div><input id="perInvoiceLimit" inputMode="numeric" value={policy.perInvoiceLimit} onChange={(event) => updatePolicy("perInvoiceLimit", event.target.value)} /><small>USDC</small></div></label>
-              <label htmlFor="buyerAllowlist"><span>{t("Buyer allowlist", "구매기업 허용 목록")}</span><div><input id="buyerAllowlist" value={policy.buyerAllowlist} onChange={(event) => updatePolicy("buyerAllowlist", event.target.value)} /></div></label>
+              <div className="investor-policy-multiselect">
+                <span id="buyerAllowlist-label">{t("Buyer allowlist", "구매기업 허용 목록")}</span>
+                <button
+                  type="button"
+                  className="investor-policy-multiselect__trigger"
+                  aria-labelledby="buyerAllowlist-label"
+                  aria-haspopup="listbox"
+                  aria-expanded={isBuyerSelectOpen}
+                  onClick={() => setIsBuyerSelectOpen((current) => !current)}
+                >
+                  <span>
+                    {policy.buyerAllowlist.length === 0
+                      ? t("Select buyers", "구매기업 선택")
+                      : policy.buyerAllowlist.length === 1
+                        ? policy.buyerAllowlist[0]
+                        : t(`${policy.buyerAllowlist.length} buyers selected`, `${policy.buyerAllowlist.length}개 기업 선택됨`)}
+                  </span>
+                  <CaretDown size={15} weight="bold" aria-hidden="true" />
+                </button>
+                {isBuyerSelectOpen && (
+                  <div className="investor-policy-multiselect__menu" role="listbox" aria-multiselectable="true">
+                    {mockBuyerCompanies.map((buyer) => {
+                      const isSelected = policy.buyerAllowlist.includes(buyer.name);
+                      return (
+                        <label key={buyer.name} className={isSelected ? "is-selected" : ""}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleBuyer(buyer.name)}
+                          />
+                          <span><strong>{buyer.name}</strong><small>{buyer.description}</small></span>
+                          {isSelected && <CheckCircle size={16} weight="fill" aria-hidden="true" />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                <small>{t("Select one or more buyer companies.", "구매기업을 하나 이상 선택하세요.")}</small>
+              </div>
               <label htmlFor="minimumScore"><span>{t("Minimum Risk Score", "최소 위험 점수")}</span><div><input id="minimumScore" inputMode="numeric" value={policy.minimumScore} onChange={(event) => updatePolicy("minimumScore", event.target.value)} /><small>/ 100</small></div></label>
               <label htmlFor="maximumTerm"><span>{t("Maximum remaining term", "최대 잔존 만기")}</span><div><input id="maximumTerm" inputMode="numeric" value={policy.maximumTerm} onChange={(event) => updatePolicy("maximumTerm", event.target.value)} /><small>{t("days", "일")}</small></div></label>
               <label htmlFor="policyTerm"><span>{t("Policy expiry", "정책 만료일")}</span><div><input id="policyTerm" type="date" value={policy.policyTerm} onChange={(event) => updatePolicy("policyTerm", event.target.value)} /></div></label>

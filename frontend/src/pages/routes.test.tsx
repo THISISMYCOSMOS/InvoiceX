@@ -96,6 +96,7 @@ test("shows the supplier wallet connection without a hard-coded demo address", a
 });
 
 test("shows the institution wallet only in investor setup, never buyer pages", async () => {
+  const user = userEvent.setup();
   const investor = renderAt("/investor/setup");
 
   expect(await screen.findByRole("heading", { name: "Institution wallet" })).toBeInTheDocument();
@@ -106,6 +107,12 @@ test("shows the institution wallet only in investor setup, never buyer pages", a
   expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Sign authorization" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Sign Vault deposit" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("Prime Mobility");
+
+  await user.click(screen.getByRole("button", { name: "Buyer allowlist" }));
+  expect(screen.getByRole("checkbox", { name: /Orbit Components/ })).not.toBeChecked();
+  await user.click(screen.getByRole("checkbox", { name: /Orbit Components/ }));
+  expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("2 buyers selected");
 
   investor.unmount();
   renderAt("/buyer");
