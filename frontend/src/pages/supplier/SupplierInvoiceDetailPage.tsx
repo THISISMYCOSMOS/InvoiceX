@@ -17,13 +17,11 @@ import { useLanguage } from "../../i18n/LanguageContext";
 export function SupplierInvoiceDetailContent({
   invoice,
   onAccept,
-  onDecline = () => undefined,
   onRequestVerification = () => undefined,
   isRequestingVerification = false,
 }: {
   invoice: Invoice;
   onAccept: () => void;
-  onDecline?: () => void;
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
 }) {
@@ -43,7 +41,7 @@ export function SupplierInvoiceDetailContent({
   }
 
   if (invoice.status === "OFFER_READY") {
-    return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} onDecline={onDecline} />;
+    return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} />;
   }
 
   if (invoice.status === "RWA_ISSUED") {
@@ -77,7 +75,6 @@ export function SupplierInvoiceDetailPage() {
     <SupplierInvoiceDetailContent
       invoice={invoice.data}
       onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
-      onDecline={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "DECLINE" })}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
     />

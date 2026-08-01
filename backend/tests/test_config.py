@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
 
 from invoicex_backend.config import BackendSettings
 
@@ -36,3 +38,17 @@ def test_explicit_privy_mode_requires_complete_configuration() -> None:
             PRIVY_APP_ID="",
             PRIVY_APP_SECRET="",
         )
+
+
+def test_direct_mode_requires_keys_and_selects_direct_when_configured() -> None:
+    with pytest.raises(ValidationError, match="SOLANA_MODE=direct"):
+        BackendSettings(_env_file=None, SOLANA_MODE="direct")
+
+    settings = BackendSettings(
+        _env_file=None,
+        SOLANA_MODE="direct",
+        SOLANA_PLATFORM_KEYPAIR=str(Keypair()),
+        SOLANA_AGENT_VAULT_KEYPAIR=str(Keypair()),
+        DEMO_STABLECOIN_MINT=str(Pubkey.new_unique()),
+    )
+    assert settings.resolved_solana_mode() == "direct"

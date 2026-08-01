@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import httpx
+from solders.keypair import Keypair
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
@@ -22,6 +23,7 @@ async def run(iterations: int, concurrency: int) -> None:
             AGENT_MODE="mock",
             SOLANA_MODE="mock",
             UPLOAD_DIRECTORY=Path(directory),
+            RWA_DATABASE_PATH=Path(directory) / "invoicex-rwa.sqlite3",
             PUBLIC_BASE_URL="http://stress",
         )
         app = create_app(settings=settings)
@@ -35,6 +37,43 @@ async def run(iterations: int, concurrency: int) -> None:
             base_url="http://stress",
             timeout=30,
         ) as client:
+            investor = Keypair()
+            policy = {
+                "totalInvestmentLimitUsdc": iterations * 25_000,
+                "perInvoiceLimitUsdc": 25_000,
+                "buyerAllowlist": ["Prime Mobility"],
+                "minimumRiskScore": 80,
+                "maximumRemainingTermDays": 365,
+                "expiresAt": "2030-12-31",
+            }
+            prepared_mandate = await client.post(
+                "/api/v1/investor/mandates/prepare",
+                json={"ownerWalletAddress": str(investor.pubkey()), "policy": policy},
+            )
+            _require(prepared_mandate)
+            signature = str(
+                investor.sign_message(
+                    prepared_mandate.json()["canonicalMessage"].encode()
+                )
+            )
+            mandate = await client.post(
+                "/api/v1/investor/mandates",
+                json={
+                    "ownerWalletAddress": str(investor.pubkey()),
+                    "policy": policy,
+                    "signature": signature,
+                },
+            )
+            _require(mandate)
+            deposited = await client.post(
+                "/api/v1/investor/vault/deposits/confirm",
+                json={
+                    "ownerWalletAddress": str(investor.pubkey()),
+                    "amountUsdc": iterations * 20_000,
+                    "signature": "stress-mock-vault-deposit",
+                },
+            )
+            _require(deposited)
 
             async def workflow(index: int) -> None:
                 async with semaphore:
@@ -94,7 +133,7 @@ async def run(iterations: int, concurrency: int) -> None:
         p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
         print(
             "stress_result "
-            f"workflows={iterations} requests={iterations * 6} "
+            f"workflows={iterations} requests={iterations * 6 + 3} "
             f"concurrency={concurrency} elapsed_seconds={elapsed:.3f} "
             f"workflows_per_second={iterations / elapsed:.2f} "
             f"mean_seconds={statistics.fmean(latencies):.4f} "

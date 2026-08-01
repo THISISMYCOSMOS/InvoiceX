@@ -15,6 +15,7 @@ def mock_settings(upload_directory: Path, **overrides: object) -> BackendSetting
         "AGENT_MODE": "mock",
         "SOLANA_MODE": "mock",
         "UPLOAD_DIRECTORY": upload_directory,
+        "RWA_DATABASE_PATH": upload_directory.parent / "invoicex-rwa.sqlite3",
         "PUBLIC_BASE_URL": "http://testserver",
     }
     values.update(overrides)

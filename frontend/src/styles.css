@@ -1089,6 +1089,54 @@ a {
   background: #f0fdf4;
 }
 
+.investor-vault-deposit-card__body {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px;
+}
+
+.investor-vault-deposit-card__body label {
+  flex: 1;
+}
+
+.investor-vault-deposit-card__body label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.investor-vault-deposit-card__body label > div {
+  display: flex;
+  min-height: 37px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d9dee8;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #fff;
+}
+
+.investor-vault-deposit-card__body input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #172033;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.investor-vault-deposit-card__body small {
+  color: #64748b;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
 .wallet-connect-button {
   display: inline-flex;
   width: auto;
@@ -3056,6 +3104,11 @@ a {
   border-top: 1px solid #d9dee8;
 }
 
+.offer-actions {
+  padding-top: 0;
+  border-top: 0;
+}
+
 .verification-actions button,
 .offer-actions button {
   min-height: 34px;
@@ -3162,16 +3215,9 @@ a {
   padding: 0 15px 15px;
 }
 
-.copy-account-button,
-.payment-guide-link {
+.copy-account-button {
   min-height: 34px;
   padding: 0 15px;
-}
-
-.payment-guide-link {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
 }
 
 .payment-status-card > div {
@@ -3236,7 +3282,7 @@ a {
 }
 
 .risk-score-card > strong {
-  margin-top: 42px;
+  margin-top: 30px;
   color: #000;
   font-size: 34px;
   line-height: 1;
@@ -3245,11 +3291,11 @@ a {
 .risk-score-card > small {
   margin-top: 3px;
   color: #64748b;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .risk-score-card h2 {
-  margin: 47px 0 0;
+  margin: 18px 0 0;
   color: #000;
   font-size: 16px;
 }
@@ -3329,6 +3375,10 @@ a {
   min-height: 560px;
 }
 
+.buyer-idle-state > .buyer-back-link {
+  margin-left: 0;
+}
+
 .buyer-complete-card,
 .funding-receipt__summary,
 .transaction-receipt {
@@ -3339,8 +3389,8 @@ a {
 }
 
 .buyer-complete-card {
-  max-width: 930px;
-  margin: 4px auto 0;
+  max-width: none;
+  margin: 4px 0 0;
 }
 
 .buyer-complete-card__heading {
@@ -3465,6 +3515,12 @@ a {
   font-weight: 600;
 }
 
+.buyer-complete-steps li {
+  display: grid;
+  grid-template-columns: 19px max-content minmax(12px, 1fr);
+  gap: 6px;
+}
+
 .buyer-complete-steps li::after,
 .invoice-progress li::after {
   position: absolute;
@@ -3475,6 +3531,12 @@ a {
   height: 1px;
   background: #d9dee8;
   content: "";
+}
+
+.buyer-complete-steps li::after {
+  position: static;
+  width: 100%;
+  height: 1px;
 }
 
 .buyer-complete-steps li:last-child::after,
@@ -3600,7 +3662,7 @@ a {
 
 .rwa-issued-card {
   overflow: hidden;
-  border: 1px solid #ddd6fe;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: #fff;
 }
@@ -3611,8 +3673,8 @@ a {
   grid-template-columns: 48px minmax(0, 1fr) auto;
   gap: 14px;
   padding: 22px;
-  border-bottom: 1px solid #ede9fe;
-  background: linear-gradient(125deg, #faf8ff, #fff);
+  border-bottom: 1px solid #dbeafe;
+  background: linear-gradient(125deg, #f5f9ff, #fff);
 }
 
 .rwa-issued-card__icon {
@@ -3622,13 +3684,13 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  color: #7c3aed;
-  background: #ede9fe;
+  color: #2563eb;
+  background: #dbeafe;
 }
 
 .rwa-issued-card__eyebrow {
   display: block;
-  color: #7c3aed;
+  color: #2563eb;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -3656,8 +3718,8 @@ a {
   gap: 5px;
   border-radius: 999px;
   padding: 0 10px;
-  color: #6d28d9;
-  background: #ede9fe;
+  color: #1d4ed8;
+  background: #dbeafe;
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;
@@ -3665,36 +3727,43 @@ a {
 
 .rwa-issued-card__body {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.9fr);
-  gap: 16px;
-  padding: 18px 22px;
+  gap: 22px;
+  padding: 22px;
 }
 
-.rwa-issued-card__body dl {
+.rwa-issued-card__group h2 {
+  margin: 0 0 11px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rwa-issued-card__group dl {
   display: grid;
   margin: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
-.rwa-issued-card__body dl > div {
+.rwa-issued-card__group dl > div {
   min-width: 0;
-  border: 1px solid #e7e4f4;
+  border: 1px solid #dbeafe;
   border-radius: 9px;
-  padding: 12px;
-  background: #fcfbff;
+  padding: 16px;
+  background: #f8fbff;
 }
 
-.rwa-issued-card__body dt {
+.rwa-issued-card__group dt {
   color: #64748b;
-  font-size: 9px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.rwa-issued-card__body dd {
+.rwa-issued-card__group dd {
   overflow: hidden;
-  margin: 7px 0 0;
+  margin: 9px 0 0;
   color: #172033;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3702,12 +3771,13 @@ a {
 
 .rwa-issued-card__notice {
   display: flex;
+  min-height: 58px;
   align-items: center;
   gap: 9px;
-  border-radius: 9px;
-  padding: 12px;
-  color: #5b21b6;
-  background: #f5f3ff;
+  border-top: 1px solid #dbeafe;
+  padding: 15px 22px;
+  color: #1d4ed8;
+  background: #f8fbff;
 }
 
 .rwa-issued-card__notice > span {
@@ -3717,60 +3787,9 @@ a {
 
 .rwa-issued-card__notice p {
   margin: 0;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.55;
-}
-
-.rwa-issued-card__steps {
-  display: grid;
-  margin: 0;
-  padding: 15px 22px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  border-top: 1px solid #ede9fe;
-  list-style: none;
-}
-
-.rwa-issued-card__steps li {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-  color: #94a3b8;
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.rwa-issued-card__steps li::before {
-  display: inline-flex;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  content: "";
-}
-
-.rwa-issued-card__steps li.is-complete {
-  color: #16a34a;
-}
-
-.rwa-issued-card__steps li.is-complete::before {
-  color: #fff;
-  background: #16a34a;
-  box-shadow: inset 0 0 0 4px #16a34a;
-}
-
-.rwa-issued-card__steps li.is-current {
-  color: #7c3aed;
-}
-
-.rwa-issued-card__steps li.is-current::before {
-  box-shadow: inset 0 0 0 4px #7c3aed;
 }
 
 .demo-invoice-registration {
@@ -3964,8 +3983,7 @@ a {
   .buyer-verification-grid,
   .buyer-payment-grid,
   .early-offer__grid,
-  .funding-receipt__summary,
-  .rwa-issued-card__body {
+  .funding-receipt__summary {
     grid-template-columns: 1fr;
   }
 
@@ -3980,6 +3998,10 @@ a {
   .buyer-complete-card__heading,
   .funding-receipt__heading {
     align-items: flex-start;
+  }
+
+  .rwa-issued-card__group dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -4026,9 +4048,17 @@ a {
     min-height: 0;
   }
 
+  .buyer-idle-state > .buyer-back-link {
+    margin-left: 0;
+  }
+
   .buyer-complete-card__heading {
     grid-template-columns: 42px minmax(0, 1fr);
     padding: 18px;
+  }
+
+  .buyer-complete-card {
+    margin-left: 0;
   }
 
   .buyer-complete-card__icon {
@@ -4044,7 +4074,7 @@ a {
   .buyer-complete-summary,
   .funding-receipt__details,
   .transaction-receipt dl,
-  .rwa-issued-card__body dl,
+  .rwa-issued-card__group dl,
   .investor-purchase-row dl {
     grid-template-columns: 1fr;
   }
@@ -4059,6 +4089,10 @@ a {
     margin-right: 18px;
     margin-left: 18px;
     grid-template-columns: 1fr;
+  }
+
+  .buyer-complete-steps li {
+    grid-template-columns: 19px max-content;
   }
 
   .buyer-complete-steps li::after,
@@ -4095,14 +4129,9 @@ a {
     justify-self: start;
   }
 
-  .rwa-issued-card__body,
-  .rwa-issued-card__steps {
+  .rwa-issued-card__body {
     padding-right: 18px;
     padding-left: 18px;
-  }
-
-  .rwa-issued-card__steps {
-    grid-template-columns: 1fr;
   }
 
   .demo-invoice-registration {

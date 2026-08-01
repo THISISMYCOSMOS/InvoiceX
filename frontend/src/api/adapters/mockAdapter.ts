@@ -23,7 +23,6 @@ function invalidTransition(invoice: Invoice, action: string): never {
 export function createMockAdapter(): ScenarioAdapter {
   let invoice = clone(DEMO_INVOICE);
   let verification: VerificationRequest | undefined;
-  let automatedFundingTimer: ReturnType<typeof setTimeout> | undefined;
 
   const completeFunding = (current: Invoice): Invoice => ({
     ...current,
@@ -38,14 +37,6 @@ export function createMockAdapter(): ScenarioAdapter {
     }
 
     return invoice;
-  };
-
-  const scheduleAutomatedFunding = () => {
-    if (automatedFundingTimer !== undefined) clearTimeout(automatedFundingTimer);
-    automatedFundingTimer = setTimeout(() => {
-      if (invoice.status === "RWA_ISSUED") invoice = completeFunding(invoice);
-      automatedFundingTimer = undefined;
-    }, 1_200);
   };
 
   return {
@@ -122,7 +113,6 @@ export function createMockAdapter(): ScenarioAdapter {
       }
 
       invoice = { ...current, status: response === "ACCEPT" ? "RWA_ISSUED" : "BLOCKED" };
-      if (response === "ACCEPT") scheduleAutomatedFunding();
       return clone(invoice);
     },
     async runFunding(invoiceId) {
@@ -166,8 +156,6 @@ export function createMockAdapter(): ScenarioAdapter {
       return clone(DEMO_INVESTOR_DASHBOARD);
     },
     async reset() {
-      if (automatedFundingTimer !== undefined) clearTimeout(automatedFundingTimer);
-      automatedFundingTimer = undefined;
       invoice = clone(DEMO_INVOICE);
       verification = undefined;
       return clone(invoice);

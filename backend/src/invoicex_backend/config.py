@@ -51,7 +51,7 @@ class BackendSettings(BaseSettings):
         validation_alias="GEMINI_MODEL",
     )
 
-    solana_mode: Literal["auto", "privy", "mock"] = Field(
+    solana_mode: Literal["auto", "direct", "privy", "mock"] = Field(
         default="auto",
         validation_alias="SOLANA_MODE",
     )
@@ -102,6 +102,22 @@ class BackendSettings(BaseSettings):
         gt=0,
         le=120,
     )
+    rwa_database_path: Path = Field(
+        default=Path("invoicex-devnet.sqlite3"),
+        validation_alias="RWA_DATABASE_PATH",
+    )
+    solana_platform_keypair: str | None = Field(
+        default=None,
+        validation_alias="SOLANA_PLATFORM_KEYPAIR",
+    )
+    solana_agent_vault_keypair: str | None = Field(
+        default=None,
+        validation_alias="SOLANA_AGENT_VAULT_KEYPAIR",
+    )
+    demo_stablecoin_mint: str | None = Field(
+        default=None,
+        validation_alias="DEMO_STABLECOIN_MINT",
+    )
 
     supplier_wallet_address: str = Field(
         default="DEMO_SUPPLIER_WALLET",
@@ -134,9 +150,11 @@ class BackendSettings(BaseSettings):
         if self.solana_mode == "privy":
             missing = self.missing_privy_configuration()
             if missing:
-                raise ValueError(
-                    "SOLANA_MODE=privy requires configuration: " + ", ".join(missing)
-                )
+                raise ValueError("SOLANA_MODE=privy requires configuration: " + ", ".join(missing))
+        if self.solana_mode == "direct":
+            missing = self.missing_direct_solana_configuration()
+            if missing:
+                raise ValueError("SOLANA_MODE=direct requires configuration: " + ", ".join(missing))
         return self
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
@@ -144,10 +162,18 @@ class BackendSettings(BaseSettings):
             return "real" if self._non_blank(self.gemini_api_key) else "mock"
         return self.agent_mode
 
-    def resolved_solana_mode(self) -> Literal["privy", "mock"]:
+    def resolved_solana_mode(self) -> Literal["direct", "privy", "mock"]:
         if self.solana_mode == "auto":
-            return "privy" if not self.missing_privy_configuration() else "mock"
+            return "direct" if not self.missing_direct_solana_configuration() else "mock"
         return self.solana_mode
+
+    def missing_direct_solana_configuration(self) -> list[str]:
+        values = {
+            "SOLANA_PLATFORM_KEYPAIR": self.solana_platform_keypair,
+            "SOLANA_AGENT_VAULT_KEYPAIR": self.solana_agent_vault_keypair,
+            "DEMO_STABLECOIN_MINT": self.demo_stablecoin_mint,
+        }
+        return [name for name, value in values.items() if not self._non_blank(value)]
 
     def missing_privy_configuration(self) -> list[str]:
         values = {
@@ -156,9 +182,7 @@ class BackendSettings(BaseSettings):
             "PRIVY_WALLET_ID": self.privy_treasury_wallet_id,
             "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
             "SUPPLIER_WALLET_ADDRESS": self.supplier_wallet_address,
-            "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (
-                self.investor_settlement_wallet_address
-            ),
+            "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (self.investor_settlement_wallet_address),
             "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
         }
         return [

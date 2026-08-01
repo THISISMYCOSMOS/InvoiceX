@@ -16,3 +16,4 @@ tmp/
 backend/.env
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/*.sqlite3

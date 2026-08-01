@@ -1,43 +1,66 @@
-import { CheckCircle, Clock, Coins } from "@phosphor-icons/react";
+import { CheckCircle, FileText } from "@phosphor-icons/react";
 import type { Invoice } from "../../../types/invoice";
 import { useLanguage } from "../../../i18n/LanguageContext";
 
 export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const amount = invoice.riskPassport?.suggestedAdvanceAmountUsdc;
+  const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+  const krwFormatter = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US", {
+    style: "currency",
+    currency: "KRW",
+    maximumFractionDigits: 0,
+  });
+  const advanceRate = invoice.riskPassport?.suggestedAdvanceRateBps;
 
   return (
     <section className="rwa-issued">
-      <p className="detail-breadcrumb">{t("Invoices", "인보이스")} / {invoice.id} / {t("RWA issued", "RWA 발행 완료")}</p>
       <article className="rwa-issued-card">
         <header>
           <span className="rwa-issued-card__icon" aria-hidden="true"><CheckCircle size={25} weight="fill" /></span>
           <div>
-            <span className="rwa-issued-card__eyebrow">{t("AUTOMATED INVESTMENT", "자동 투자 실행")}</span>
-            <h1>{t("Treasury Agent is processing the RWA investment", "Treasury Agent가 RWA 자동 투자를 처리하고 있습니다")}</h1>
+            <span className="rwa-issued-card__eyebrow">{t("RWA ISSUED", "RWA 발행 완료")}</span>
+            <h1>{t("Your invoice RWA has been issued", "인보이스 RWA가 발행되었습니다")}</h1>
             <p>{t(
-              "The institution's AP2 Mandate and investment policy are being evaluated before USDC is paid to your settlement wallet.",
-              "기관의 AP2 Mandate와 자체 투자 정책을 검증한 뒤 정산 지갑으로 USDC가 자동 지급됩니다.",
+              "Your verified invoice has been issued as an RWA. Settlement updates will appear on this page.",
+              "구매기업 확인을 마친 인보이스가 RWA로 발행되었습니다. 정산 진행 상황은 이 페이지에서 확인할 수 있습니다.",
             )}</p>
           </div>
-          <span className="rwa-issued-card__badge"><Clock size={13} weight="fill" aria-hidden="true" /> {t("AGENT PROCESSING", "AGENT 처리 중")}</span>
+          <span className="rwa-issued-card__badge"><CheckCircle size={13} weight="fill" aria-hidden="true" /> {t("ISSUED", "발행 완료")}</span>
         </header>
         <div className="rwa-issued-card__body">
-          <dl>
-            <div><dt>{t("RWA asset", "RWA 자산")}</dt><dd>RWA-{invoice.id}</dd></div>
-            <div><dt>{t("Target purchase", "투자 예정 금액")}</dt><dd>{amount?.toLocaleString() ?? "—"} USDC</dd></div>
-            <div><dt>{t("Mandate owner", "Mandate 기관")}</dt><dd>{invoice.investor.name}</dd></div>
-          </dl>
-          <div className="rwa-issued-card__notice">
-            <span><Coins size={18} weight="fill" aria-hidden="true" /></span>
-            <p>{t("Treasury Agent automatically executes the approved investment and USDC transfer.", "Treasury Agent가 승인된 투자를 자동 실행하고 정산 지갑으로 USDC를 지급합니다.")}</p>
-          </div>
+          <section className="rwa-issued-card__group">
+            <h2>{t("Invoice details", "인보이스 정보")}</h2>
+            <dl>
+              <div><dt>{t("Invoice ID", "인보이스 ID")}</dt><dd>{invoice.id}</dd></div>
+              <div><dt>{t("Supplier", "공급기업")}</dt><dd>{invoice.supplier.name}</dd></div>
+              <div><dt>{t("Buyer", "구매기업")}</dt><dd>{invoice.buyer.name}</dd></div>
+              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{krwFormatter.format(invoice.invoiceAmountKrw)}</dd></div>
+              <div><dt>{t("Issue date", "발행일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.issueDate}T00:00:00`))}</dd></div>
+              <div><dt>{t("Due date", "만기일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.dueDate}T00:00:00`))}</dd></div>
+              <div><dt>{t("Contract number", "계약 번호")}</dt><dd>{invoice.contractNumber}</dd></div>
+              <div><dt>{t("Purchase order number", "발주 번호")}</dt><dd>{invoice.purchaseOrderNumber}</dd></div>
+            </dl>
+          </section>
+          <section className="rwa-issued-card__group">
+            <h2>{t("RWA issuance details", "RWA 발행 정보")}</h2>
+            <dl>
+              <div><dt>{t("Risk Passport score", "Risk Passport 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
+              <div><dt>{t("Advance rate", "조기정산 비율")}</dt><dd>{advanceRate === null || advanceRate === undefined ? "—" : `${advanceRate / 100}%`}</dd></div>
+              <div><dt>{t("Expected settlement", "조기정산 예정 금액")}</dt><dd>{amount?.toLocaleString() ?? "—"} USDC</dd></div>
+              <div><dt>{t("Issuance status", "RWA 발행 상태")}</dt><dd>{t("Issued", "발행 완료")}</dd></div>
+              <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={invoice.rwaAsset?.mintAddress}>{invoice.rwaAsset?.mintAddress ?? "—"}</dd></div>
+            </dl>
+          </section>
         </div>
-        <ol className="rwa-issued-card__steps" aria-label={t("Early settlement progress", "조기정산 진행 상황")}>
-          <li className="is-complete">{t("RWA issued", "RWA 발행 완료")}</li>
-          <li className="is-current">{t("Automated Agent investment", "Agent 자동 투자")}</li>
-          <li>{t("USDC paid", "USDC 지급")}</li>
-        </ol>
+        <div className="rwa-issued-card__notice">
+          <span><FileText size={18} weight="fill" aria-hidden="true" /></span>
+          <p>{invoice.agentDecision?.reason ?? t("This RWA is held in platform escrow until a qualifying active investor mandate completes the automatic purchase.", "이 RWA는 조건을 충족하는 활성 투자 Mandate가 자동 매수를 완료할 때까지 플랫폼 에스크로에 보관됩니다.")}</p>
+        </div>
       </article>
     </section>
   );

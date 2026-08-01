@@ -18,10 +18,53 @@ uv run uvicorn invoicex_backend.main:app --reload --port 8000
 - API base URL: `http://localhost:8000/api/v1`
 
 `AGENT_MODE=auto` uses the real Gemini agents only when `GEMINI_API_KEY` is
-configured. `SOLANA_MODE=auto` uses Privy/Solana Devnet only when every wallet
-and provider value is configured. Explicit `real` or `privy` modes fail during
-startup when required configuration is missing; provider failures never fall
-back to mock execution.
+configured. `SOLANA_MODE=auto` uses the direct Devnet adapter only when every
+service-wallet and demo-stablecoin value is configured; otherwise it uses mock
+mode. Explicit `real`, `direct`, or `privy` modes fail during startup when
+their required configuration is missing; provider failures never fall back to
+mock execution.
+
+## Real Devnet RWA demo
+
+The Devnet demo issues one indivisible SPL token per invoice. The platform
+service wallet controls the mint and escrow; the Agent Vault service wallet
+holds only the investor's deposited demo stablecoin. Neither private key is
+sent to the frontend.
+
+1. Create two service keypairs locally. Do **not** commit the printed secrets.
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py generate-keypair --label SOLANA_PLATFORM
+   uv run python scripts/devnet_stablecoin.py generate-keypair --label SOLANA_AGENT_VAULT
+   ```
+
+2. Put the two `*_KEYPAIR` values in `SOLANA_PLATFORM_KEYPAIR` and
+   `SOLANA_AGENT_VAULT_KEYPAIR` in `backend/.env`, then give both public keys
+   Devnet SOL using a trusted faucet or the local CLI:
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py airdrop-sol --wallet <platform-public-key>
+   uv run python scripts/devnet_stablecoin.py airdrop-sol --wallet <agent-vault-public-key>
+   ```
+
+3. Create the platform test stablecoin, paste the printed mint into
+   `DEMO_STABLECOIN_MINT`, and set `SOLANA_MODE=direct`.
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py create-mint
+   ```
+
+4. Fund the investor's connected Devnet wallet from the developer machine;
+   there is intentionally no public funding API.
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py mint --wallet <investor-wallet> --amount-usdc 50000
+   ```
+
+5. Start the backend and frontend with `VITE_USE_MOCK_API=false`. The investor
+   signs the policy and Vault deposit in their browser wallet. A qualifying RWA
+   then transfers atomically: Agent Vault stablecoin to the supplier and the
+   escrowed RWA to Agent Vault.
 
 ## Verify
 

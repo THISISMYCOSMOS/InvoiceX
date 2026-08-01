@@ -18,10 +18,11 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Your early settlement offer is ready" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
   expect(screen.getByText("18,800 USDC")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Decline offer" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Risk Passport" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Decline offer" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
 });
 
 test("shows the transaction receipt for a funded invoice", () => {
@@ -37,7 +38,7 @@ test("shows the transaction receipt for a funded invoice", () => {
   expect(screen.queryByRole("heading", { name: "INV-2026-001" })).not.toBeInTheDocument();
 });
 
-test("shows the automated-investment state after RWA issuance", () => {
+test("shows the supplier RWA issuance summary after RWA issuance", () => {
   render(
     <SupplierInvoiceDetailContent
       invoice={{ ...DEMO_INVOICE, status: "RWA_ISSUED", riskPassport: DEMO_RISK_PASSPORT }}
@@ -45,9 +46,13 @@ test("shows the automated-investment state after RWA issuance", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Treasury Agent is processing the RWA investment" })).toBeInTheDocument();
-  expect(screen.getByText("AGENT PROCESSING")).toBeInTheDocument();
-  expect(screen.getByText("Automated Agent investment")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your invoice RWA has been issued" })).toBeInTheDocument();
+  expect(screen.getByText("RWA ISSUED")).toBeInTheDocument();
+  expect(screen.getByText("Invoice ID")).toBeInTheDocument();
+  expect(screen.getByText("Supplier")).toBeInTheDocument();
+  expect(screen.getByText("Buyer")).toBeInTheDocument();
+  expect(screen.getByText("Risk Passport score")).toBeInTheDocument();
+  expect(screen.queryByText("Treasury Agent is processing the RWA investment")).not.toBeInTheDocument();
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {

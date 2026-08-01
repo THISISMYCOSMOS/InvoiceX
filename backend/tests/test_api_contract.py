@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from solders.keypair import Keypair
 
 from invoicex_backend.app import create_app
 from tests.conftest import mock_settings
@@ -20,9 +21,7 @@ def test_complete_frontend_contract_workflow(
     invoice_id = invoice["id"]
     assert invoice["status"] == "DOCUMENT_REVIEW_REQUIRED"
     assert len(invoice["documents"]) == 4
-    assert {document["type"] for document in invoice["documents"]} == set(
-        contract_files
-    )
+    assert {document["type"] for document in invoice["documents"]} == set(contract_files)
     assert invoice["analysis"]["status"] == "COMPLETED"
     assert invoice["analysis"]["amountKrw"]["value"] == 20_000_000
     assert invoice["riskPassport"] is None
@@ -35,17 +34,13 @@ def test_complete_frontend_contract_workflow(
     assert listed.status_code == 200
     assert listed.json()["items"][0]["id"] == invoice_id
 
-    verification_response = client.post(
-        f"/api/v1/invoices/{invoice_id}/verification-request"
-    )
+    verification_response = client.post(f"/api/v1/invoices/{invoice_id}/verification-request")
     assert verification_response.status_code == 200
     verification_invoice = verification_response.json()["invoice"]
     assert verification_invoice["status"] == "BUYER_REVIEW"
     verification_id = verification_invoice["verificationId"]
 
-    duplicate_request = client.post(
-        f"/api/v1/invoices/{invoice_id}/verification-request"
-    )
+    duplicate_request = client.post(f"/api/v1/invoices/{invoice_id}/verification-request")
     assert duplicate_request.json()["invoice"]["verificationId"] == verification_id
     assert client.get("/api/v1/verifications").json() == {
         "items": [
@@ -73,9 +68,7 @@ def test_complete_frontend_contract_workflow(
     assert offered["riskPassport"]["suggestedAdvanceRateBps"] == 9_400
     assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
 
-    duplicate_confirm = client.post(
-        f"/api/v1/verifications/{verification_id}/confirm"
-    )
+    duplicate_confirm = client.post(f"/api/v1/verifications/{verification_id}/confirm")
     assert duplicate_confirm.json()["invoice"]["status"] == "OFFER_READY"
 
     accepted = client.post(
@@ -83,7 +76,52 @@ def test_complete_frontend_contract_workflow(
         json={"response": "ACCEPT"},
     )
     assert accepted.status_code == 200
-    assert accepted.json()["invoice"]["status"] == "FUNDING"
+    issued = accepted.json()["invoice"]
+    assert issued["status"] == "RWA_ISSUED"
+    assert issued["rwaAsset"]["status"] == "ISSUED"
+    assert issued["fundingTransaction"] is None
+
+    investor = Keypair()
+    policy = {
+        "totalInvestmentLimitUsdc": 20_000,
+        "perInvoiceLimitUsdc": 20_000,
+        "buyerAllowlist": ["Prime Mobility"],
+        "minimumRiskScore": 80,
+        "maximumRemainingTermDays": 100,
+        "expiresAt": "2030-12-31",
+    }
+    prepared_mandate = client.post(
+        "/api/v1/investor/mandates/prepare",
+        json={"ownerWalletAddress": str(investor.pubkey()), "policy": policy},
+    )
+    assert prepared_mandate.status_code == 200
+    signature = str(investor.sign_message(prepared_mandate.json()["canonicalMessage"].encode()))
+    mandate = client.post(
+        "/api/v1/investor/mandates",
+        json={
+            "ownerWalletAddress": str(investor.pubkey()),
+            "policy": policy,
+            "signature": signature,
+        },
+    )
+    assert mandate.status_code == 200
+    assert mandate.json()["status"] == "ACTIVE"
+
+    prepared_deposit = client.post(
+        "/api/v1/investor/vault/deposits/prepare",
+        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": 18_800},
+    )
+    assert prepared_deposit.status_code == 200
+    assert prepared_deposit.json()["vaultAddress"] == "DEMO_AGENT_VAULT"
+    deposited = client.post(
+        "/api/v1/investor/vault/deposits/confirm",
+        json={
+            "ownerWalletAddress": str(investor.pubkey()),
+            "amountUsdc": 18_800,
+            "signature": "mock-deposit-signature-001",
+        },
+    )
+    assert deposited.status_code == 200
 
     funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert funded["status"] == "FUNDED"
@@ -91,6 +129,8 @@ def test_complete_frontend_contract_workflow(
     assert funded["fundingTransaction"]["amountUsdc"] == 18_800
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
+    assert funded["rwaAsset"]["status"] == "SOLD"
+    assert funded["agentDecision"]["status"] == "EXECUTED"
     funding_signature = funded["fundingTransaction"]["signature"]
 
     duplicate_accept = client.post(
@@ -98,17 +138,14 @@ def test_complete_frontend_contract_workflow(
         json={"response": "ACCEPT"},
     )
     assert (
-        duplicate_accept.json()["invoice"]["fundingTransaction"]["signature"]
-        == funding_signature
+        duplicate_accept.json()["invoice"]["fundingTransaction"]["signature"] == funding_signature
     )
 
     dashboard = client.get("/api/v1/investor/dashboard")
     assert dashboard.status_code == 200
     assert dashboard.json()["outstandingPrincipalUsdc"] == 18_800
 
-    settled_response = client.post(
-        f"/api/v1/invoices/{invoice_id}/settlement/mock-payment"
-    )
+    settled_response = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
     assert settled_response.status_code == 200
     settled = settled_response.json()["invoice"]
     assert settled["status"] == "SETTLED"
@@ -121,9 +158,7 @@ def test_complete_frontend_contract_workflow(
     assert settled["settlementTransaction"]["sandbox"] is True
     settlement_signature = settled["settlementTransaction"]["signature"]
 
-    duplicate_settlement = client.post(
-        f"/api/v1/invoices/{invoice_id}/settlement/mock-payment"
-    )
+    duplicate_settlement = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
     assert (
         duplicate_settlement.json()["invoice"]["settlementTransaction"]["signature"]
         == settlement_signature
@@ -144,15 +179,11 @@ def test_contract_validation_and_sanitized_errors(
     bad_mime["CONTRACT"] = ("contract.txt", b"unsafe", "text/plain")
     response = client.post("/api/v1/invoices", files=bad_mime)
     assert response.status_code == 400
-    assert response.json() == {
-        "message": "CONTRACT 파일은 PDF, JPG, JPEG, PNG만 허용합니다."
-    }
+    assert response.json() == {"message": "CONTRACT 파일은 PDF, JPG, JPEG, PNG만 허용합니다."}
 
     response = client.get("/api/v1/invoices/INV-404")
     assert response.status_code == 404
-    assert response.json() == {
-        "message": "Invoice INV-404를 찾을 수 없습니다."
-    }
+    assert response.json() == {"message": "Invoice INV-404를 찾을 수 없습니다."}
 
 
 def test_upload_limit_is_enforced_before_agent_call(tmp_path: Path) -> None:
@@ -186,12 +217,18 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/verifications/{verificationId}/confirm",
         "/api/v1/invoices/{invoiceId}/offer-response",
         "/api/v1/investor/dashboard",
+        "/api/v1/investor/mandates/prepare",
+        "/api/v1/investor/mandates",
+        "/api/v1/investor/vault",
+        "/api/v1/investor/vault/deposits/prepare",
+        "/api/v1/investor/vault/deposits/confirm",
+        "/api/v1/supplier/wallet",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
     }
     assert set(schema["paths"]) == expected_paths
-    request_schema = schema["paths"]["/api/v1/invoices"]["post"]["requestBody"][
-        "content"
-    ]["multipart/form-data"]["schema"]
+    request_schema = schema["paths"]["/api/v1/invoices"]["post"]["requestBody"]["content"][
+        "multipart/form-data"
+    ]["schema"]
     name = request_schema["$ref"].rsplit("/", 1)[-1]
     multipart = schema["components"]["schemas"][name]
     assert set(multipart["properties"]) == {
