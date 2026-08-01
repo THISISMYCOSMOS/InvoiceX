@@ -18,6 +18,7 @@
 
 - 현재 수정 작업은 `work` 브랜치를 기준으로 한다.
 - 시작 전에 `git branch --show-current`, `git status --short`, `git log -3 --oneline`을 확인한다.
+- merge, rebase, cherry-pick 또는 unmerged 파일이 있으면 작업·설치·스테이징을 중단하고 기존 작업자에게 상태를 보고한다. 임의로 충돌을 해결하거나 abort/continue하지 않는다.
 - 기존 `.data/`, `CLAUDE.md` 및 다른 사용자의 미추적·미커밋 변경을 수정하거나 스테이징하지 않는다.
 - 시드 문구, 개인키, Secret Recovery Phrase, Privy secret을 요청·출력·저장하지 않는다.
 - 송금에는 축약 주소를 사용하지 않는다. 항상 전체 공개 주소를 비교한다.
@@ -40,11 +41,15 @@
 | 공급기업 MetaMask Account 1 | `HviSYZxsb3xRqQGZH6xp5Ynmq5TJbEKnBEEqJse6iV9` |
 | 투자자 MetaMask Account 2 | `99HjRok4PZoX16d7Zz88S3EW4yjTDaHXJ492GaMJHD1U` |
 | Privy Agent Vault / Treasury | `BDRW9KjvbJA5pxavitWJQ6o3HQiHjmtiZKw5mnJbjXYY` |
-| 공급기업 USDC ATA | `Gq9iDSwbNMYQaJdCU12F2sNgC82YgT5LCfFLbtSJ6vbj` |
-| 투자자 USDC ATA | `Hbu4JqCGVWQxPf5MUia5sg4fP2bK9Bmxr441cL4BEKXU` |
-| Treasury USDC ATA | `6YED4SrwsRdZeM31iTndPgptvRJoQ3cjh7ep3gyhuNyK` |
+| 공급기업 파생 USDC ATA | `Gq9iDSwbNMYQaJdCU12F2sNgC82YgT5LCfFLbtSJ6vbj` |
+| 투자자 파생 USDC ATA | `Hbu4JqCGVWQxPf5MUia5sg4fP2bK9Bmxr441cL4BEKXU` |
+| Treasury 파생 USDC ATA | `6YED4SrwsRdZeM31iTndPgptvRJoQ3cjh7ep3gyhuNyK` |
 
 공급기업과 투자자 주소가 같으면 역할별 지갑 구분이 실패한 것이다. 전송을 중단하고 MetaMask 사이트 연결 권한부터 수정한다.
+
+ATA는 owner와 mint에서 계산한 파생 주소다. 주소를 계산할 수 있어도 해당 계정이 이미 온체인에 생성되었다는 뜻은 아니다. 2026-08-02 성공 기준점에서는 투자자와 Treasury ATA가 존재하지만 공급기업 ATA는 아직 생성되지 않았다. 실제 조기정산 전송은 공급기업 ATA를 idempotent 방식으로 생성한 뒤 USDC를 전송한다.
+
+Solana CAIP-2 reference는 `getGenesisHash`가 반환한 전체 genesis hash의 앞 32자다. Devnet 전체 genesis hash `EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG`와 CAIP-2 값을 전체 문자열로 비교하면 안 된다.
 
 ## 4. 현재 구현에서 실제인 것과 목업인 것
 
@@ -59,7 +64,7 @@
 | 조기정산 표시 금액 | 시나리오 제안 금액은 `18,800 USDC` | 데모 표시값 |
 | 조기정산 실제 Devnet 전송액 | `SOLANA_DEMO_TRANSFER_AMOUNT_USDC=1`이면 최대 `1 USDC` | 의도적으로 제한한 실제 전송 |
 | 원화 입금 | Settlement Partner 이벤트 | 목업 |
-| `availableVaultUsdc` | 현재 백엔드 프로세스에서 확인한 예치·예약을 합산한 메모리 값 | 온체인 잔액 아님 |
+| `availableVaultUsdc` | 실제 모드는 0에서 시작해 확인된 예치를 더하고 펀딩 예약·집행액을 빼는 프로세스 메모리 값. Mock 모드는 50,000에서 시작 | 온체인 잔액 아님 |
 | 인보이스·예치 상태 | 현재 `InvoiceService` 인메모리 상태 | 서버 재시작 시 초기화 |
 
 `availableVaultUsdc`와 Treasury RPC 잔액이 다른 것은 현재 구조상 가능하다. 예를 들어 Faucet으로 Treasury에 직접 넣은 20 USDC는 백엔드 논리 잔액에 포함되지 않는다. 온체인 잔액은 반드시 RPC로 별도 확인한다.
@@ -75,6 +80,16 @@
 확인 명령:
 
 ```powershell
+$gitStateFiles = @("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply")
+$activeGitState = @(
+  $gitStateFiles | Where-Object {
+    Test-Path -LiteralPath (git rev-parse --git-path $_)
+  }
+)
+$unmerged = @(git diff --name-only --diff-filter=U)
+if ($activeGitState.Count -gt 0 -or $unmerged.Count -gt 0) {
+  throw "Git operation or unmerged files exist. Stop and report without resolving them."
+}
 git merge-base --is-ancestor 9811fb9 HEAD
 if ($LASTEXITCODE -ne 0) { throw "Required wallet fix 9811fb9 is missing" }
 ```
@@ -116,7 +131,7 @@ VITE_SOLANA_RPC_URL=https://api.devnet.solana.com
 
 ```powershell
 Set-Location backend
-uv sync --all-groups
+uv sync --frozen --all-groups
 uv run uvicorn invoicex_backend.main:app --reload --port 8000
 ```
 
@@ -124,7 +139,7 @@ uv run uvicorn invoicex_backend.main:app --reload --port 8000
 
 ```powershell
 Set-Location frontend
-npm install
+npm ci
 npm run dev -- --port 5173 --strictPort
 ```
 
@@ -247,6 +262,17 @@ function Invoke-SolanaRpc {
     -ContentType "application/json" `
     -ErrorAction Stop `
     -Body $body
+}
+```
+
+Devnet CAIP-2 확인:
+
+```powershell
+$expectedCaip2 = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+$genesis = Invoke-SolanaRpc "getGenesisHash" @()
+$actualCaip2 = "solana:" + $genesis.result.Substring(0, 32)
+if ($actualCaip2 -ne $expectedCaip2) {
+  throw "RPC cluster mismatch: $actualCaip2"
 }
 ```
 
