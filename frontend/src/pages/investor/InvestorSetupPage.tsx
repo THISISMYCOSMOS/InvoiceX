@@ -1,11 +1,16 @@
-import { CheckCircle, Info, ShieldCheck, SlidersHorizontal } from "@phosphor-icons/react";
+import { CheckCircle, Coins, Info, ShieldCheck, SlidersHorizontal } from "@phosphor-icons/react";
 import { useState } from "react";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
+import { useConnectedSolanaWallet } from "../../hooks/useConnectedSolanaWallet";
+import { useInvestorDeposit } from "../../hooks/useInvestorDeposit";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 export function InvestorSetupPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [depositAmount, setDepositAmount] = useState(20);
   const { t } = useLanguage();
+  const connectedWallet = useConnectedSolanaWallet();
+  const deposit = useInvestorDeposit();
 
   return (
     <section className="investor-setup-page">
@@ -33,6 +38,87 @@ export function InvestorSetupPage() {
           onWalletConnected={() => undefined}
           onWalletDisconnected={() => undefined}
         />
+
+        <section className="investor-setup-policy-card">
+          <header>
+            <span className="investor-setup-icon" aria-hidden="true"><Coins size={18} weight="fill" /></span>
+            <div>
+              <h2>{t("Fund Agent Vault", "Agent Vault 예치")}</h2>
+              <p>{t(
+                "Deposit Devnet USDC from the connected investor wallet before automated funding.",
+                "자동 투자 실행 전에 연결한 투자자 지갑에서 Devnet USDC를 예치합니다.",
+              )}</p>
+            </div>
+            <span className="investor-setup-draft">Solana Devnet</span>
+          </header>
+
+          <form
+            className="investor-policy-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              deposit.mutate({ amountUsdc: depositAmount });
+            }}
+          >
+            <div className="investor-policy-form__grid">
+              <label htmlFor="depositAmount">
+                <span>{t("Deposit amount", "예치 금액")}</span>
+                <div>
+                  <input
+                    id="depositAmount"
+                    name="depositAmount"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={depositAmount}
+                    onChange={(event) => setDepositAmount(Number(event.target.value))}
+                  />
+                  <small>USDC</small>
+                </div>
+              </label>
+              <div className="investor-deposit-wallet">
+                <span>{t("Investor wallet", "투자자 지갑")}</span>
+                <p>{connectedWallet.publicKey ?? t("Connect Account 2 first", "Account 2를 먼저 연결하세요")}</p>
+              </div>
+            </div>
+            <footer>
+              <p>
+                <Info size={15} weight="fill" aria-hidden="true" />
+                {t(
+                  "MetaMask signs the transfer. InvoiceX never receives your private key.",
+                  "전송은 MetaMask가 서명하며 InvoiceX는 개인키를 전달받지 않습니다.",
+                )}
+              </p>
+              <button
+                className="investor-primary-button"
+                type="submit"
+                disabled={!connectedWallet.connected || deposit.isPending || depositAmount < 1}
+              >
+                <Coins size={15} weight="fill" aria-hidden="true" />
+                {deposit.isPending
+                  ? t("Confirming deposit...", "예치 확인 중...")
+                  : t("Deposit Devnet USDC", "Devnet USDC 예치")}
+              </button>
+            </footer>
+          </form>
+
+          {deposit.error ? (
+            <p className="investor-setup-error" role="alert">
+              {deposit.error instanceof Error ? deposit.error.message : t("Deposit failed.", "예치에 실패했습니다.")}
+            </p>
+          ) : null}
+          {deposit.data ? (
+            <p className="investor-setup-success" role="status">
+              <CheckCircle size={15} weight="fill" aria-hidden="true" />
+              {t(
+                `${deposit.data.amountUsdc} USDC deposit confirmed.`,
+                `${deposit.data.amountUsdc} USDC 예치가 확인되었습니다.`,
+              )}{" "}
+              <a href={deposit.data.explorerUrl} target="_blank" rel="noreferrer">
+                {t("View transaction", "트랜잭션 보기")}
+              </a>
+            </p>
+          ) : null}
+        </section>
 
         <section className="investor-setup-policy-card">
           <header>

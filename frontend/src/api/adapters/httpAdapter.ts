@@ -1,4 +1,11 @@
-import type { InvestorDashboard, Invoice, InvoiceStatus, VerificationRequest } from "../../types/invoice";
+import type {
+  InvestorDashboard,
+  InvestorDeposit,
+  InvestorDepositPreparation,
+  Invoice,
+  InvoiceStatus,
+  VerificationRequest,
+} from "../../types/invoice";
 import type { OfferResponse, ScenarioAdapter } from "./contracts";
 
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -147,6 +154,20 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     runSettlement: () => unavailable("Settlement 실행"),
     async getInvestorDashboard() {
       return (await request<unknown>("/investor/dashboard", { method: "GET" })) as InvestorDashboard;
+    },
+    async prepareInvestorDeposit(investorWalletAddress, amountUsdc) {
+      return (await request<unknown>("/investor/deposits/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ investorWalletAddress, amountUsdc }),
+      })) as InvestorDepositPreparation;
+    },
+    async confirmInvestorDeposit(referenceId, signature) {
+      return (await request<unknown>("/investor/deposits/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referenceId, signature }),
+      })) as InvestorDeposit;
     },
     reset: () => unavailable("데모 초기화"),
   };

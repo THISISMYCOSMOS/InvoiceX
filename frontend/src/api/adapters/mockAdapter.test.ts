@@ -23,3 +23,14 @@ test("progresses the demo invoice from analysis to settled", async () => {
   );
   expect(invoice.settlement?.investorSettlementUsdc).toBe(19_800);
 });
+
+test("does not create a real deposit transaction from mock API data", async () => {
+  const adapter = createMockAdapter();
+
+  await expect(
+    adapter.prepareInvestorDeposit(
+      "Vote111111111111111111111111111111111111111",
+      20,
+    ),
+  ).rejects.toThrow("실제 API 모드");
+});

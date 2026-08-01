@@ -46,6 +46,19 @@ class SolanaGateway(Protocol):
     ) -> ChainTransferResult:
         """Sign, broadcast, and confirm one idempotent USDC transaction."""
 
+    async def wallet_address(self, wallet_id: str) -> str:
+        """Resolve the public address for a configured server wallet."""
+
+    async def verify_usdc_deposit(
+        self,
+        *,
+        signature: str,
+        from_address: str,
+        to_address: str,
+        amount_usdc: int,
+    ) -> TransactionStatus:
+        """Verify one investor-signed USDC deposit on the configured cluster."""
+
     async def aclose(self) -> None:
         """Release network resources."""
 
@@ -88,6 +101,21 @@ class MockSolanaGateway:
             )
             self._results[reference_id] = result
             return result
+
+    async def wallet_address(self, wallet_id: str) -> str:
+        del wallet_id
+        return "So11111111111111111111111111111111111111112"
+
+    async def verify_usdc_deposit(
+        self,
+        *,
+        signature: str,
+        from_address: str,
+        to_address: str,
+        amount_usdc: int,
+    ) -> TransactionStatus:
+        del signature, from_address, to_address, amount_usdc
+        return TransactionStatus.CONFIRMED
 
     async def aclose(self) -> None:
         return None
@@ -178,6 +206,69 @@ class PrivySolanaGateway:
             provider="PRIVY",
             sandbox=False,
         )
+
+    async def wallet_address(self, wallet_id: str) -> str:
+        return await self._wallet_address(wallet_id)
+
+    async def verify_usdc_deposit(
+        self,
+        *,
+        signature: str,
+        from_address: str,
+        to_address: str,
+        amount_usdc: int,
+    ) -> TransactionStatus:
+        try:
+            Signature.from_string(signature)
+            Pubkey.from_string(from_address)
+            Pubkey.from_string(to_address)
+        except ValueError as exc:
+            raise IntegrationError("Deposit contains an invalid Solana identifier") from exc
+
+        status = await self._confirmation_status(signature)
+        if status is not TransactionStatus.CONFIRMED:
+            return status
+
+        transaction = await self._rpc(
+            "getTransaction",
+            [
+                signature,
+                {
+                    "encoding": "jsonParsed",
+                    "commitment": "confirmed",
+                    "maxSupportedTransactionVersion": 0,
+                },
+            ],
+        )
+        try:
+            meta = transaction["meta"]
+            message = transaction["transaction"]["message"]
+            if not isinstance(meta, dict) or meta.get("err") is not None:
+                raise IntegrationError("Deposit transaction failed on-chain")
+            if not isinstance(message, dict):
+                raise TypeError
+
+            account_keys = message.get("accountKeys")
+            if not isinstance(account_keys, list) or not any(
+                isinstance(account, dict)
+                and account.get("pubkey") == from_address
+                and account.get("signer") is True
+                for account in account_keys
+            ):
+                raise IntegrationError("Investor wallet did not sign the deposit")
+
+            pre = self._token_balances_by_owner(meta.get("preTokenBalances"))
+            post = self._token_balances_by_owner(meta.get("postTokenBalances"))
+            expected_raw = amount_usdc * (10**self._settings.solana_usdc_decimals)
+            investor_delta = pre.get(from_address, 0) - post.get(from_address, 0)
+            treasury_delta = post.get(to_address, 0) - pre.get(to_address, 0)
+            if investor_delta != expected_raw or treasury_delta != expected_raw:
+                raise IntegrationError(
+                    "Deposit amount, mint, or destination did not match preparation"
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise IntegrationError("Solana deposit transaction data was invalid") from exc
+        return TransactionStatus.CONFIRMED
 
     async def aclose(self) -> None:
         if self._owns_client:
@@ -301,6 +392,25 @@ class PrivySolanaGateway:
         if not isinstance(result, dict):
             raise IntegrationError(f"Solana RPC {method} returned an invalid result")
         return result
+
+    def _token_balances_by_owner(self, value: object) -> dict[str, int]:
+        balances: dict[str, int] = {}
+        if not isinstance(value, list):
+            return balances
+        for entry in value:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("mint") != self._settings.solana_usdc_mint:
+                continue
+            owner = entry.get("owner")
+            token_amount = entry.get("uiTokenAmount")
+            if not isinstance(owner, str) or not isinstance(token_amount, dict):
+                continue
+            amount = token_amount.get("amount")
+            if not isinstance(amount, str):
+                continue
+            balances[owner] = balances.get(owner, 0) + int(amount)
+        return balances
 
     @staticmethod
     def _raise_for_provider_error(response: httpx.Response, operation: str) -> None:

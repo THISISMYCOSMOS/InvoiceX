@@ -20,6 +20,10 @@ from invoicex_backend.models import (
     DocumentType,
     ErrorResponse,
     InvestorDashboard,
+    InvestorDeposit,
+    InvestorDepositConfirmRequest,
+    InvestorDepositPreparation,
+    InvestorDepositPrepareRequest,
     InvoiceListResponse,
     InvoiceResponse,
     OfferResponseRequest,
@@ -243,6 +247,40 @@ async def investor_dashboard(
     service: InvoiceServiceDependency,
 ) -> InvestorDashboard:
     return service.investor_dashboard()
+
+
+@router.post(
+    "/investor/deposits/prepare",
+    response_model=InvestorDepositPreparation,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="투자자 Solana Devnet USDC 예치 준비",
+)
+async def prepare_investor_deposit(
+    payload: InvestorDepositPrepareRequest,
+    service: InvoiceServiceDependency,
+) -> InvestorDepositPreparation:
+    return await service.prepare_investor_deposit(
+        payload.investor_wallet_address,
+        payload.amount_usdc,
+    )
+
+
+@router.post(
+    "/investor/deposits/confirm",
+    response_model=InvestorDeposit,
+    responses=documented_errors(404, 409, 422, 502),
+    tags=["Investor"],
+    summary="투자자 Solana Devnet USDC 예치 온체인 확인",
+)
+async def confirm_investor_deposit(
+    payload: InvestorDepositConfirmRequest,
+    service: InvoiceServiceDependency,
+) -> InvestorDeposit:
+    return await service.confirm_investor_deposit(
+        payload.reference_id,
+        payload.signature,
+    )
 
 
 @router.post(

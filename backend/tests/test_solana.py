@@ -156,3 +156,82 @@ async def test_privy_gateway_wraps_network_failures(tmp_path: Path) -> None:
             reference_id="funding-INV-2026-001",
         )
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_privy_gateway_verifies_investor_usdc_deposit(tmp_path: Path) -> None:
+    investor = str(Pubkey.new_unique())
+    treasury = str(Pubkey.new_unique())
+    signature = str(Signature.default())
+
+    def token_balance(owner: str, amount: int, mint: str) -> dict[str, object]:
+        return {
+            "mint": mint,
+            "owner": owner,
+            "uiTokenAmount": {"amount": str(amount), "decimals": 6},
+        }
+
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="privy",
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_API_BASE_URL="https://privy.test",
+        SOLANA_RPC_URL="https://rpc.test",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        if payload["method"] == "getSignatureStatuses":
+            result: object = {
+                "value": [{"err": None, "confirmationStatus": "confirmed"}]
+            }
+        else:
+            result = {
+                "meta": {
+                    "err": None,
+                    "preTokenBalances": [
+                        token_balance(investor, 20_000_000, settings.solana_usdc_mint),
+                        token_balance(treasury, 0, settings.solana_usdc_mint),
+                    ],
+                    "postTokenBalances": [
+                        token_balance(investor, 0, settings.solana_usdc_mint),
+                        token_balance(treasury, 20_000_000, settings.solana_usdc_mint),
+                    ],
+                },
+                "transaction": {
+                    "message": {
+                        "accountKeys": [
+                            {"pubkey": investor, "signer": True, "writable": True},
+                            {"pubkey": treasury, "signer": False, "writable": True},
+                        ]
+                    }
+                },
+            }
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "result": result, "id": 1},
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = PrivySolanaGateway(settings, http_client=client)
+
+    status = await gateway.verify_usdc_deposit(
+        signature=signature,
+        from_address=investor,
+        to_address=treasury,
+        amount_usdc=20,
+    )
+    assert status is TransactionStatus.CONFIRMED
+
+    with pytest.raises(IntegrationError, match="did not match preparation"):
+        await gateway.verify_usdc_deposit(
+            signature=signature,
+            from_address=investor,
+            to_address=treasury,
+            amount_usdc=19,
+        )
+    await client.aclose()

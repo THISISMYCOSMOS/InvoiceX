@@ -109,4 +109,29 @@ export interface InvestorDashboard {
   outstandingPrincipalUsdc: number;
   dueWithin30DaysUsdc?: number;
   recentAgentTraces: AgentTrace[];
+  walletAddress?: string;
+  vaultAddress?: string;
+  latestDeposit?: InvestorDeposit;
+}
+
+export interface InvestorDepositPreparation {
+  referenceId: string;
+  investorWalletAddress: string;
+  treasuryWalletAddress: string;
+  usdcMint: string;
+  amountUsdc: number;
+  decimals: number;
+  network: "SOLANA_DEVNET";
+}
+
+export interface InvestorDeposit {
+  referenceId: string;
+  investorWalletAddress: string;
+  treasuryWalletAddress: string;
+  amountUsdc: number;
+  signature: string;
+  status: "PENDING" | "CONFIRMED" | "FAILED";
+  network: "SOLANA_DEVNET";
+  explorerUrl: string;
+  confirmedAt: string;
 }

@@ -32,6 +32,8 @@ from invoicex_backend.models import (
     DocumentType,
     ExtractedFieldStatus,
     InvestorDashboard,
+    InvestorDeposit,
+    InvestorDepositPreparation,
     Invoice,
     InvoiceParty,
     InvoiceStatus,
@@ -95,6 +97,18 @@ class InvoiceService:
         self._verification_sequence = 0
         self._document_sequence = 0
         self._trace_sequence = 0
+        self._investor_deposit_sequence = 0
+        self._investor_wallet_address: str | None = None
+        self._investor_vault_address: str | None = None
+        self._investor_deposit_preparations: dict[
+            str, InvestorDepositPreparation
+        ] = {}
+        self._investor_deposits: dict[str, InvestorDeposit] = {}
+        self._used_deposit_signatures: set[str] = set()
+        self._latest_investor_deposit: InvestorDeposit | None = None
+        self._available_vault_usdc = 50_000 if self._solana.mode == "mock" else 0
+        self._funding_reservations: dict[str, int] = {}
+        self._investor_lock = asyncio.Lock()
 
     async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
         self._validate_uploads(uploads)
@@ -340,6 +354,15 @@ class InvoiceService:
                     "실제 Devnet 전송을 받으려면 Solana 지갑을 연결해야 합니다."
                 )
 
+            funding_amount = self._funding_amount(invoice)
+            async with self._investor_lock:
+                if self._available_vault_usdc < funding_amount:
+                    raise StateConflictError(
+                        "투자자 지갑에서 Agent Vault로 USDC를 먼저 예치해야 합니다."
+                    )
+                self._available_vault_usdc -= funding_amount
+                self._funding_reservations[invoice.id] = funding_amount
+
             invoice.status = InvoiceStatus.FUNDING
             return self._copy_invoice(invoice), True
 
@@ -350,6 +373,7 @@ class InvoiceService:
                 return
             rejection = self._mandate_policy.rejection_reason(invoice)
             if rejection is not None:
+                await self._release_funding_reservation(invoice.id)
                 invoice.status = InvoiceStatus.BLOCKED
                 self._append_trace(
                     invoice,
@@ -362,18 +386,10 @@ class InvoiceService:
 
             passport = invoice.risk_passport
             if passport is None or passport.suggested_advance_amount_usdc is None:
+                await self._release_funding_reservation(invoice.id)
                 invoice.status = InvoiceStatus.BLOCKED
                 return
-            offered_amount = passport.suggested_advance_amount_usdc
-            amount = (
-                min(
-                    offered_amount,
-                    self._settings.solana_demo_transfer_amount_usdc,
-                )
-                if self._solana.mode == "privy"
-                and self._settings.solana_cluster == "devnet"
-                else offered_amount
-            )
+            amount = self._funding_amount(invoice)
             try:
                 result = await self._solana.send_usdc(
                     wallet_id=self._settings.privy_treasury_wallet_id
@@ -387,6 +403,7 @@ class InvoiceService:
                     reference_id=f"funding-{invoice.id}",
                 )
             except IntegrationError as exc:
+                await self._release_funding_reservation(invoice.id)
                 invoice.status = InvoiceStatus.ERROR
                 self._append_trace(
                     invoice,
@@ -404,6 +421,8 @@ class InvoiceService:
                 to_address=invoice.supplier.wallet_address or "",
             )
             if result.status is TransactionStatus.CONFIRMED:
+                async with self._investor_lock:
+                    self._funding_reservations.pop(invoice.id, None)
                 invoice.status = InvoiceStatus.FUNDED
                 self._append_trace(
                     invoice,
@@ -482,6 +501,82 @@ class InvoiceService:
                 )
             return self._copy_invoice(invoice)
 
+    async def prepare_investor_deposit(
+        self,
+        investor_wallet_address: str,
+        amount_usdc: int,
+    ) -> InvestorDepositPreparation:
+        async with self._investor_lock:
+            treasury_wallet_address = await self._solana.wallet_address(
+                self._settings.privy_treasury_wallet_id or "MOCK_TREASURY"
+            )
+            self._investor_deposit_sequence += 1
+            reference_id = (
+                f"DEP-{datetime.now(UTC).year}-"
+                f"{str(self._investor_deposit_sequence).zfill(3)}"
+            )
+            preparation = InvestorDepositPreparation(
+                reference_id=reference_id,
+                investor_wallet_address=investor_wallet_address,
+                treasury_wallet_address=treasury_wallet_address,
+                usdc_mint=self._settings.solana_usdc_mint,
+                amount_usdc=amount_usdc,
+                decimals=self._settings.solana_usdc_decimals,
+            )
+            self._investor_wallet_address = investor_wallet_address
+            self._investor_vault_address = treasury_wallet_address
+            self._investor_deposit_preparations[reference_id] = preparation
+            return preparation.model_copy(deep=True)
+
+    async def confirm_investor_deposit(
+        self,
+        reference_id: str,
+        signature: str,
+    ) -> InvestorDeposit:
+        async with self._investor_lock:
+            existing = self._investor_deposits.get(reference_id)
+            if existing is not None:
+                if existing.signature != signature:
+                    raise StateConflictError(
+                        "이미 다른 트랜잭션으로 확인된 예치 요청입니다."
+                    )
+                return existing.model_copy(deep=True)
+
+            preparation = self._investor_deposit_preparations.get(reference_id)
+            if preparation is None:
+                raise NotFoundError(f"Investor deposit {reference_id}를 찾을 수 없습니다.")
+            if signature in self._used_deposit_signatures:
+                raise StateConflictError("이미 반영된 예치 트랜잭션입니다.")
+
+            status = await self._solana.verify_usdc_deposit(
+                signature=signature,
+                from_address=preparation.investor_wallet_address,
+                to_address=preparation.treasury_wallet_address,
+                amount_usdc=preparation.amount_usdc,
+            )
+            if status is not TransactionStatus.CONFIRMED:
+                raise StateConflictError(
+                    "예치 트랜잭션이 아직 Solana Devnet에서 확인되지 않았습니다."
+                )
+
+            deposit = InvestorDeposit(
+                reference_id=reference_id,
+                investor_wallet_address=preparation.investor_wallet_address,
+                treasury_wallet_address=preparation.treasury_wallet_address,
+                amount_usdc=preparation.amount_usdc,
+                signature=signature,
+                status=status,
+                explorer_url=(
+                    f"https://explorer.solana.com/tx/{signature}?cluster=devnet"
+                ),
+                confirmed_at=datetime.now(UTC),
+            )
+            self._available_vault_usdc += deposit.amount_usdc
+            self._used_deposit_signatures.add(signature)
+            self._investor_deposits[reference_id] = deposit
+            self._latest_investor_deposit = deposit
+            return deposit.model_copy(deep=True)
+
     def investor_dashboard(self) -> InvestorDashboard:
         active = {
             InvoiceStatus.FUNDED,
@@ -508,12 +603,39 @@ class InvoiceService:
         )[:20]
         return InvestorDashboard(
             investor_name="Nova Capital",
-            automated_investment_active=True,
-            mandate_status="ACTIVE",
-            available_vault_usdc=50_000,
+            automated_investment_active=self._available_vault_usdc > 0,
+            mandate_status=("ACTIVE" if self._available_vault_usdc > 0 else "DRAFT"),
+            available_vault_usdc=self._available_vault_usdc,
             outstanding_principal_usdc=outstanding,
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
+            wallet_address=self._investor_wallet_address,
+            vault_address=self._investor_vault_address,
+            latest_deposit=(
+                self._latest_investor_deposit.model_copy(deep=True)
+                if self._latest_investor_deposit is not None
+                else None
+            ),
         )
+
+    def _funding_amount(self, invoice: Invoice) -> int:
+        passport = invoice.risk_passport
+        offered_amount = (
+            passport.suggested_advance_amount_usdc
+            if passport is not None
+            and passport.suggested_advance_amount_usdc is not None
+            else 0
+        )
+        if self._solana.mode == "privy" and self._settings.solana_cluster == "devnet":
+            return min(
+                offered_amount,
+                self._settings.solana_demo_transfer_amount_usdc,
+            )
+        return offered_amount
+
+    async def _release_funding_reservation(self, invoice_id: str) -> None:
+        async with self._investor_lock:
+            amount = self._funding_reservations.pop(invoice_id, 0)
+            self._available_vault_usdc += amount
 
     async def close(self) -> None:
         await self._solana.aclose()

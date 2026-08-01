@@ -149,7 +149,59 @@ def test_privy_devnet_caps_the_demo_transfer_to_connected_wallet(
 
     service = client.app.state.invoice_service
     service._solana.mode = "privy"
+    service._available_vault_usdc = 0
     supplier_wallet = "So11111111111111111111111111111111111111112"
+    blocked = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={
+            "response": "ACCEPT",
+            "supplierWalletAddress": supplier_wallet,
+        },
+    )
+    assert blocked.status_code == 409
+
+    investor_wallet = "Vote111111111111111111111111111111111111111"
+    prepared = client.post(
+        "/api/v1/investor/deposits/prepare",
+        json={"investorWalletAddress": investor_wallet, "amountUsdc": 20},
+    )
+    assert prepared.status_code == 200
+    preparation = prepared.json()
+    assert preparation["investorWalletAddress"] == investor_wallet
+    assert preparation["amountUsdc"] == 20
+    confirmed = client.post(
+        "/api/v1/investor/deposits/confirm",
+        json={
+            "referenceId": preparation["referenceId"],
+            "signature": "demo-investor-deposit-signature",
+        },
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "CONFIRMED"
+    repeated = client.post(
+        "/api/v1/investor/deposits/confirm",
+        json={
+            "referenceId": preparation["referenceId"],
+            "signature": "demo-investor-deposit-signature",
+        },
+    )
+    assert repeated.status_code == 200
+    replay_preparation = client.post(
+        "/api/v1/investor/deposits/prepare",
+        json={"investorWalletAddress": investor_wallet, "amountUsdc": 20},
+    ).json()
+    replayed = client.post(
+        "/api/v1/investor/deposits/confirm",
+        json={
+            "referenceId": replay_preparation["referenceId"],
+            "signature": "demo-investor-deposit-signature",
+        },
+    )
+    assert replayed.status_code == 409
+    assert client.get("/api/v1/investor/dashboard").json()[
+        "availableVaultUsdc"
+    ] == 20
+
     accepted = client.post(
         f"/api/v1/invoices/{invoice_id}/offer-response",
         json={
@@ -166,6 +218,9 @@ def test_privy_devnet_caps_the_demo_transfer_to_connected_wallet(
     assert client.get("/api/v1/investor/dashboard").json()[
         "outstandingPrincipalUsdc"
     ] == 1
+    assert client.get("/api/v1/investor/dashboard").json()[
+        "availableVaultUsdc"
+    ] == 19
 
 
 def test_contract_validation_and_sanitized_errors(
@@ -224,6 +279,8 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/verifications/{verificationId}/confirm",
         "/api/v1/invoices/{invoiceId}/offer-response",
         "/api/v1/investor/dashboard",
+        "/api/v1/investor/deposits/prepare",
+        "/api/v1/investor/deposits/confirm",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
     }
     assert set(schema["paths"]) == expected_paths
