@@ -1,5 +1,13 @@
 # InvoiceX
 
+## Solana Devnet wallet runbook
+
+팀원 또는 AI 작업자가 Devnet SOL·USDC 준비, MetaMask 역할별 계정 연결,
+투자자 예치와 온체인 검증을 재현할 때는
+[`docs/SOLANA_DEVNET_WALLET_RUNBOOK.md`](docs/SOLANA_DEVNET_WALLET_RUNBOOK.md)를
+먼저 읽어야 합니다. 실제/목업 경계, 공개 데모 주소, 중단 조건과 확인된 오류
+대응 절차를 이 문서에 모았습니다.
+
 ## Local Gemini document analysis
 
 The frontend already sends uploaded invoice documents to `POST /api/v1/invoices`.
