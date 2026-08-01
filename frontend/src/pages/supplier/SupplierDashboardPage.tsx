@@ -4,7 +4,9 @@ import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvoices } from "../../hooks/useInvoices";
+import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
+import type { Invoice, InvoiceStatus } from "../../types/invoice";
 
 const krwFormatter = new Intl.NumberFormat("ko-KR", {
   style: "currency",
@@ -12,12 +14,37 @@ const krwFormatter = new Intl.NumberFormat("ko-KR", {
   maximumFractionDigits: 0,
 });
 
+const earlySettlementStatuses = new Set<InvoiceStatus>([
+  "RISK_ASSESSING",
+  "OFFER_READY",
+  "RWA_ISSUED",
+  "FUNDING",
+]);
+
+function getDashboardSummary(invoices: Invoice[]) {
+  return invoices.reduce(
+    (summary, invoice) => ({
+      earlySettlementInProgress: summary.earlySettlementInProgress
+        + (earlySettlementStatuses.has(invoice.status) ? 1 : 0),
+      waitingForBuyer: summary.waitingForBuyer + (invoice.status === "BUYER_REVIEW" ? 1 : 0),
+      settlementReceivedUsdc: summary.settlementReceivedUsdc
+        + (invoice.fundingTransaction?.status === "CONFIRMED" ? invoice.fundingTransaction.amountUsdc : 0),
+    }),
+    { earlySettlementInProgress: 0, waitingForBuyer: 0, settlementReceivedUsdc: 0 },
+  );
+}
+
 export function SupplierDashboardPage() {
   const invoices = useInvoices();
+  const supplierWalletBalance = useDevnetUsdcBalance();
   const { language, t } = useLanguage();
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
+  const summary = getDashboardSummary(items);
+  const usdcFormatter = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US", {
+    maximumFractionDigits: 6,
+  });
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "2-digit",
@@ -59,21 +86,32 @@ export function SupplierDashboardPage() {
       </header>
 
       <div className="dashboard-stats">
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("USDC wallet balance", "USDC 지갑 잔액")}>
           <span>{t("USDC wallet balance", "USDC 지갑 잔액")}</span>
-          <strong>24,680 <small>USDC</small></strong>
+          <strong>
+            {supplierWalletBalance.isLoading
+              ? "…"
+              : supplierWalletBalance.balanceUsdc === null
+                ? "—"
+                : usdcFormatter.format(supplierWalletBalance.balanceUsdc)} <small>USDC</small>
+          </strong>
+          <p>{supplierWalletBalance.address
+            ? supplierWalletBalance.isError
+              ? t("Unable to load balance", "잔액을 불러오지 못했습니다")
+              : t("Connected wallet", "연결된 정산 지갑")
+            : t("Connect a settlement wallet", "정산 지갑을 연결해 주세요")}</p>
         </section>
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("In early settlement", "조기정산 진행 중")}>
           <span>{t("In early settlement", "조기정산 진행 중")}</span>
-          <strong>3 <small>{t("invoices", "건")}</small></strong>
+          <strong>{summary.earlySettlementInProgress} <small>{t("invoices", "건")}</small></strong>
         </section>
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("Waiting for buyer", "구매자 응답 대기")}>
           <span>{t("Waiting for buyer", "구매자 응답 대기")}</span>
-          <strong>2 <small>{t("requests", "건")}</small></strong>
+          <strong>{summary.waitingForBuyer} <small>{t("requests", "건")}</small></strong>
         </section>
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("Settlement received", "수령한 정산금")}>
           <span>{t("Settlement received", "수령한 정산금")}</span>
-          <strong>42,400 <small>USDC</small></strong>
+          <strong>{summary.settlementReceivedUsdc.toLocaleString()} <small>USDC</small></strong>
         </section>
       </div>
 
