@@ -24,6 +24,13 @@ export function createMockAdapter(): ScenarioAdapter {
   let invoice = clone(DEMO_INVOICE);
   let verification: VerificationRequest | undefined;
 
+  const completeFunding = (current: Invoice): Invoice => ({
+    ...current,
+    agentTraces: clone(DEMO_AGENT_TRACES),
+    fundingTransaction: clone(DEMO_FUNDING_TRANSACTION),
+    status: "FUNDED",
+  });
+
   const ensureInvoice = (invoiceId: string): Invoice => {
     if (invoiceId !== invoice.id) {
       throw new Error(`Invoice ${invoiceId}을(를) 찾을 수 없습니다.`);
@@ -105,21 +112,25 @@ export function createMockAdapter(): ScenarioAdapter {
         return invalidTransition(current, "조건 응답");
       }
 
-      invoice = { ...current, status: response === "ACCEPT" ? "FUNDING" : "BLOCKED" };
+      invoice = { ...current, status: response === "ACCEPT" ? "RWA_ISSUED" : "BLOCKED" };
+      return clone(invoice);
+    },
+    async purchaseRwa(invoiceId) {
+      const current = ensureInvoice(invoiceId);
+      if (current.status !== "RWA_ISSUED") {
+        return invalidTransition(current, "투자기관 RWA 매수");
+      }
+
+      invoice = completeFunding(current);
       return clone(invoice);
     },
     async runFunding(invoiceId) {
       const current = ensureInvoice(invoiceId);
-      if (current.status !== "FUNDING") {
+      if (current.status !== "RWA_ISSUED" && current.status !== "FUNDING") {
         return invalidTransition(current, "Treasury Agent 투자");
       }
 
-      invoice = {
-        ...current,
-        agentTraces: clone(DEMO_AGENT_TRACES),
-        fundingTransaction: clone(DEMO_FUNDING_TRANSACTION),
-        status: "FUNDED",
-      };
+      invoice = completeFunding(current);
       return clone(invoice);
     },
     async mockPayment(invoiceId) {

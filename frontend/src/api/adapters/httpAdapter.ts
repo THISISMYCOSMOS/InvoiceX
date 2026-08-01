@@ -5,7 +5,7 @@ type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Pro
 
 const invoiceStatuses = new Set<InvoiceStatus>([
   "DRAFT", "DOCUMENT_UPLOADING", "DOCUMENT_ANALYZING", "DOCUMENT_REVIEW_REQUIRED",
-  "BUYER_REVIEW", "BUYER_VERIFIED", "RISK_ASSESSING", "OFFER_READY", "FUNDING",
+  "BUYER_REVIEW", "BUYER_VERIFIED", "RISK_ASSESSING", "OFFER_READY", "RWA_ISSUED", "FUNDING",
   "FUNDED", "REPAYMENT_PENDING", "SETTLING", "SETTLED", "REVISION_REQUESTED",
   "DISPUTED", "BLOCKED", "ERROR",
 ]);
@@ -127,6 +127,9 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ response }),
       }));
+    },
+    async purchaseRwa(invoiceId) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/rwa-purchase`, { method: "POST" }));
     },
     runFunding: () => unavailable("Treasury Agent 투자 실행"),
     async mockPayment(invoiceId) {

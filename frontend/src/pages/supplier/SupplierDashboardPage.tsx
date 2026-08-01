@@ -30,6 +30,7 @@ export function SupplierDashboardPage() {
       BUYER_VERIFIED: ["Buyer verified", "구매기업 검증 완료"],
       RISK_ASSESSING: ["Preparing offer", "조기정산 제안 준비 중"],
       OFFER_READY: ["RWA issuance request", "RWA 발행 요청"],
+      RWA_ISSUED: ["Awaiting investor purchase", "투자자 매수 대기"],
       FUNDING: ["Funding in progress", "조기정산 진행 중"],
       FUNDED: ["Funded", "정산 완료"],
       SETTLED: ["Settled", "상환 완료"],
@@ -38,7 +39,7 @@ export function SupplierDashboardPage() {
     return language === "ko" ? korean : english;
   };
   const statusTone = (status: string) => {
-    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY") return "blue";
+    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY" || status === "RWA_ISSUED") return "blue";
     if (status === "FUNDING" || status === "RISK_ASSESSING") return "amber";
     if (status === "FUNDED" || status === "SETTLED") return "green";
     return "slate";
