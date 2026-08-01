@@ -945,6 +945,11 @@ a {
   white-space: nowrap;
 }
 
+.investor-setup-draft.is-active {
+  color: #15803d;
+  background: #dcfce7;
+}
+
 .investor-setup-stack {
   display: grid;
   max-width: 840px;
@@ -999,6 +1004,67 @@ a {
 
 .investor-policy-form {
   padding: 17px;
+}
+
+.investor-authorization-card__body {
+  padding: 17px;
+}
+
+.investor-authorization-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.investor-authorization-summary > div {
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: #fbfcfe;
+}
+
+.investor-authorization-summary dt {
+  color: #64748b;
+  font-size: 9px;
+}
+
+.investor-authorization-summary dd {
+  margin: 5px 0 0;
+  color: #172033;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.investor-authorization-card__body footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 17px -17px -17px;
+  border-top: 1px solid #e5e9f0;
+  padding: 13px 17px;
+  background: #fbfcfe;
+}
+
+.investor-authorization-card__body footer p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.investor-authorization-card__body footer p svg {
+  flex: 0 0 auto;
+}
+
+.investor-authorization-card__body .investor-primary-button {
+  gap: 6px;
+  border: 0;
+  cursor: pointer;
 }
 
 .investor-policy-form__grid {
@@ -2040,6 +2106,10 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .investor-authorization-summary {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2134,7 +2204,14 @@ a {
     flex-direction: column;
   }
 
-  .investor-policy-form .investor-primary-button {
+  .investor-policy-form .investor-primary-button,
+  .investor-authorization-card__body footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .investor-policy-form .investor-primary-button,
+  .investor-authorization-card__body .investor-primary-button {
     width: 100%;
   }
 

@@ -13,6 +13,10 @@ interface MandateSigningPayload {
   canonicalMessage: string;
 }
 
+interface CreatedMandate {
+  id: string;
+}
+
 interface VaultDepositPreparation {
   transactionBase64: string;
   vaultAddress: string;
@@ -60,8 +64,8 @@ export const rwaApi = {
     });
   },
 
-  async createMandate(ownerWalletAddress: string, policy: MandatePolicyInput, signature: string): Promise<void> {
-    await request("/investor/mandates", {
+  async createMandate(ownerWalletAddress: string, policy: MandatePolicyInput, signature: string): Promise<CreatedMandate> {
+    return request<CreatedMandate>("/investor/mandates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ownerWalletAddress, policy, signature }),

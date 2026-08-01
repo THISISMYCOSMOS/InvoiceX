@@ -99,11 +99,12 @@ test("shows the institution wallet only in investor setup, never buyer pages", a
   const investor = renderAt("/investor/setup");
 
   expect(await screen.findByRole("heading", { name: "Institution wallet" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Investment mandate setup" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Investment policy" })).toBeInTheDocument();
-  expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("50,000");
+  expect(screen.getByRole("heading", { name: "Automatic investment setup" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Automatic investment authorization" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Investment criteria" })).toBeInTheDocument();
+  expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("5");
   expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Sign and activate mandate" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Sign authorization" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Sign Vault deposit" })).toBeDisabled();
 
   investor.unmount();

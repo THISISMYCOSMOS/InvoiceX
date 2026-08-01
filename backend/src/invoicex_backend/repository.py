@@ -89,6 +89,14 @@ class SQLiteRwaRepository:
         with self._lock, self._connection:
             self._connection.execute(
                 """
+                UPDATE mandates
+                SET status = 'REVOKED'
+                WHERE owner_wallet_address = ? AND id <> ? AND status = 'ACTIVE'
+                """,
+                (mandate.owner_wallet_address, mandate.id),
+            )
+            self._connection.execute(
+                """
                 INSERT OR REPLACE INTO mandates
                 (id, owner_wallet_address, status, document) VALUES (?, ?, ?, ?)
                 """,

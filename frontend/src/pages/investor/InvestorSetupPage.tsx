@@ -8,8 +8,8 @@ import { SolanaWalletConnection } from "../../components/SolanaWalletConnection"
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const defaultPolicy = {
-  totalLimit: "50,000",
-  perInvoiceLimit: "20,000",
+  totalLimit: "5",
+  perInvoiceLimit: "1",
   buyerAllowlist: "Prime Mobility",
   minimumScore: "80",
   maximumTerm: "120",
@@ -29,15 +29,17 @@ export function InvestorSetupPage() {
   const { connection } = useConnection();
   const { connected, publicKey, signMessage, sendTransaction } = useWallet();
   const [policy, setPolicy] = useState(defaultPolicy);
-  const [depositAmount, setDepositAmount] = useState("20000");
+  const [depositAmount, setDepositAmount] = useState("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [vaultBalance, setVaultBalance] = useState<number | null>(null);
+  const [activeMandateId, setActiveMandateId] = useState<string | null>(null);
 
   const updatePolicy = (key: keyof typeof defaultPolicy, value: string) => {
     setPolicy((current) => ({ ...current, [key]: value }));
+    setActiveMandateId(null);
   };
 
   const createPolicy = (): MandatePolicyInput => ({
@@ -63,8 +65,9 @@ export function InvestorSetupPage() {
       const ownerWalletAddress = publicKey.toBase58();
       const { canonicalMessage } = await rwaApi.prepareMandate(ownerWalletAddress, policyInput);
       const signature = await signMessage(new TextEncoder().encode(canonicalMessage));
-      await rwaApi.createMandate(ownerWalletAddress, policyInput, bs58.encode(signature));
-      setSuccess(t("The investment mandate is active. Deposit demo stablecoins into Agent Vault to enable automatic purchases.", "투자 Mandate가 활성화되었습니다. Agent Vault에 테스트 스테이블코인을 예치하면 자동 매수가 시작됩니다."));
+      const mandate = await rwaApi.createMandate(ownerWalletAddress, policyInput, bs58.encode(signature));
+      setActiveMandateId(mandate.id);
+      setSuccess(t("Automatic investment authorization is active. Deposit demo stablecoins into Agent Vault to enable purchases.", "자동 투자 권한이 활성화되었습니다. Agent Vault에 테스트 스테이블코인을 예치하면 자동 매수가 시작됩니다."));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("Mandate signing failed.", "Mandate 서명에 실패했습니다."));
     } finally {
@@ -109,9 +112,9 @@ export function InvestorSetupPage() {
     <section className="investor-setup-page">
       <header className="investor-page-heading investor-setup-heading">
         <div>
-          <p className="investor-breadcrumb">{t("Investor / Setup", "투자자 / 투자 위임")}</p>
-          <h1>{t("Investment mandate setup", "투자 위임 설정")}</h1>
-          <p>{t("Connect your institution wallet and set the investment guardrails used by Treasury Agent.", "기관 지갑을 연결하고 Treasury Agent가 따를 투자 기준을 설정하세요.")}</p>
+          <p className="investor-breadcrumb">{t("Investor / Automatic investment", "투자자 / 자동 투자")}</p>
+          <h1>{t("Automatic investment setup", "자동 투자 설정")}</h1>
+          <p>{t("Set your investment criteria and authorize Treasury Agent with your institution wallet.", "투자 조건을 설정하고 기관 지갑으로 Treasury Agent의 자동 매수를 승인하세요.")}</p>
         </div>
         <span className="investor-setup-heading__step">{t("Step 1 of 2", "1 / 2 단계")}</span>
       </header>
@@ -123,17 +126,45 @@ export function InvestorSetupPage() {
           onWalletDisconnected={() => {
             setSuccess(null);
             setVaultBalance(null);
+            setActiveMandateId(null);
           }}
         />
 
         <section className="investor-setup-policy-card">
           <header>
+            <span className="investor-setup-icon" aria-hidden="true"><ShieldCheck size={18} weight="bold" /></span>
+            <div>
+              <h2>{t("Automatic investment authorization", "자동 투자 권한")}</h2>
+              <p>{t("Authorize Treasury Agent to execute an eligible RWA purchase from your Agent Vault.", "Treasury Agent가 Agent Vault에서 조건을 충족한 RWA를 자동 매수하도록 승인합니다.")}</p>
+            </div>
+            <span className={`investor-setup-draft ${activeMandateId ? "is-active" : ""}`}>{activeMandateId ? t("Authorized", "승인됨") : t("Signature required", "서명 필요")}</span>
+          </header>
+
+          <div className="investor-authorization-card__body">
+            <dl className="investor-authorization-summary">
+              <div><dt>{t("Authorization format", "권한 형식")}</dt><dd>{t("AP2 Mandate", "AP2 Mandate")}</dd></div>
+              <div><dt>{t("Authorized agent", "실행 에이전트")}</dt><dd>Treasury Agent</dd></div>
+              <div><dt>{t("Payment source", "결제 재원")}</dt><dd>Agent Vault · USDC</dd></div>
+              <div><dt>{t("Applicable criteria", "적용 조건")}</dt><dd>{t("Investment criteria below", "아래 투자 조건")}</dd></div>
+            </dl>
+            <footer>
+              <p><Info size={15} weight="fill" aria-hidden="true" />{t("The signature records your current investment criteria. Updating them requires a new signature.", "현재 투자 조건을 포함해 서명합니다. 조건을 변경하면 다시 서명해야 합니다.")}</p>
+              <button className="investor-primary-button" type="button" disabled={!connected || isSubmitting} onClick={() => void activateMandate()}>
+                <ShieldCheck size={15} weight="fill" aria-hidden="true" />
+                {isSubmitting ? t("Waiting for signature...", "지갑 서명 대기 중...") : activeMandateId ? t("Re-sign authorization", "권한 다시 서명") : t("Sign authorization", "권한 서명")}
+              </button>
+            </footer>
+          </div>
+        </section>
+
+        <section className="investor-setup-policy-card">
+          <header>
             <span className="investor-setup-icon" aria-hidden="true"><SlidersHorizontal size={18} weight="bold" /></span>
             <div>
-              <h2>{t("Investment policy", "투자 정책")}</h2>
-              <p>{t("Treasury Agent buys only invoices that satisfy every signed guardrail.", "Treasury Agent는 서명한 모든 기준을 통과한 인보이스만 자동 매수합니다.")}</p>
+              <h2>{t("Investment criteria", "투자 조건")}</h2>
+              <p>{t("Treasury Agent evaluates each invoice against the criteria you sign.", "Treasury Agent는 서명한 조건을 기준으로 각 인보이스를 평가합니다.")}</p>
             </div>
-            <span className="investor-setup-draft">{t("Wallet signature", "지갑 서명")}</span>
+            <span className="investor-setup-draft">{activeMandateId ? t("Signed", "서명 완료") : t("Needs signature", "서명 대기")}</span>
           </header>
 
           <div className="investor-policy-form">
@@ -147,11 +178,7 @@ export function InvestorSetupPage() {
             </div>
 
             <footer>
-              <p><Info size={15} weight="fill" aria-hidden="true" />{t("Signing activates this policy on the server; no private key is sent to InvoiceX.", "서명하면 이 정책이 서버에서 활성화되며 개인키는 InvoiceX에 전달되지 않습니다.")}</p>
-              <button className="investor-primary-button" type="button" disabled={!connected || isSubmitting} onClick={() => void activateMandate()}>
-                <ShieldCheck size={15} weight="fill" aria-hidden="true" />
-                {isSubmitting ? t("Waiting for signature...", "지갑 서명 대기 중...") : t("Sign and activate mandate", "서명하고 Mandate 활성화")}
-              </button>
+              <p><Info size={15} weight="fill" aria-hidden="true" />{t("Changes take effect after you sign the automatic investment authorization above.", "변경한 조건은 위 자동 투자 권한에 다시 서명하면 적용됩니다.")}</p>
             </footer>
           </div>
         </section>
