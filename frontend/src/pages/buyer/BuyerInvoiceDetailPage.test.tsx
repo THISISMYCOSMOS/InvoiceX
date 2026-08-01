@@ -7,7 +7,7 @@ import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 
 test("shows the Figma verification controls for a buyer-review invoice", async () => {
   const user = userEvent.setup();
-  const onConfirm = vi.fn();
+  const onConfirm = vi.fn().mockResolvedValue(undefined);
   render(
     <MemoryRouter>
       <BuyerInvoiceDetailContent
@@ -30,6 +30,7 @@ test("shows the Figma verification controls for a buyer-review invoice", async (
 
   await user.click(screen.getByRole("button", { name: "Confirm invoice" }));
   expect(onConfirm).toHaveBeenCalledTimes(1);
+  expect(await screen.findByRole("status")).toHaveTextContent("Invoice confirmation submitted.");
 });
 
 test("shows the Figma maturity-payment screen for a funded invoice", () => {

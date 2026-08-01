@@ -192,6 +192,12 @@ test("returns from buyer verification to the buyer dashboard", async () => {
 });
 
 test("opens a due invoice from the buyer dashboard payment queue", async () => {
+  await scenarioAdapter.analyzeInvoice("INV-2026-001");
+  await scenarioAdapter.requestVerification("INV-2026-001");
+  await scenarioAdapter.confirmVerification("VER-2026-001");
+  await scenarioAdapter.respondToOffer("INV-2026-001", "ACCEPT");
+  await scenarioAdapter.runFunding("INV-2026-001");
+
   const user = userEvent.setup();
   renderAt("/buyer");
 
@@ -202,6 +208,24 @@ test("opens a due invoice from the buyer dashboard payment queue", async () => {
 
   await user.click(paymentLink);
   expect(await screen.findByRole("heading", { name: "Pay invoice amount" })).toBeInTheDocument();
+});
+
+test("shows the supplier RWA issuance request after buyer confirmation", async () => {
+  await scenarioAdapter.analyzeInvoice("INV-2026-001");
+  await scenarioAdapter.requestVerification("INV-2026-001");
+
+  const user = userEvent.setup();
+  const buyer = renderAt("/buyer/invoices/INV-2026-001?section=verification");
+
+  expect(await screen.findByRole("heading", { name: "Verify invoice INV-2026-001" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Confirm invoice" }));
+  expect(await screen.findByRole("heading", { name: "Invoice verification completed" })).toBeInTheDocument();
+
+  buyer.unmount();
+  renderAt("/supplier/invoices/INV-2026-001");
+
+  expect(await screen.findByRole("heading", { name: "Your early settlement offer is ready" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
 });
 
 test("translates buyer and investor screens into Korean", async () => {

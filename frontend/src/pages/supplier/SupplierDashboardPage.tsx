@@ -6,13 +6,6 @@ import { LoadingState } from "../../components/LoadingState";
 import { useInvoices } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
 
-const demoRecentInvoices = [
-  { id: "INV-2026-001", buyer: "Prime Mobility", amount: 20_000_000, dueDate: "2026-10-30", status: "Buyer review", tone: "blue" },
-  { id: "INV-2026-009", buyer: "Global Retail", amount: 12_400_000, dueDate: "2026-09-15", status: "Matching", tone: "amber" },
-  { id: "INV-2026-006", buyer: "Neo Logistics", amount: 8_950_000, dueDate: "2026-08-28", status: "Funded", tone: "green" },
-  { id: "INV-2026-002", buyer: "Prime Mobility", amount: 17_600_000, dueDate: "2026-08-02", status: "Settled", tone: "slate" },
-] as const;
-
 const krwFormatter = new Intl.NumberFormat("ko-KR", {
   style: "currency",
   currency: "KRW",
@@ -25,20 +18,30 @@ export function SupplierDashboardPage() {
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
-  const isDemoDashboard = items.length === 1 && items[0]?.id === "INV-2026-001";
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "2-digit",
     year: "numeric",
   });
   const statusLabel = (status: string) => {
-    if (language === "en") return status;
-    return ({
-      "Buyer review": "구매자 검토",
-      Matching: "매칭 중",
-      Funded: "정산 완료",
-      Settled: "상환 완료",
-    } as Record<string, string>)[status] ?? status;
+    const labels: Record<string, [string, string]> = {
+      DOCUMENT_REVIEW_REQUIRED: ["Review extraction", "추출 정보 확인"],
+      BUYER_REVIEW: ["Buyer review", "구매기업 검증"],
+      BUYER_VERIFIED: ["Buyer verified", "구매기업 검증 완료"],
+      RISK_ASSESSING: ["Preparing offer", "조기정산 제안 준비 중"],
+      OFFER_READY: ["RWA issuance request", "RWA 발행 요청"],
+      FUNDING: ["Funding in progress", "조기정산 진행 중"],
+      FUNDED: ["Funded", "정산 완료"],
+      SETTLED: ["Settled", "상환 완료"],
+    };
+    const [english, korean] = labels[status] ?? [status.replaceAll("_", " "), status.replaceAll("_", " ")];
+    return language === "ko" ? korean : english;
+  };
+  const statusTone = (status: string) => {
+    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY") return "blue";
+    if (status === "FUNDING" || status === "RISK_ASSESSING") return "amber";
+    if (status === "FUNDED" || status === "SETTLED") return "green";
+    return "slate";
   };
 
   return (
@@ -93,27 +96,17 @@ export function SupplierDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {(isDemoDashboard
-                  ? demoRecentInvoices
-                  : items.map((invoice) => ({
-                      id: invoice.id,
-                      buyer: invoice.buyer.name,
-                      amount: invoice.invoiceAmountKrw,
-                      dueDate: invoice.dueDate,
-                      status: invoice.status.replaceAll("_", " ").toLowerCase(),
-                      tone: "blue",
-                    }))
-                ).map((invoice, index) => (
+                {items.map((invoice) => (
                   <tr key={invoice.id}>
                     <td>
-                      {index === 0 && items.some((item) => item.id === invoice.id)
-                        ? <Link to={`/supplier/invoices/${invoice.id}`}>{invoice.id}</Link>
-                        : <strong>{invoice.id}</strong>}
+                      <Link to={`/supplier/invoices/${invoice.id}`} aria-label={t(`View invoice ${invoice.id}`, `${invoice.id} 상세 보기`)}>
+                        {invoice.id}
+                      </Link>
                     </td>
-                    <td>{invoice.buyer}</td>
-                    <td>{krwFormatter.format(invoice.amount)}</td>
+                    <td>{invoice.buyer.name}</td>
+                    <td>{krwFormatter.format(invoice.invoiceAmountKrw)}</td>
                     <td>{dateFormatter.format(new Date(`${invoice.dueDate}T00:00:00`))}</td>
-                    <td><span className={`dashboard-status dashboard-status--${invoice.tone}`}>{statusLabel(invoice.status)}</span></td>
+                    <td><span className={`dashboard-status dashboard-status--${statusTone(invoice.status)}`}>{statusLabel(invoice.status)}</span></td>
                   </tr>
                 ))}
               </tbody>

@@ -1,13 +1,16 @@
 import {
+  CaretLeft,
+  CaretRight,
   ArrowRight,
   CheckCircle,
   NumberCircleThree,
   NumberCircleTwo,
   Warning,
 } from "@phosphor-icons/react";
+import { useState } from "react";
 import invoicePreview from "../../../assets/invoice-preview.png";
 import { useLanguage } from "../../../i18n/LanguageContext";
-import type { ExtractedField } from "../../../types/documents";
+import type { DocumentType, ExtractedField } from "../../../types/documents";
 import type { Invoice } from "../../../types/invoice";
 
 interface DocumentReviewSectionProps {
@@ -65,6 +68,7 @@ function ReviewField({
 
 export function DocumentReviewSection({ invoice, onConfirm, isPending = false }: DocumentReviewSectionProps) {
   const { language, t } = useLanguage();
+  const [activeDocumentIndex, setActiveDocumentIndex] = useState(0);
   const analysis = invoice.analysis;
   if (!analysis) {
     return (
@@ -75,7 +79,34 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
     );
   }
 
-  const invoiceDocument = invoice.documents.find((document) => document.type === "INVOICE");
+  const reviewDocuments = invoice.documents.filter((document) => (
+    document.type === "INVOICE"
+    || document.type === "CONTRACT"
+    || document.type === "PURCHASE_ORDER"
+    || document.type === "DELIVERY_PROOF"
+  ));
+  const activeDocument = reviewDocuments[activeDocumentIndex] ?? reviewDocuments[0];
+  const documentCount = reviewDocuments.length;
+  const activeDocumentNumber = activeDocument ? Math.min(activeDocumentIndex, documentCount - 1) + 1 : 0;
+  const documentTypeLabel = (type: DocumentType) => {
+    const labels: Record<DocumentType, [string, string]> = {
+      INVOICE: ["Invoice", "인보이스"],
+      CONTRACT: ["Contract", "계약서"],
+      PURCHASE_ORDER: ["Purchase order", "발주서"],
+      DELIVERY_PROOF: ["Delivery proof", "납품 증빙"],
+    };
+    return t(...labels[type]);
+  };
+  const selectPreviousDocument = () => {
+    if (documentCount > 1) {
+      setActiveDocumentIndex((current) => (current - 1 + documentCount) % documentCount);
+    }
+  };
+  const selectNextDocument = () => {
+    if (documentCount > 1) {
+      setActiveDocumentIndex((current) => (current + 1) % documentCount);
+    }
+  };
   const longDateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "long",
     day: "numeric",
@@ -92,7 +123,6 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
 
   return (
     <section className="document-review-page">
-      <span className="agent-complete-badge">{t("Document Agent complete", "Document Agent 완료")}</span>
       <header className="review-heading">
         <div>
           <p className="breadcrumb">{t("Invoices / New invoice / Review extraction", "인보이스 / 새 인보이스 / 추출 정보 확인")}</p>
@@ -118,16 +148,48 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
       </ol>
 
       <div className="review-layout">
-        <section className="document-preview" aria-label={t("Invoice document preview", "인보이스 문서 미리보기")}>
-          <header>
-            <span>{invoice.id === "INV-2026-001" ? `invoice_${invoice.id}.pdf` : invoiceDocument?.fileName ?? "Invoice document"}</span>
-            <span>{t("1 / 2 pages · 100%", "1 / 2페이지 · 100%")}</span>
+        <section className="document-review-preview" aria-label={t("Uploaded document preview", "업로드 문서 미리보기")}>
+          <header className="document-review-preview__header">
+            <div>
+              <span className="document-review-preview__type">
+                {activeDocument ? documentTypeLabel(activeDocument.type) : t("Uploaded document", "업로드 문서")}
+              </span>
+              <strong>{activeDocument?.fileName ?? t("No document available", "표시할 문서가 없습니다")}</strong>
+            </div>
+            <span className="document-review-preview__count">
+              {t(`${activeDocumentNumber} of ${documentCount} documents`, `총 ${documentCount}개 중 ${activeDocumentNumber}개`)}
+            </span>
           </header>
-          {invoiceDocument?.storageUrl ? (
-            <iframe title={invoiceDocument.fileName} src={invoiceDocument.storageUrl} />
-          ) : (
-            <img className="document-preview__image" src={invoicePreview} alt={t("Invoice document preview", "인보이스 문서 미리보기")} />
-          )}
+          <div className="document-review-preview__body">
+            <button
+              className="document-review-preview__nav"
+              type="button"
+              onClick={selectPreviousDocument}
+              disabled={documentCount < 2}
+              aria-label={t("Previous document", "이전 문서")}
+            >
+              <CaretLeft aria-hidden="true" size={18} weight="bold" />
+            </button>
+            <div className="document-review-preview__frame">
+              {activeDocument?.storageUrl ? (
+                <iframe title={activeDocument.fileName} src={activeDocument.storageUrl} />
+              ) : (
+                <img
+                  src={invoicePreview}
+                  alt={t(`${activeDocument ? documentTypeLabel(activeDocument.type) : ""} document preview`, `${activeDocument ? documentTypeLabel(activeDocument.type) : ""} 문서 미리보기`)}
+                />
+              )}
+            </div>
+            <button
+              className="document-review-preview__nav"
+              type="button"
+              onClick={selectNextDocument}
+              disabled={documentCount < 2}
+              aria-label={t("Next document", "다음 문서")}
+            >
+              <CaretRight aria-hidden="true" size={18} weight="bold" />
+            </button>
+          </div>
         </section>
 
         <div className="review-fields">

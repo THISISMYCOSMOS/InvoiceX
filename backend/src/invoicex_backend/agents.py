@@ -101,11 +101,10 @@ class MockAgentGateway:
         documents: list[AgentDocument],
     ) -> DocumentAnalysisResult:
         response = self._document_response(invoice_id, documents)
-        agent = DocumentAgent(StaticGeminiClient(response))
-        return await asyncio.to_thread(
-            agent.analyze,
-            [document.to_media() for document in documents],
-        )
+        # Mock mode is used for deterministic workflow tests. Upload validation
+        # remains the backend's responsibility, while real document parsing and
+        # source-evidence checks are covered by the Document Agent in real mode.
+        return DocumentAnalysisResult.model_validate(response)
 
     async def analyze_risk(self, request: RiskAnalysisRequest) -> RiskAnalysisResult:
         narrative = {
