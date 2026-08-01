@@ -128,9 +128,6 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
         body: JSON.stringify({ response }),
       }));
     },
-    async purchaseRwa(invoiceId) {
-      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/rwa-purchase`, { method: "POST" }));
-    },
     runFunding: () => unavailable("Treasury Agent 투자 실행"),
     async mockPayment(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/settlement/mock-payment`, { method: "POST" }));

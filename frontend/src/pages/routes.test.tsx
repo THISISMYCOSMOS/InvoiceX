@@ -179,7 +179,7 @@ test("renders the investor Figma navigation and agent decision route", async () 
   expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/investor/setup");
   expect(screen.queryByText("Settlement Reports")).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("link", { name: "INV-2026-001" }));
+  await user.click(screen.getByRole("link", { name: "Agent Activity" }));
 
   expect(await screen.findByRole("heading", { name: "Treasury Agent decision" })).toBeInTheDocument();
   expect(screen.getByText("6 / 6 PASSED")).toBeInTheDocument();
@@ -201,7 +201,7 @@ test("opens a due invoice from the buyer dashboard payment queue", async () => {
   await scenarioAdapter.requestVerification("INV-2026-001");
   await scenarioAdapter.confirmVerification("VER-2026-001");
   await scenarioAdapter.respondToOffer("INV-2026-001", "ACCEPT");
-  await scenarioAdapter.purchaseRwa("INV-2026-001");
+  await scenarioAdapter.runFunding("INV-2026-001");
 
   const user = userEvent.setup();
   renderAt("/buyer");

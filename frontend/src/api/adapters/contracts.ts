@@ -12,7 +12,6 @@ export interface ScenarioAdapter {
   getVerification(verificationId: string): Promise<VerificationRequest>;
   confirmVerification(verificationId: string): Promise<Invoice>;
   respondToOffer(invoiceId: string, response: OfferResponse): Promise<Invoice>;
-  purchaseRwa(invoiceId: string): Promise<Invoice>;
   runFunding(invoiceId: string): Promise<Invoice>;
   mockPayment(invoiceId: string): Promise<Invoice>;
   runSettlement(invoiceId: string): Promise<Invoice>;

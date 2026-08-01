@@ -3,7 +3,6 @@ import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
 import { useInvoices } from "../../hooks/useInvoices";
-import { useRwaPurchase } from "../../hooks/useRwaPurchase";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const usdc = new Intl.NumberFormat("en-US");
@@ -11,7 +10,6 @@ const usdc = new Intl.NumberFormat("en-US");
 export function InvestorDashboardPage() {
   const dashboard = useInvestorDashboard();
   const invoices = useInvoices();
-  const purchaseRwa = useRwaPurchase();
   const { t } = useLanguage();
 
   if (dashboard.isLoading) return <LoadingState />;
@@ -27,7 +25,6 @@ export function InvestorDashboardPage() {
   }
 
   const data = dashboard.data;
-  const purchaseOpportunities = invoices.data?.filter((invoice) => invoice.status === "RWA_ISSUED") ?? [];
   const fundedInvoices = invoices.data?.filter((invoice) => invoice.status === "FUNDED" || invoice.status === "SETTLED") ?? [];
   const stats = [
     {
@@ -71,49 +68,6 @@ export function InvestorDashboardPage() {
           </article>
         ))}
       </div>
-
-      <section className="investor-purchase-card">
-        <header>
-          <div>
-            <span>{t("RWA PURCHASE OPPORTUNITIES", "RWA 매수 가능 자산")}</span>
-            <h2>{t("Issued RWAs awaiting investment", "투자 대기 중인 발행 RWA")}</h2>
-          </div>
-          <p>{t("Purchase triggers the USDC transfer to the supplier settlement wallet.", "매수 완료 시 공급기업 정산 지갑으로 USDC가 지급됩니다.")}</p>
-        </header>
-        {purchaseOpportunities.length > 0 ? (
-          <div className="investor-purchase-list">
-            {purchaseOpportunities.map((invoice) => {
-              const amount = invoice.riskPassport?.suggestedAdvanceAmountUsdc ?? 0;
-              return (
-                <article key={invoice.id} className="investor-purchase-row">
-                  <div>
-                    <Link to={`/investor/activities/${invoice.id}`}>{invoice.id}</Link>
-                    <strong>{invoice.buyer.name}</strong>
-                  </div>
-                  <dl>
-                    <div><dt>{t("RWA", "RWA")}</dt><dd>RWA-{invoice.id}</dd></div>
-                    <div><dt>{t("Investment", "투자 금액")}</dt><dd>{usdc.format(amount)} USDC</dd></div>
-                    <div><dt>{t("Risk score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"} / 100</dd></div>
-                  </dl>
-                  <button
-                    type="button"
-                    className="investor-primary-button"
-                    disabled={purchaseRwa.isPending}
-                    onClick={() => purchaseRwa.mutate(invoice.id)}
-                  >
-                    {purchaseRwa.isPending ? t("Purchasing…", "매수 처리 중…") : t("Purchase RWA", "RWA 매수")}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="investor-purchase-empty">
-            {t("There are no issued RWAs awaiting investment.", "현재 투자 대기 중인 발행 RWA가 없습니다.")}
-          </div>
-        )}
-        {purchaseRwa.error && <p className="investor-purchase-error">{t("RWA purchase could not be completed. Please try again.", "RWA 매수를 완료하지 못했습니다. 다시 시도해 주세요.")}</p>}
-      </section>
 
       <section className="investor-activity-card">
         <header>

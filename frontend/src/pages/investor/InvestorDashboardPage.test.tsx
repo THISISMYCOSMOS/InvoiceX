@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach } from "vitest";
 import { scenarioAdapter } from "../../api/client";
@@ -15,7 +14,6 @@ beforeEach(async () => {
 });
 
 test("renders the treasury overview from the investor dashboard design", async () => {
-  const user = userEvent.setup();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   render(
@@ -34,10 +32,6 @@ test("renders the treasury overview from the investor dashboard design", async (
     "href",
     "/investor/setup",
   );
-  expect(await screen.findByRole("link", { name: "INV-2026-001" })).toHaveAttribute(
-    "href",
-    "/investor/activities/INV-2026-001",
-  );
-  await user.click(screen.getByRole("button", { name: "Purchase RWA" }));
-  expect(await screen.findByText("There are no issued RWAs awaiting investment.")).toBeInTheDocument();
+  expect(await screen.findByText("No investment has been executed yet.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Purchase RWA" })).not.toBeInTheDocument();
 });

@@ -30,7 +30,7 @@ export function SupplierDashboardPage() {
       BUYER_VERIFIED: ["Buyer verified", "구매기업 검증 완료"],
       RISK_ASSESSING: ["Preparing offer", "조기정산 제안 준비 중"],
       OFFER_READY: ["RWA issuance request", "RWA 발행 요청"],
-      RWA_ISSUED: ["Awaiting investor purchase", "투자자 매수 대기"],
+      RWA_ISSUED: ["Agent investment processing", "Agent 자동 투자 처리 중"],
       FUNDING: ["Funding in progress", "조기정산 진행 중"],
       FUNDED: ["Funded", "정산 완료"],
       SETTLED: ["Settled", "상환 완료"],
