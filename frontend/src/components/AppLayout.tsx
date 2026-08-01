@@ -27,33 +27,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isBuyerPayment = isBuyer && search.includes("section=payment");
   const isSupplierOffer = isSupplier && detailInvoice.data?.status === "OFFER_READY";
   const homePath = isSupplier ? "/supplier" : isBuyer ? "/buyer" : isInvestor ? "/investor" : "/dev/demo";
-  const caption = isSupplier
-    ? pathname === "/supplier"
-      ? "01 · SUPPLIER DASHBOARD / 1440 × 900"
-      : pathname === "/supplier/company-wallet"
-        ? "12 · SUPPLIER COMPANY & WALLET / 1440 × 900"
-      : pathname === "/supplier/invoices/new"
-        ? "02 · DOCUMENT UPLOAD / 1440 × 900"
-        : isSupplierOffer
-          ? "07 · RISK PASSPORT & EARLY SETTLEMENT OFFER / 1440 × 900"
-          : undefined
-    : isBuyer
-      ? pathname === "/buyer"
-        ? "05 · BUYER DASHBOARD / 1440 × 900"
-        : isBuyerPayment
-          ? "10 · BUYER DUE-DATE PAYMENT / 1440 × 900"
-          : "06 · BUYER VERIFICATION / 1440 × 900"
-      : isInvestor
-        ? isInvestorActivity
-          ? "10 · TREASURY AGENT DECISION DETAIL / 1440 × 900"
-          : pathname === "/investor"
-            ? "09 · INVESTOR DASHBOARD / 1440 × 900"
-            : undefined
-        : undefined;
-
   return (
     <div className="screen-stage">
-      {caption && <p className="screen-caption">{caption}</p>}
       <div className="app-shell">
         <header className="topbar">
           <Link className="topbar__brand" to={homePath} aria-label={t("InvoiceX home", "InvoiceX 홈")}>
@@ -110,7 +85,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   {t("Invoices", "인보이스")}
                 </Link>
                 <Link className={pathname === "/supplier/company-wallet" ? "is-active" : ""} to="/supplier/company-wallet">
-                  {t("Company & Wallet", "회사 및 지갑")}
+                  {t("Settings", "설정")}
                 </Link>
               </nav>
             ) : isBuyer ? (
@@ -142,11 +117,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 >
                   {t("Agent Activity", "에이전트 활동")}
                 </Link>
-                <span>{t("RWA Portfolio", "RWA 포트폴리오")}</span>
                 <Link className={isInvestorSetup ? "is-active" : ""} to="/investor/setup">
-                  {t("Mandate", "투자 위임")}
+                  {t("Settings", "설정")}
                 </Link>
-                <span>Vault</span>
               </nav>
             ) : (
               <nav className="sidebar-nav" aria-label={t(`${role} navigation`, `${role} 내비게이션`)}>

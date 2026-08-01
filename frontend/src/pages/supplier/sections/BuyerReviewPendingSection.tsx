@@ -24,7 +24,6 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
     : t("Verification requested", "검증 요청됨");
   return (
     <section className="buyer-review-pending">
-      <p className="workflow-screen-caption">{t("04 · BUYER VERIFICATION PENDING / 1440 × 900", "04 · 구매자 검증 대기 / 1440 × 900")}</p>
       <p className="breadcrumb">{t("Invoices", "인보이스")} / {invoice.id}</p>
       <section className="pending-card">
         <span className="pending-card__icon" aria-hidden="true">
