@@ -721,6 +721,10 @@ class InvoiceService:
         )
 
     async def settle_mock_payment(self, invoice_id: str) -> Invoice:
+        if not self._settings.mock_settlement_enabled:
+            raise StateConflictError(
+                "Mock 상환 정산은 현재 GCP 자동매수 범위에서 비활성화되어 있습니다."
+            )
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
             if invoice.status is InvoiceStatus.SETTLED:

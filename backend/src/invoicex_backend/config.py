@@ -165,6 +165,10 @@ class BackendSettings(BaseSettings):
         validation_alias="GASLESS_DEPOSIT_MAX_USDC",
         gt=0,
     )
+    mock_settlement_enabled: bool = Field(
+        default=True,
+        validation_alias="MOCK_SETTLEMENT_ENABLED",
+    )
     privy_api_base_url: str = Field(
         default="https://api.privy.io",
         validation_alias="PRIVY_API_BASE_URL",
@@ -278,7 +282,7 @@ class BackendSettings(BaseSettings):
                 raise ValueError("DEPLOYMENT_TARGET=gcp requires DOCUMENT_STORAGE_BACKEND=gcs")
             if not self.api_auth_required:
                 raise ValueError("DEPLOYMENT_TARGET=gcp requires API_AUTH_REQUIRED=true")
-            if self.solana_mode == "privy":
+            if self.mock_settlement_enabled:
                 settlement_values = {
                     "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
                     "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
@@ -290,7 +294,7 @@ class BackendSettings(BaseSettings):
                 ]
                 if absent:
                     raise ValueError(
-                        "GCP Privy settlement requires configuration: " + ", ".join(absent)
+                        "GCP mock settlement requires configuration: " + ", ".join(absent)
                     )
         if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
             raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")

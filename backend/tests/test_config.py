@@ -102,6 +102,7 @@ def test_gcp_target_requires_managed_persistence_and_storage() -> None:
         DOCUMENT_STORAGE_BACKEND="gcs",
         API_AUTH_REQUIRED=True,
         AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
+        MOCK_SETTLEMENT_ENABLED=False,
         GCP_PROJECT_ID="invoicex-demo",
         CLOUD_SQL_INSTANCE_CONNECTION_NAME="invoicex-demo:asia-northeast3:invoicex",
         CLOUD_SQL_DATABASE="invoicex",
@@ -116,3 +117,26 @@ def test_gcp_target_requires_managed_persistence_and_storage() -> None:
 def test_api_auth_refuses_the_local_default_token_secret() -> None:
     with pytest.raises(ValidationError, match="non-default AUTH_TOKEN_SECRET"):
         BackendSettings(_env_file=None, API_AUTH_REQUIRED=True)
+
+
+def test_mock_settlement_can_be_disabled_for_the_gcp_auto_investment_scope() -> None:
+    settings = BackendSettings(_env_file=None, MOCK_SETTLEMENT_ENABLED=False)
+    assert settings.mock_settlement_enabled is False
+
+
+def test_gcp_mock_settlement_requires_its_separate_wallets() -> None:
+    with pytest.raises(ValidationError, match="GCP mock settlement"):
+        BackendSettings(
+            _env_file=None,
+            DEPLOYMENT_TARGET="gcp",
+            PERSISTENCE_BACKEND="cloud_sql",
+            DOCUMENT_STORAGE_BACKEND="gcs",
+            API_AUTH_REQUIRED=True,
+            AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
+            GCP_PROJECT_ID="invoicex-demo",
+            CLOUD_SQL_INSTANCE_CONNECTION_NAME="invoicex-demo:asia-northeast3:invoicex",
+            CLOUD_SQL_DATABASE="invoicex",
+            CLOUD_SQL_USER="invoicex_app",
+            CLOUD_SQL_PASSWORD="cloud-sql-password-from-secret-manager",
+            GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
+        )

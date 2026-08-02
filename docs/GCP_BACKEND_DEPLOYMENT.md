@@ -55,16 +55,24 @@ verifications, and Investor can manage mandates, vault deposits, the dashboard,
 and Investment Criteria. Local mock mode intentionally leaves those endpoints
 open so the existing browser-only flow remains usable.
 
-## Production settlement values
+## Production wallet configuration
 
-The Cloud Run deployment needs these two public, non-secret environment values:
+The current GCP scope is Investor Vault automatic investment, RWA issuance, and
+USDC payment to the supplier. It needs these public, non-secret environment
+values:
 
 - `PRIVY_TREASURY_WALLET_ADDRESS`: Agent Vault public address
-- `PLATFORM_FEE_WALLET_ADDRESS`: platform-fee recipient public address
+- `PRIVY_SPONSOR_WALLET_ADDRESS`: dedicated Sponsor public address that pays
+  Devnet SOL transaction fees when gasless mode is enabled
 
-It also requires the `privy-settlement-wallet-id` Secret Manager secret for
-the Privy wallet that sends the repayment. Do not use a private key, seed
-phrase, or a `DEMO_` address in any of these settings.
+`privy-sponsor-wallet-id` stays in Secret Manager. The Sponsor wallet pays
+transaction fees only; it never receives or sends the investor's USDC.
+
+`/settlement/mock-payment` models a later receivable-repayment distribution and
+is disabled in the GCP deployment. It is not part of the current automatic
+investment flow, so `PRIVY_SETTLEMENT_WALLET_ID` and
+`PLATFORM_FEE_WALLET_ADDRESS` are intentionally not deployment requirements.
+Do not use a private key, seed phrase, or a `DEMO_` address in any setting.
 
 ## Build and deploy
 
@@ -78,7 +86,7 @@ phrase, or a `DEMO_` address in any of these settings.
 
    ```bash
    gcloud builds submit --config=cloudbuild.yaml \
-     --substitutions=_FRONTEND_ORIGIN=https://your-frontend.example,_IMAGE_TAG=$(git rev-parse --short HEAD),_PRIVY_TREASURY_WALLET_ADDRESS=your-public-treasury-address,_PLATFORM_FEE_WALLET_ADDRESS=your-public-platform-fee-address
+     --substitutions=_FRONTEND_ORIGIN=https://your-frontend.example,_IMAGE_TAG=$(git rev-parse --short HEAD),_PRIVY_TREASURY_WALLET_ADDRESS=your-public-treasury-address,_PRIVY_SPONSOR_WALLET_ADDRESS=your-public-sponsor-address
    ```
 
    The frontend must also be built with
