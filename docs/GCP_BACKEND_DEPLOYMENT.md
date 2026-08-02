@@ -20,6 +20,8 @@ Grant the Cloud Run service account only the roles it needs:
 - Secret Manager Secret Accessor for InvoiceX secrets
 - Cloud SQL Client for the selected instance
 - Storage Object User for the private document bucket
+- Service Account Token Creator on itself, so the attached identity can sign
+  short-lived Cloud Storage download URLs (`iam.serviceAccounts.signBlob`)
 
 The Cloud Run deployment must use a user-managed service account. Do not set
 `GOOGLE_APPLICATION_CREDENTIALS` or ship a service-account JSON key in the
@@ -48,7 +50,21 @@ this list rather than treating the browser copy as authoritative.
 1. Create the Artifact Registry repository, GCS bucket, Cloud SQL instance,
    database, application user, and the secrets above.
 2. Grant the service-account permissions listed above.
-3. Run Cloud Build from the repository root. `cloudbuild.yaml` builds
+3. Run Cloud Build from the repository root, supplying the exact deployed
+   frontend origin. `cloudbuild.yaml` deliberately requires the
+   `_FRONTEND_ORIGIN` substitution rather than falling back to a permissive
+   CORS policy:
+
+   ```bash
+   gcloud builds submit --config=cloudbuild.yaml \
+     --substitutions=_FRONTEND_ORIGIN=https://your-frontend.example
+   ```
+
+   The frontend must also be built with
+   `VITE_API_BASE_URL=https://<Cloud-Run-service-url>` and
+   `VITE_USE_MOCK_API=false`.
+
+4. The Cloud Build configuration builds
    `backend/Dockerfile`, deploys Cloud Run with the GCP-only backend settings,
    and injects the sensitive settings from Secret Manager.
 
