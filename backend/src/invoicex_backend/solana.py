@@ -913,6 +913,78 @@ class PrivySolanaGateway:
             from_address=from_address,
         )
 
+    async def fund_development_wallet(
+        self,
+        *,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+        reference_id: str,
+    ) -> ChainTransferResult:
+        """Fund one external Devnet wallet from Agent Vault for local demos only.
+
+        This intentionally stays off the public API surface.  It is used by a
+        developer-run CLI when a test faucet is rate-limited.  The Treasury
+        wallet authorizes the USDC transfer, while the Sponsor wallet remains
+        the transaction fee payer whenever gasless mode is enabled.
+        """
+
+        if amount_usdc <= 0:
+            raise IntegrationError("개발용 지급 USDC 금액이 올바르지 않습니다.")
+        if amount_usdc > self._settings.solana_demo_transfer_amount_usdc:
+            raise IntegrationError("개발용 지급은 데모 전송 한도를 초과할 수 없습니다.")
+
+        try:
+            recipient = Pubkey.from_string(recipient_wallet_address)
+        except ValueError as exc:
+            raise IntegrationError("개발용 지급 대상 지갑 주소가 올바르지 않습니다.") from exc
+
+        treasury = Pubkey.from_string(await self._treasury_address())
+        fee_payer, fee_payer_wallet_id = await self._platform_fee_payer(fallback=treasury)
+        mint = Pubkey.from_string(self.stablecoin_mint_address)
+        treasury_usdc = get_associated_token_address(treasury, mint)
+        recipient_usdc = get_associated_token_address(recipient, mint)
+        instructions = [
+            create_idempotent_associated_token_account(
+                payer=fee_payer,
+                owner=recipient,
+                mint=mint,
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=treasury_usdc,
+                    mint=mint,
+                    dest=recipient_usdc,
+                    owner=treasury,
+                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    decimals=self._settings.solana_usdc_decimals,
+                )
+            ),
+        ]
+        transaction = await self._partially_signed_transaction(
+            payer=fee_payer,
+            instructions=instructions,
+            additional_signers=[],
+        )
+        if fee_payer_wallet_id is None:
+            return await self._sign_and_send(
+                wallet_id=self._settings.privy_treasury_wallet_id or "",
+                transaction=transaction,
+                reference_id=reference_id,
+                from_address=str(treasury),
+            )
+
+        treasury_signed = await self._sign_transaction(
+            wallet_id=self._settings.privy_treasury_wallet_id or "",
+            transaction=transaction,
+        )
+        return await self._sign_and_send(
+            wallet_id=fee_payer_wallet_id,
+            transaction=treasury_signed,
+            reference_id=reference_id,
+            from_address=str(treasury),
+        )
+
     async def _sign_and_send(
         self,
         *,

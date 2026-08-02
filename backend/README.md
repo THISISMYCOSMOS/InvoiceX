@@ -37,6 +37,17 @@ their private keys nor Privy secrets are sent to the frontend.
 
 2. Fund the Sponsor wallet with Devnet SOL and fund the investor's external
    wallet with Circle Devnet USDC using the Mint configured in `SOLANA_USDC_MINT`.
+   If the Circle faucet is rate-limited, a developer can fund **up to the demo
+   limit** from the existing Agent Vault using the local-only command below.
+   Review the dry run first; `--execute` is required to broadcast anything.
+
+   ```powershell
+   uv run python scripts/fund_devnet_wallet.py --wallet <INVESTOR_PUBLIC_ADDRESS> --amount-usdc 1
+   uv run python scripts/fund_devnet_wallet.py --wallet <INVESTOR_PUBLIC_ADDRESS> --amount-usdc 1 --execute
+   ```
+
+   The Treasury authorizes the USDC transfer and Sponsor pays the Devnet SOL
+   fee. This is deliberately not exposed as an HTTP API.
 
 3. Start the backend and frontend with `VITE_USE_MOCK_API=false`. The investor
    signs the policy and Vault deposit in their browser wallet. A qualifying RWA
