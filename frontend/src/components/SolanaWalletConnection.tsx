@@ -33,6 +33,7 @@ export function SolanaWalletConnection({
   const [copied, setCopied] = useState(false);
   const connectedAddressRef = useRef<string | null>(null);
   const isManualDisconnectRef = useRef(false);
+  const reconnectAttemptedWalletRef = useRef<string | null>(null);
 
   const supportedWallets = useMemo(() => {
     const knownWallets = supportedWalletNames.map((name) => ({ name, wallet: walletByName(wallets, name) }));
@@ -52,11 +53,18 @@ export function SolanaWalletConnection({
         : "DISCONNECTED";
 
   useEffect(() => {
-    if (!pendingWalletName || wallet?.adapter.name !== pendingWalletName || connected) {
+    if (!wallet || connected) {
+      return;
+    }
+
+    const selectedWalletName = wallet.adapter.name;
+    const isExplicitConnection = pendingWalletName === selectedWalletName;
+    if (!isExplicitConnection && reconnectAttemptedWalletRef.current === selectedWalletName) {
       return;
     }
 
     let isCurrent = true;
+    reconnectAttemptedWalletRef.current = selectedWalletName;
     void connect()
       .catch((connectionError: unknown) => {
         if (isCurrent) {
@@ -107,6 +115,7 @@ export function SolanaWalletConnection({
     }
 
     setPendingWalletName(name);
+    reconnectAttemptedWalletRef.current = null;
     select(availableWallet.adapter.name);
     setIsChooserOpen(false);
   };

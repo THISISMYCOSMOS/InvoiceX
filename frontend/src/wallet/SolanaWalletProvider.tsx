@@ -22,7 +22,10 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
   return (
     <ConnectionProvider endpoint={devnetRpcUrl}>
       <WalletProvider
-        autoConnect={import.meta.env.MODE !== "test"}
+        // SolanaWalletConnection owns both the explicit connection request and
+        // the safe reconnect attempt. Letting WalletProvider auto-connect at
+        // the same time races two Phantom connect requests after selection.
+        autoConnect={false}
         localStorageKey="invoicex-wallet-adapter"
         onError={() => undefined}
         wallets={wallets}

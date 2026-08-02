@@ -78,6 +78,14 @@ describe("SolanaWalletConnection", () => {
     expect(walletState.select).toHaveBeenCalledWith(null);
   });
 
+  test("reconnects a previously selected wallet through the same connection path", async () => {
+    walletState.wallet = { adapter: { name: "Phantom" } };
+    walletState.connect.mockResolvedValue();
+    renderConnection();
+
+    await waitFor(() => expect(walletState.connect).toHaveBeenCalledTimes(1));
+  });
+
   test("reactivates the connection button when an adapter leaves a stale connecting state", async () => {
     const user = userEvent.setup();
     walletState.connected = true;
