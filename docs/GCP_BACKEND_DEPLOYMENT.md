@@ -20,11 +20,13 @@ Grant the Cloud Run service account only the roles it needs:
 - Secret Manager Secret Accessor for InvoiceX secrets
 - Cloud SQL Client for the selected instance
 - Storage Object User for the private document bucket
-- Service Account Token Creator on itself when generating GCS signed download URLs
 
 The Cloud Run deployment must use a user-managed service account. Do not set
 `GOOGLE_APPLICATION_CREDENTIALS` or ship a service-account JSON key in the
 image; Google client libraries use Cloud Run's service identity automatically.
+When configuring that identity, grant Cloud Run's service agent permission to
+attach and sign on behalf of it as required by the Cloud Run service-identity
+guide. The deployer also needs Service Account User on this identity.
 
 ## Fixed demo data
 

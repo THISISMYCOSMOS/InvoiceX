@@ -8,7 +8,8 @@
 - Gemini 문서 분석은 실제 API 호출 구조가 있습니다.
 - Solana RWA 발행·Vault·자동 매수 코드도 준비돼 있습니다.
 - 다만 실행 키, 테스트 USDC mint, Privy 설정이 없어 현재 Solana는 Mock으로 동작합니다.
-- Firebase, Cloud Run, Cloud Storage, Secret Manager는 아직 연결돼 있지 않습니다.
+- Cloud Run용 코드 경로는 Cloud SQL, private Cloud Storage, Secret Manager를 사용하도록 준비돼 있습니다.
+- 실제 GCP 프로젝트의 리소스 생성과 Cloud Run 배포는 아직 수행되지 않았습니다.
 
 즉, 이번 목표는 모든 운영 인프라를 만드는 것이 아니라, **Devnet에서 RWA 발행 → Agent 자동 매수 → 공급기업 USDC 수령을 실제로 한 번 성공시키는 것**입니다.
 
@@ -43,7 +44,7 @@ OFFER_READY → RWA_ISSUED → FUNDING → FUNDED
 - **RWA Issuer/Escrow**: RWA를 발행하고 매수 전까지 보관하는 지갑
 - **Gas Sponsor**: Devnet SOL을 보유하고 가스비를 대신 내는 지갑
 
-서비스 지갑을 하나의 팀이 관리할 수는 있지만, 데모에서 실제 RWA 이동과 USDC 지급을 확인하려면 Agent Vault와 RWA Escrow 주소는 분리합니다. 개인키, Privy Secret, Gemini Key는 프론트엔드·Git·Firestore에 넣지 않습니다.
+서비스 지갑을 하나의 팀이 관리할 수는 있지만, 데모에서 실제 RWA 이동과 USDC 지급을 확인하려면 Agent Vault와 RWA Escrow 주소는 분리합니다. 개인키, Privy Secret, Gemini Key는 프론트엔드·Git·Cloud SQL·Cloud Storage에 넣지 않습니다.
 
 ## 4. Solana / Privy 작업
 
@@ -102,7 +103,7 @@ GASLESS_DEPOSIT_MAX_USDC=<데모 한도>
 
 같은 인보이스가 두 번 지급되지 않도록 `invoice_id` 기준 중복 실행 방지는 반드시 넣습니다.
 
-## 6. Firebase / GCP — 데모에 필요한 최소 범위
+## 6. GCP — 데모에 필요한 최소 범위
 
 GCP 활용을 보여주되, 데모에서는 아래 네 가지만 연결하면 충분합니다.
 
@@ -110,12 +111,12 @@ GCP 활용을 보여주되, 데모에서는 아래 네 가지만 연결하면 �
 | --- | --- |
 | Cloud Run | FastAPI backend 실행 |
 | Secret Manager | Gemini·Privy·RPC·서비스 지갑 비밀값 보관 |
-| Cloud Storage | 업로드한 PDF 문서 저장 |
-| Firestore | 인보이스, Mandate, Vault 예치, RWA, 거래 상태 저장 |
+| Cloud Storage | 업로드한 PDF·이미지를 private bucket에 저장하고 signed URL 발급 |
+| Cloud SQL for PostgreSQL | 인보이스, Mandate, Vault 예치, RWA, 거래 상태 저장 |
 
 Cloud Run 기본 로그로 Gemini·Solana 오류를 확인할 수 있게 `invoice_id`를 로그에 남깁니다.
 
-Firestore에는 데모에 필요한 상태만 저장합니다.
+Cloud SQL에는 데모에 필요한 상태만 저장합니다.
 
 ```text
 invoices
@@ -125,7 +126,7 @@ rwaAssets
 transactions
 ```
 
-Firebase는 지갑 키를 저장하거나 거래를 서명하는 곳이 아닙니다. 지갑 관련 비밀값은 Secret Manager 또는 Privy에만 둡니다.
+Cloud Storage와 Cloud SQL은 지갑 키를 저장하거나 거래를 서명하는 곳이 아닙니다. 지갑 관련 비밀값은 Secret Manager 또는 Privy에만 둡니다.
 
 Cloud Build, Artifact Registry, Cloud Tasks, Cloud Scheduler, Pub/Sub, Vertex AI 전환은 데모 이후 확장 항목으로 둡니다. 현재 Gemini API 호출을 Vertex AI라고 표현하지 않습니다.
 
@@ -149,7 +150,7 @@ Cloud Build, Artifact Registry, Cloud Tasks, Cloud Scheduler, Pub/Sub, Vertex AI
 - RWA 발행 / Vault 예치 / 자동 매수 Explorer 링크
 - 공급기업 USDC 증가, Vault RWA 보유, Sponsor SOL 차감 캡처
 - Cloud Run URL
-- Firestore와 Cloud Storage 연결 여부
+- Cloud SQL과 Cloud Storage 연결 여부
 
 ## 9. 이번 데모에서 하지 않는 것
 

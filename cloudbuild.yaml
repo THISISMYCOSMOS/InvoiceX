@@ -36,3 +36,6 @@ steps:
 
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${COMMIT_SHA}
+
+options:
+  dynamic_substitutions: true
