@@ -21,6 +21,7 @@ from invoicex_backend.errors import (
     NotFoundError,
     StateConflictError,
 )
+from invoicex_backend.secrets import load_settings
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import create_solana_gateway
 from invoicex_backend.storage import LocalDocumentStorage
@@ -32,7 +33,7 @@ def create_app(
 ) -> FastAPI:
     """Create the API and allow dependency injection for contract tests."""
 
-    resolved_settings = settings or BackendSettings()
+    resolved_settings = settings or load_settings()
     if service is None:
         storage = LocalDocumentStorage(resolved_settings)
         service = InvoiceService(
