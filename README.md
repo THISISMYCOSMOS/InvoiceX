@@ -27,12 +27,18 @@ InvoiceX는 공급기업의 인보이스를 Gemini로 분석하고 구매기업�
 
 ```mermaid
 flowchart LR
-    S["공급기업\n문서 4종 업로드"] --> GCS["Private Cloud Storage\n원본 문서"]
-    S --> AI["Gemini Document Agent\nRisk Agent"]
+    S["공급기업"] --> WEB["React Web\nDocker · Cloud Run"]
+    B["구매기업"] --> WEB
+    I["투자자"] --> WEB
+    WEB --> API["FastAPI API · Treasury Agent\nDocker · Cloud Run"]
+    BUILD["Cloud Build\nDockerfile 빌드"] --> REG["Artifact Registry\nContainer Image"]
+    REG --> WEB
+    REG --> API
+    API --> GCS["Private Cloud Storage\n원본 문서"]
+    API --> AI["Gemini Document Agent\nRisk Agent"]
     AI --> DB["Cloud SQL\n인보이스·Risk Passport"]
-    B["구매기업\n문서 검증"] --> DB
     DB --> RWA["Privy Issuer / Escrow\nSolana Devnet RWA 발행"]
-    I["투자자\nMandate 서명·USDC 예치"] --> V["Privy Treasury\nAgent Vault"]
+    API --> V["Privy Treasury\nAgent Vault"]
     RWA --> TA["Treasury Agent\n정책 자동 평가"]
     V --> TA
     TA --> P["USDC → 공급기업\nRWA → Agent Vault"]
@@ -87,16 +93,17 @@ flowchart LR
 | AI | Google Gemini | 문서 4종의 멀티모달 분석, 필드 추출, 인보이스 위험 서술과 Risk Passport 생성 |
 | 데이터 | Cloud SQL for PostgreSQL | 인보이스, 검증, Mandate, Vault, RWA, Agent Decision의 영속화 |
 | 문서 저장소 | Google Cloud Storage | 비공개 원본 PDF·이미지 저장, 짧은 만료시간의 Signed URL로 구매기업 미리보기 제공 |
-| 배포 / 보안 | Cloud Run, Cloud Build, Artifact Registry, Secret Manager | 컨테이너 배포, 이미지 보관, 환경별 비밀 주입, 공개 Web/API 서비스 운영 |
+| 컨테이너 / 배포 / 보안 | Docker, Dockerfile, Cloud Run, Cloud Build, Artifact Registry, Secret Manager | Dockerfile로 Web·API 이미지를 빌드하고, 이미지 보관·Cloud Run 배포·환경별 비밀 주입을 수행 |
 | 온체인 | Solana Devnet, Circle USDC Devnet, SPL Token, Privy | RWA mint·escrow, USDC 예치·지급, 서비스 지갑 서명, Sponsor 지갑 수수료 대납 |
 
 ### GCP 운영 구성
 
+- **Docker / Cloud Build**: Web과 API의 Dockerfile로 컨테이너 이미지를 빌드하고, Cloud Build가 이를 Artifact Registry에 푸시합니다.
+- **Artifact Registry / Cloud Run**: 저장된 컨테이너 이미지를 Cloud Run revision으로 배포해 Web과 API를 각각 실행합니다.
 - **Cloud Run**: React Web과 FastAPI API를 별도 서비스로 배포했습니다. 프런트엔드 허용 Origin은 환경 변수로 관리합니다.
 - **Cloud SQL**: 로컬 SQLite와 같은 aggregate 경계를 유지하면서 PostgreSQL JSONB 기반 영속화를 사용합니다.
 - **Cloud Storage**: 문서는 공개 URL이 아닌 버킷 객체 경로로 보관하고, 조회 시에만 짧게 유효한 Signed URL을 만듭니다.
 - **Secret Manager**: Gemini API key, Privy credential, Cloud SQL 비밀번호, 인증 비밀, RPC 설정을 코드와 Git에서 분리합니다.
-- **Artifact Registry / Cloud Build**: backend와 frontend 이미지를 빌드하고 Cloud Run revision으로 배포합니다.
 
 ## Mandate와 Treasury Agent
 
@@ -122,15 +129,6 @@ Treasury Agent는 단순 버튼 자동화가 아닙니다. RWA가 발행되거�
 | 4. 상업성·기관 적용성 / UX·혁신성 | 공급·구매·투자 역할 분리, 원본 문서 검증, 정책 한도와 감사 가능한 Agent Decision, 비공개 문서 저장, Sponsor 지갑 기반 가스리스 Devnet UX를 제공합니다. **Passkey는 현재 구현 범위가 아닙니다.** |
 | 5. 실제 온체인 실행 | 위 Explorer 링크의 RWA 발행 및 Treasury Agent 자동 USDC 지급은 Devnet에서 실제로 확인할 수 있습니다. |
 | 가산점 | A2A, Solana Mobile, SendAI, cNFT 등은 현재 제출물의 구현 범위로 주장하지 않습니다. |
-
-## 팀
-
-저장소 기여 범위를 기준으로 역할을 정리했습니다. 실명 대신 GitHub 작업 식별자를 사용합니다.
-
-| 구성원 | 담당 |
-| --- | --- |
-| `cosmos` | Backend / AI Agent — Gemini 문서·위험 분석, 도메인 API, Mandate 정책, Cloud SQL·Secret Manager 기반 영속화 |
-| `ik-s` | Product Engineering / On-chain & GCP — 역할별 UX, 지갑·Privy·Solana Devnet 통합, 가스리스 흐름, Cloud Run 배포와 엔드투엔드 데모 |
 
 ## 데모 범위와 의도적 제한
 
