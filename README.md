@@ -33,3 +33,10 @@ section in `backend/README.md`. Keep `PRIVY_APP_SECRET` only in
 `backend/.env` locally or Secret Manager on Cloud Run; never put it in a Vite
 environment file. The older direct keypair tooling is for isolated local tests
 only.
+
+## GCP / Cloud Run backend
+
+The deployed backend uses Cloud SQL for aggregate state, private Cloud Storage
+for invoice PDFs and images, and Secret Manager for credentials. Deployment
+resources, fixed demo accounts, required IAM roles, and Cloud Build setup are
+documented in [`docs/GCP_BACKEND_DEPLOYMENT.md`](docs/GCP_BACKEND_DEPLOYMENT.md).

@@ -1066,6 +1066,10 @@ class InvoiceService:
 
     def _copy_invoice(self, invoice: Invoice) -> Invoice:
         copy = invoice.model_copy(deep=True)
+        copy.documents = [
+            document.model_copy(update={"storage_url": self._storage.presentation_url(document)})
+            for document in copy.documents
+        ]
         copy.rwa_asset = self._repository.get_rwa_asset(invoice.id)
         copy.agent_decision = self._repository.get_decision(invoice.id)
         return copy

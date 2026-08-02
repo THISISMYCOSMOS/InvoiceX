@@ -209,6 +209,7 @@ def test_upload_limit_is_enforced_before_agent_call(tmp_path: Path) -> None:
 def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
     schema = client.get("/api/docs-json").json()
     expected_paths = {
+        "/api/v1/auth/login",
         "/api/v1/invoices",
         "/api/v1/invoices/{invoiceId}",
         "/api/v1/invoices/{invoiceId}/verification-request",
@@ -226,6 +227,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/investor/vault/deposits/confirm",
         "/api/v1/supplier/wallet",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
+        "/api/v1/reference/investment-criteria/buyers",
     }
     assert set(schema["paths"]) == expected_paths
     request_schema = schema["paths"]["/api/v1/invoices"]["post"]["requestBody"]["content"][
@@ -240,3 +242,48 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "DELIVERY_PROOF",
     }
     assert set(multipart["required"]) == set(multipart["properties"])
+
+
+def test_fixed_demo_accounts_issue_tokens_and_protect_gcp_api(tmp_path: Path) -> None:
+    settings = mock_settings(
+        tmp_path / "uploads",
+        API_AUTH_REQUIRED=True,
+        AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
+    )
+    with TestClient(create_app(settings=settings)) as authenticated_client:
+        blocked = authenticated_client.get("/api/v1/invoices")
+        assert blocked.status_code == 401
+
+        login = authenticated_client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Investor",
+                "email": "investor@company.com",
+                "password": "investor",
+            },
+        )
+        assert login.status_code == 200
+        token = login.json()["accessToken"]
+        assert login.json()["role"] == "Investor"
+
+        buyers = authenticated_client.get(
+            "/api/v1/reference/investment-criteria/buyers",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert buyers.status_code == 200
+        assert [buyer["name"] for buyer in buyers.json()] == [
+            "Prime Mobility",
+            "Orbit Components",
+            "Daon Logistics",
+            "Vertex Retail",
+        ]
+
+        rejected = authenticated_client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Investor",
+                "email": "investor@company.com",
+                "password": "wrong-password",
+            },
+        )
+        assert rejected.status_code == 401

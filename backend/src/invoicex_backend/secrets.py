@@ -24,6 +24,8 @@ MANAGED_SECRET_KEYS: dict[str, str] = {
     "PRIVY_RWA_ISSUER_WALLET_ID": "privy-rwa-issuer-wallet-id",
     "PRIVY_SPONSOR_WALLET_ID": "privy-sponsor-wallet-id",
     "SOLANA_RPC_URL": "solana-rpc-url",
+    "CLOUD_SQL_PASSWORD": "cloud-sql-password",
+    "AUTH_TOKEN_SECRET": "auth-token-secret",
 }
 
 

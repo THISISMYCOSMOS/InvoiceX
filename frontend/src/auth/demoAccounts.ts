@@ -10,6 +10,7 @@ export interface DemoSession {
   role: LoginRole;
   email: string;
   authenticatedAt: string;
+  accessToken?: string;
 }
 
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
@@ -34,15 +35,39 @@ export function authenticateDemoAccount(
   );
 }
 
-export function saveDemoSession(account: DemoAccount, remember: boolean) {
+export function saveDemoSession(
+  account: Pick<DemoAccount, "role" | "email">,
+  remember: boolean,
+  accessToken?: string,
+) {
   const session: DemoSession = {
     role: account.role,
     email: account.email,
     authenticatedAt: new Date().toISOString(),
+    accessToken,
   };
   const target = remember ? window.localStorage : window.sessionStorage;
   const other = remember ? window.sessionStorage : window.localStorage;
 
   other.removeItem(DEMO_SESSION_KEY);
   target.setItem(DEMO_SESSION_KEY, JSON.stringify(session));
+}
+
+export function getDemoSession(): DemoSession | undefined {
+  const values = [window.sessionStorage.getItem(DEMO_SESSION_KEY), window.localStorage.getItem(DEMO_SESSION_KEY)];
+  for (const value of values) {
+    if (!value) continue;
+    try {
+      const session = JSON.parse(value) as DemoSession;
+      if (session.role && session.email) return session;
+    } catch {
+      // Treat an invalid persisted value as logged out.
+    }
+  }
+  return undefined;
+}
+
+export function getAuthorizationHeader(): HeadersInit {
+  const token = getDemoSession()?.accessToken;
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }

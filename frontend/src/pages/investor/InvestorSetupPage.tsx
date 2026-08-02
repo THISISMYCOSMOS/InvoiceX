@@ -3,12 +3,16 @@ import bs58 from "bs58";
 import { VersionedTransaction } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
-import { rwaApi, type InvestorMandate, type MandatePolicyInput } from "../../api/rwa.api";
+import {
+  rwaApi,
+  type InvestorMandate,
+  type MandatePolicyInput,
+} from "../../api/rwa.api";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
 
-const mockBuyerCompanies = [
+const fallbackBuyerCompanies = [
   "Prime Mobility",
   "Orbit Components",
   "Daon Logistics",
@@ -72,6 +76,7 @@ export function InvestorSetupPage() {
   const walletUsdcBalance = useDevnetUsdcBalance();
   const connectedWalletAddress = publicKey?.toBase58() ?? null;
   const [policy, setPolicy] = useState(defaultPolicy);
+  const [buyerCompanies, setBuyerCompanies] = useState<readonly string[]>(fallbackBuyerCompanies);
   const [depositAmount, setDepositAmount] = useState("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
@@ -87,6 +92,18 @@ export function InvestorSetupPage() {
   const [vaultAddress, setVaultAddress] = useState<string | null>(null);
   const [isVaultBalanceLoading, setIsVaultBalanceLoading] = useState(false);
   const [vaultBalanceLoadFailed, setVaultBalanceLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void rwaApi.getInvestmentCriteriaBuyers()
+      .then((buyers) => {
+        if (!cancelled && buyers.length > 0) setBuyerCompanies(buyers.map((buyer) => buyer.name));
+      })
+      .catch(() => {
+        // Keep the known demo values available if a reference-data request fails.
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!connectedWalletAddress) {
@@ -396,7 +413,7 @@ export function InvestorSetupPage() {
                       <MagnifyingGlass size={17} aria-hidden="true" />
                     </label>
                     <div className="investor-policy-multiselect__options" role="listbox" aria-multiselectable="true">
-                    {mockBuyerCompanies.filter((buyer) => buyer.toLowerCase().includes(buyerSearch.trim().toLowerCase())).map((buyer) => {
+                    {buyerCompanies.filter((buyer) => buyer.toLowerCase().includes(buyerSearch.trim().toLowerCase())).map((buyer) => {
                       const isSelected = policy.buyerAllowlist.includes(buyer);
                       return (
                         <label key={buyer} className={isSelected ? "is-selected" : ""}>

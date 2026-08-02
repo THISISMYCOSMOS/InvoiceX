@@ -37,6 +37,68 @@ class BackendSettings(BaseSettings):
         validation_alias="MAX_DOCUMENT_SIZE_BYTES",
         ge=1,
     )
+    deployment_target: Literal["local", "gcp"] = Field(
+        default="local",
+        validation_alias="DEPLOYMENT_TARGET",
+    )
+    persistence_backend: Literal["sqlite", "cloud_sql"] = Field(
+        default="sqlite",
+        validation_alias="PERSISTENCE_BACKEND",
+    )
+    document_storage_backend: Literal["local", "gcs"] = Field(
+        default="local",
+        validation_alias="DOCUMENT_STORAGE_BACKEND",
+    )
+    gcp_project_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GCP_PROJECT_ID", "GOOGLE_CLOUD_PROJECT"),
+    )
+    cloud_sql_instance_connection_name: str | None = Field(
+        default=None,
+        validation_alias="CLOUD_SQL_INSTANCE_CONNECTION_NAME",
+    )
+    cloud_sql_database: str | None = Field(
+        default=None,
+        validation_alias="CLOUD_SQL_DATABASE",
+    )
+    cloud_sql_user: str | None = Field(
+        default=None,
+        validation_alias="CLOUD_SQL_USER",
+    )
+    cloud_sql_password: str | None = Field(
+        default=None,
+        validation_alias="CLOUD_SQL_PASSWORD",
+    )
+    cloud_sql_ip_type: Literal["public", "private"] = Field(
+        default="public",
+        validation_alias="CLOUD_SQL_IP_TYPE",
+    )
+    gcs_document_bucket: str | None = Field(
+        default=None,
+        validation_alias="GCS_DOCUMENT_BUCKET",
+    )
+    gcs_document_prefix: str = Field(
+        default="invoices",
+        validation_alias="GCS_DOCUMENT_PREFIX",
+    )
+    gcs_signed_url_ttl_seconds: int = Field(
+        default=900,
+        validation_alias="GCS_SIGNED_URL_TTL_SECONDS",
+        ge=60,
+        le=3600,
+    )
+    api_auth_required: bool = Field(default=False, validation_alias="API_AUTH_REQUIRED")
+    auth_token_secret: str = Field(
+        default="local-development-only-token-secret",
+        validation_alias="AUTH_TOKEN_SECRET",
+        min_length=32,
+    )
+    auth_token_ttl_seconds: int = Field(
+        default=60 * 60 * 8,
+        validation_alias="AUTH_TOKEN_TTL_SECONDS",
+        ge=300,
+        le=60 * 60 * 24,
+    )
 
     agent_mode: Literal["auto", "real", "mock"] = Field(
         default="auto",
@@ -188,6 +250,26 @@ class BackendSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_explicit_real_modes(self) -> BackendSettings:
+        if self.deployment_target == "gcp":
+            missing = {
+                "GCP_PROJECT_ID": self.gcp_project_id,
+                "CLOUD_SQL_INSTANCE_CONNECTION_NAME": self.cloud_sql_instance_connection_name,
+                "CLOUD_SQL_DATABASE": self.cloud_sql_database,
+                "CLOUD_SQL_USER": self.cloud_sql_user,
+                "CLOUD_SQL_PASSWORD": self.cloud_sql_password,
+                "GCS_DOCUMENT_BUCKET": self.gcs_document_bucket,
+            }
+            absent = [name for name, value in missing.items() if not self._non_blank(value)]
+            if absent:
+                raise ValueError(
+                    "DEPLOYMENT_TARGET=gcp requires configuration: " + ", ".join(absent)
+                )
+            if self.persistence_backend != "cloud_sql":
+                raise ValueError("DEPLOYMENT_TARGET=gcp requires PERSISTENCE_BACKEND=cloud_sql")
+            if self.document_storage_backend != "gcs":
+                raise ValueError("DEPLOYMENT_TARGET=gcp requires DOCUMENT_STORAGE_BACKEND=gcs")
+            if not self.api_auth_required:
+                raise ValueError("DEPLOYMENT_TARGET=gcp requires API_AUTH_REQUIRED=true")
         if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
             raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")
         if self.solana_mode == "privy":

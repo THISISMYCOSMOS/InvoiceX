@@ -1,4 +1,5 @@
 import { isMockApi } from "./client";
+import { getAuthorizationHeader } from "../auth/demoAccounts";
 
 export interface MandatePolicyInput {
   totalInvestmentLimitUsdc: number;
@@ -44,11 +45,19 @@ export interface VaultBalance {
   updatedAt: string;
 }
 
+export interface InvestmentCriteriaBuyer {
+  id: string;
+  name: string;
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 const apiBase = `${apiBaseUrl.replace(/\/$/, "")}/api/v1`;
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBase}${path}`, init);
+  const response = await fetch(`${apiBase}${path}`, {
+    ...init,
+    headers: { ...getAuthorizationHeader(), ...init.headers },
+  });
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => undefined);
     const message = typeof body === "object" && body !== null && "message" in body
@@ -60,7 +69,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
 }
 
 async function requestOrNullOn404<T>(path: string): Promise<T | null> {
-  const response = await fetch(`${apiBase}${path}`);
+  const response = await fetch(`${apiBase}${path}`, { headers: getAuthorizationHeader() });
   if (response.status === 404) return null;
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => undefined);
@@ -73,11 +82,25 @@ async function requestOrNullOn404<T>(path: string): Promise<T | null> {
 }
 
 export const rwaApi = {
+  async getInvestmentCriteriaBuyers(): Promise<InvestmentCriteriaBuyer[]> {
+    if (isMockApi) {
+      return [
+        { id: "BUYER_PRIME", name: "Prime Mobility" },
+        { id: "BUYER_ORBIT", name: "Orbit Components" },
+        { id: "BUYER_DAON", name: "Daon Logistics" },
+        { id: "BUYER_VERTEX", name: "Vertex Retail" },
+      ];
+    }
+    return request<InvestmentCriteriaBuyer[]>("/reference/investment-criteria/buyers", {
+      method: "GET",
+    });
+  },
+
   async saveSupplierWallet(walletAddress: string): Promise<void> {
     if (isMockApi) return;
     const response = await fetch(`${apiBase}/supplier/wallet`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...getAuthorizationHeader(), "Content-Type": "application/json" },
       body: JSON.stringify({ walletAddress }),
     });
     if (!response.ok) throw new Error("정산 지갑을 저장하지 못했습니다. 다시 연결해 주세요.");

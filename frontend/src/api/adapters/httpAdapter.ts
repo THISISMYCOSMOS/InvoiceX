@@ -6,6 +6,7 @@ import type {
   InvoiceStatus,
   VerificationRequest,
 } from "../../types/invoice";
+import { getAuthorizationHeader } from "../../auth/demoAccounts";
 import type { OfferResponse, ScenarioAdapter } from "./contracts";
 
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -78,10 +79,17 @@ function stripTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function authenticatedRequest(init: RequestInit): RequestInit {
+  return {
+    ...init,
+    headers: { ...getAuthorizationHeader(), ...init.headers },
+  };
+}
+
 export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: string): ScenarioAdapter {
   const base = stripTrailingSlash(baseUrl);
   const request = async <T>(path: string, init: RequestInit): Promise<T> => {
-    const response = await fetchImpl(`${base}${path}`, init);
+    const response = await fetchImpl(`${base}${path}`, authenticatedRequest(init));
     if (!response.ok) {
       const rawMessage = await response.text();
       let message = rawMessage;

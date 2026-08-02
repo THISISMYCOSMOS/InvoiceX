@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from invoicex_backend.agents import create_agent_gateway
-from invoicex_backend.api import router
+from invoicex_backend.api import auth_router, router
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     BackendError,
@@ -21,10 +21,23 @@ from invoicex_backend.errors import (
     NotFoundError,
     StateConflictError,
 )
+from invoicex_backend.repository import CloudSqlRwaRepository, SQLiteRwaRepository
 from invoicex_backend.secrets import load_settings
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import create_solana_gateway
-from invoicex_backend.storage import LocalDocumentStorage
+from invoicex_backend.storage import GcsDocumentStorage, LocalDocumentStorage
+
+
+def create_repository(settings: BackendSettings):
+    if settings.persistence_backend == "cloud_sql":
+        return CloudSqlRwaRepository.from_settings(settings)
+    return SQLiteRwaRepository(settings.rwa_database_path)
+
+
+def create_document_storage(settings: BackendSettings):
+    if settings.document_storage_backend == "gcs":
+        return GcsDocumentStorage(settings)
+    return LocalDocumentStorage(settings)
 
 
 def create_app(
@@ -34,16 +47,15 @@ def create_app(
     """Create the API and allow dependency injection for contract tests."""
 
     resolved_settings = settings or load_settings()
+    storage = create_document_storage(resolved_settings)
     if service is None:
-        storage = LocalDocumentStorage(resolved_settings)
         service = InvoiceService(
             settings=resolved_settings,
             agent_gateway=create_agent_gateway(resolved_settings),
             solana_gateway=create_solana_gateway(resolved_settings),
             storage=storage,
+            repository=create_repository(resolved_settings),
         )
-    else:
-        storage = LocalDocumentStorage(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -70,6 +82,7 @@ def create_app(
         ],
     )
     app.state.invoice_service = service
+    app.state.settings = resolved_settings
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[resolved_settings.frontend_origin],
@@ -77,12 +90,14 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.include_router(auth_router)
     app.include_router(router)
-    app.mount(
-        "/uploads",
-        StaticFiles(directory=storage.directory),
-        name="uploads",
-    )
+    if isinstance(storage, LocalDocumentStorage):
+        app.mount(
+            "/uploads",
+            StaticFiles(directory=storage.directory),
+            name="uploads",
+        )
 
     @app.exception_handler(NotFoundError)
     async def not_found_handler(_: Request, exc: NotFoundError) -> JSONResponse:

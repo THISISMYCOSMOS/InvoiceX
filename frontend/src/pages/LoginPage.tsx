@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { authApi } from "../api/auth.api";
+import { isMockApi } from "../api/client";
 import { Brand } from "../components/Brand";
 import { LanguageToggle } from "../components/LanguageToggle";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -21,24 +23,36 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const account = authenticateDemoAccount(
-      role,
-      String(formData.get("email") ?? ""),
-      String(formData.get("password") ?? ""),
-    );
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
+    const remember = formData.get("remember") === "on";
 
-    if (!account) {
-      setLoginError(t(
-        "Check the selected role, email, and password.",
-        "선택한 역할, 이메일, 비밀번호를 확인해 주세요.",
-      ));
-      return;
+    if (isMockApi) {
+      const account = authenticateDemoAccount(role, email, password);
+      if (!account) {
+        setLoginError(t(
+          "Check the selected role, email, and password.",
+          "선택한 역할, 이메일, 비밀번호를 확인해 주세요.",
+        ));
+        return;
+      }
+      saveDemoSession(account, remember);
+    } else {
+      try {
+        const account = await authApi.login(role, email, password);
+        saveDemoSession(account, remember, account.accessToken);
+      } catch {
+        setLoginError(t(
+          "Check the selected role, email, and password.",
+          "선택한 역할, 이메일, 비밀번호를 확인해 주세요.",
+        ));
+        return;
+      }
     }
 
-    saveDemoSession(account, formData.get("remember") === "on");
     setLoginError(undefined);
     navigate(roleRoutes[role]);
   };

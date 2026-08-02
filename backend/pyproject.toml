@@ -4,8 +4,10 @@ version = "0.1.0"
 description = "FastAPI backend implementing the InvoiceX frontend API contract"
 requires-python = ">=3.11"
 dependencies = [
+  "cloud-sql-python-connector[pg8000]>=1.18,<2",
   "fastapi>=0.116,<1",
   "google-cloud-secret-manager>=2.20,<3",
+  "google-cloud-storage>=2.20,<4",
   "httpx>=0.28,<1",
   "invoicex-agents",
   "pydantic-settings>=2.7,<3",

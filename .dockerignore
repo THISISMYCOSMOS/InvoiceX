@@ -1,0 +1,14 @@
+.git
+.gitignore
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/dist
+**/*.pyc
+backend/uploads
+backend/*.sqlite3
+frontend/.env.local
+output
+scripts

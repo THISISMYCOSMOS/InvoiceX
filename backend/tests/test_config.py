@@ -89,3 +89,24 @@ def test_direct_mode_requires_keys_and_selects_direct_when_configured() -> None:
         DEMO_STABLECOIN_MINT=str(Pubkey.new_unique()),
     )
     assert settings.resolved_solana_mode() == "direct"
+
+
+def test_gcp_target_requires_managed_persistence_and_storage() -> None:
+    with pytest.raises(ValidationError, match="DEPLOYMENT_TARGET=gcp"):
+        BackendSettings(_env_file=None, DEPLOYMENT_TARGET="gcp")
+
+    settings = BackendSettings(
+        _env_file=None,
+        DEPLOYMENT_TARGET="gcp",
+        PERSISTENCE_BACKEND="cloud_sql",
+        DOCUMENT_STORAGE_BACKEND="gcs",
+        API_AUTH_REQUIRED=True,
+        GCP_PROJECT_ID="invoicex-demo",
+        CLOUD_SQL_INSTANCE_CONNECTION_NAME="invoicex-demo:asia-northeast3:invoicex",
+        CLOUD_SQL_DATABASE="invoicex",
+        CLOUD_SQL_USER="invoicex_app",
+        CLOUD_SQL_PASSWORD="cloud-sql-password-from-secret-manager",
+        GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
+    )
+    assert settings.persistence_backend == "cloud_sql"
+    assert settings.document_storage_backend == "gcs"

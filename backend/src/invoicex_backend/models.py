@@ -100,6 +100,31 @@ class OfferResponse(StrEnum):
     DECLINE = "DECLINE"
 
 
+class LoginRole(StrEnum):
+    SUPPLIER = "Supplier"
+    BUYER = "Buyer"
+    INVESTOR = "Investor"
+
+
+class InvestmentCriteriaBuyer(ApiModel):
+    id: str
+    name: str
+
+
+class LoginRequest(ApiModel):
+    role: LoginRole
+    email: str
+    password: str
+
+
+class LoginResponse(ApiModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    role: LoginRole
+    email: str
+    expires_at: str
+
+
 class InvoiceParty(ApiModel):
     id: str
     name: str

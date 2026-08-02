@@ -9,6 +9,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    HTTPException,
     Path,
     Query,
     Request,
@@ -16,16 +17,25 @@ from fastapi import (
     status,
 )
 
+from invoicex_backend.auth import (
+    AuthenticatedIdentity,
+    issue_access_token,
+    require_authenticated_identity,
+)
+from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import DocumentValidationError, NotFoundError
 from invoicex_backend.models import (
     ConfirmVaultDepositRequest,
     CreateMandateRequest,
     DocumentType,
     ErrorResponse,
+    InvestmentCriteriaBuyer,
     InvestorDashboard,
     InvestorMandate,
     InvoiceListResponse,
     InvoiceResponse,
+    LoginRequest,
+    LoginResponse,
     MandateSigningPayload,
     OfferResponseRequest,
     PrepareMandateRequest,
@@ -38,9 +48,14 @@ from invoicex_backend.models import (
     VerificationListResponse,
     VerificationResponse,
 )
+from invoicex_backend.seed import INVESTMENT_CRITERIA_BUYERS, authenticate_demo_account
 from invoicex_backend.service import InvoiceService
 
-router = APIRouter(prefix="/api/v1")
+auth_router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
+router = APIRouter(
+    prefix="/api/v1",
+    dependencies=[Depends(require_authenticated_identity)],
+)
 
 
 def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
@@ -61,6 +76,13 @@ def get_invoice_service(request: Request) -> InvoiceService:
 
 
 InvoiceServiceDependency = Annotated[InvoiceService, Depends(get_invoice_service)]
+
+
+def get_settings(request: Request) -> BackendSettings:
+    return cast(BackendSettings, request.app.state.settings)
+
+
+SettingsDependency = Annotated[BackendSettings, Depends(get_settings)]
 InvoiceFile = Annotated[
     UploadFile,
     File(
@@ -101,6 +123,39 @@ VerificationId = Annotated[
         examples=["VER-2026-001"],
     ),
 ]
+
+
+@auth_router.post(
+    "/login",
+    response_model=LoginResponse,
+    responses={401: {"model": ErrorResponse, "description": "Invalid demo account credentials"}},
+    summary="고정 데모 계정 로그인",
+)
+async def login(payload: LoginRequest, settings: SettingsDependency) -> LoginResponse:
+    account = authenticate_demo_account(payload.role, payload.email, payload.password)
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid demo credentials.",
+        )
+    identity = AuthenticatedIdentity(role=account.role, email=account.email)
+    access_token, expires_at = issue_access_token(identity, settings)
+    return LoginResponse(
+        access_token=access_token,
+        role=account.role,
+        email=account.email,
+        expires_at=expires_at,
+    )
+
+
+@router.get(
+    "/reference/investment-criteria/buyers",
+    response_model=list[InvestmentCriteriaBuyer],
+    tags=["Investor"],
+    summary="투자 조건용 목업 구매기업 목록",
+)
+async def list_investment_criteria_buyers() -> list[InvestmentCriteriaBuyer]:
+    return list(INVESTMENT_CRITERIA_BUYERS)
 
 
 @router.post(
