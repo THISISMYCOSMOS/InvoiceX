@@ -2,6 +2,7 @@ import { Copy, LinkSimple, Plug, Wallet as WalletIcon } from "@phosphor-icons/re
 import { useWallet, type Wallet as AdapterWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConnectedSolanaWallet } from "../hooks/useConnectedSolanaWallet";
+import { useDevnetUsdcBalance } from "../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../i18n/LanguageContext";
 import { shortenWalletAddress, walletErrorMessage, type WalletConnectionStatus } from "../wallet/walletConnectionUtils";
 
@@ -26,6 +27,7 @@ export function SolanaWalletConnection({
 }: SolanaWalletConnectionProps) {
   const { connect, disconnect, select, wallet, wallets } = useWallet();
   const { connected, publicKey, walletName } = useConnectedSolanaWallet();
+  const walletUsdcBalance = useDevnetUsdcBalance();
   const { t } = useLanguage();
   const [isChooserOpen, setIsChooserOpen] = useState(false);
   const [pendingWalletName, setPendingWalletName] = useState<string | null>(null);
@@ -51,6 +53,9 @@ export function SolanaWalletConnection({
       : pendingWalletName
         ? "CONNECTING"
         : "DISCONNECTED";
+  const displayedUsdcBalance = walletUsdcBalance.balanceUsdc?.toLocaleString(undefined, {
+    maximumFractionDigits: 6,
+  });
 
   useEffect(() => {
     if (!wallet || connected) {
@@ -187,7 +192,13 @@ export function SolanaWalletConnection({
           <div className="wallet-metrics">
             <div>
               <span>{t("Available balance", "사용 가능 잔액")}</span>
-              <strong>— <small>USDC</small></strong>
+              <strong>
+                {walletUsdcBalance.isLoading
+                  ? t("Loading", "조회 중")
+                  : walletUsdcBalance.isError
+                    ? t("Unavailable", "조회 실패")
+                    : displayedUsdcBalance ?? "—"} <small>USDC</small>
+              </strong>
             </div>
             <div>
               <span>{t("Network", "네트워크")}</span>
@@ -200,7 +211,9 @@ export function SolanaWalletConnection({
           </div>
 
           <div className="wallet-card__footer">
-            <p>{t("Balance lookup will be added separately.", "잔액 조회는 별도 연동 전까지 제공되지 않습니다.")}</p>
+            <p>{walletUsdcBalance.isError
+              ? t("Unable to load the Devnet USDC balance. Try again shortly.", "Devnet USDC 잔액을 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.")
+              : t("Displays the Devnet USDC balance of the connected external wallet.", "연결된 외부 지갑의 Devnet USDC 잔액을 표시합니다.")}</p>
             <button type="button" className="secondary-button wallet-action" onClick={disconnectWallet}>
               <Plug size={14} weight="bold" aria-hidden="true" />
               {t("Disconnect wallet", "지갑 연결 해제")}

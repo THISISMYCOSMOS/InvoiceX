@@ -18,6 +18,15 @@ vi.mock("@solana/wallet-adapter-react", () => ({
   useWallet: () => walletState,
 }));
 
+vi.mock("../hooks/useDevnetUsdcBalance", () => ({
+  useDevnetUsdcBalance: () => ({
+    balanceUsdc: 19,
+    isLoading: false,
+    isError: false,
+    refresh: vi.fn(),
+  }),
+}));
+
 import { SolanaWalletConnection } from "./SolanaWalletConnection";
 
 const address = "8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q";
@@ -71,6 +80,9 @@ describe("SolanaWalletConnection", () => {
     renderConnection();
 
     expect(screen.getByText("8xK2...p91Q")).toBeInTheDocument();
+    expect(screen.getByText((_, element) => (
+      element?.tagName === "STRONG" && element.textContent === "19 USDC"
+    ))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy address" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Disconnect wallet" }));
