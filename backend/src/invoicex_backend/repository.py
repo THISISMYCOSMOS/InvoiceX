@@ -1,7 +1,7 @@
 """Durable domain records behind a replaceable repository boundary.
 
-SQLite is deliberately the first adapter for local Devnet demos.  The service
-depends only on this small interface so a Firebase implementation can replace
+SQLite is deliberately the first adapter for local Devnet demos. The service
+depends only on this small interface so a Cloud SQL implementation can replace
 it without changing mandate, vault, or RWA execution logic.
 """
 

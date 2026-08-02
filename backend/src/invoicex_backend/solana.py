@@ -595,13 +595,14 @@ class PrivySolanaGateway:
     async def issue_rwa(self, *, invoice_id: str) -> RwaIssueResult:
         issuer_wallet_id = self._require_issuer_wallet_id()
         issuer = Pubkey.from_string(await self._wallet_address(issuer_wallet_id))
+        fee_payer, fee_payer_wallet_id = await self._platform_fee_payer(fallback=issuer)
         mint = Keypair()
         rent = await self._minimum_rent(MINT_LEN)
         escrow = get_associated_token_address(issuer, mint.pubkey())
         instructions = [
             create_account(
                 CreateAccountParams(
-                    from_pubkey=issuer,
+                    from_pubkey=fee_payer,
                     to_pubkey=mint.pubkey(),
                     lamports=rent,
                     space=MINT_LEN,
@@ -617,7 +618,7 @@ class PrivySolanaGateway:
                 )
             ),
             create_idempotent_associated_token_account(
-                payer=issuer,
+                payer=fee_payer,
                 owner=issuer,
                 mint=mint.pubkey(),
             ),
@@ -643,15 +644,27 @@ class PrivySolanaGateway:
             ),
         ]
         transaction = await self._partially_signed_transaction(
-            payer=issuer,
+            payer=fee_payer,
             instructions=instructions,
             additional_signers=[mint],
         )
-        result = await self._sign_and_send(
-            wallet_id=issuer_wallet_id,
-            transaction=transaction,
-            reference_id=f"rwa-issue-{invoice_id}",
-        )
+        if fee_payer_wallet_id is None:
+            result = await self._sign_and_send(
+                wallet_id=issuer_wallet_id,
+                transaction=transaction,
+                reference_id=f"rwa-issue-{invoice_id}",
+            )
+        else:
+            issuer_signed = await self._sign_transaction(
+                wallet_id=issuer_wallet_id,
+                transaction=transaction,
+            )
+            result = await self._sign_and_send(
+                wallet_id=fee_payer_wallet_id,
+                transaction=issuer_signed,
+                reference_id=f"rwa-issue-{invoice_id}",
+                from_address=str(issuer),
+            )
         return RwaIssueResult(
             mint_address=str(mint.pubkey()),
             escrow_token_account=str(escrow),
@@ -672,6 +685,7 @@ class PrivySolanaGateway:
         issuer_wallet_id = self._require_issuer_wallet_id()
         treasury = Pubkey.from_string(await self._treasury_address())
         issuer = Pubkey.from_string(await self._wallet_address(issuer_wallet_id))
+        fee_payer, fee_payer_wallet_id = await self._platform_fee_payer(fallback=treasury)
         supplier = Pubkey.from_string(supplier_wallet_address)
         stablecoin_mint = Pubkey.from_string(self.stablecoin_mint_address)
         rwa_mint = Pubkey.from_string(rwa_mint_address)
@@ -680,12 +694,12 @@ class PrivySolanaGateway:
         treasury_rwa = get_associated_token_address(treasury, rwa_mint)
         instructions = [
             create_idempotent_associated_token_account(
-                payer=treasury,
+                payer=fee_payer,
                 owner=supplier,
                 mint=stablecoin_mint,
             ),
             create_idempotent_associated_token_account(
-                payer=treasury,
+                payer=fee_payer,
                 owner=treasury,
                 mint=rwa_mint,
             ),
@@ -713,7 +727,7 @@ class PrivySolanaGateway:
             ),
         ]
         transaction = await self._partially_signed_transaction(
-            payer=treasury,
+            payer=fee_payer,
             instructions=instructions,
             additional_signers=[],
         )
@@ -721,10 +735,22 @@ class PrivySolanaGateway:
             wallet_id=issuer_wallet_id,
             transaction=transaction,
         )
+        if fee_payer_wallet_id is not None:
+            treasury_signed = await self._sign_transaction(
+                wallet_id=self._settings.privy_treasury_wallet_id or "",
+                transaction=issuer_signed,
+            )
+            return await self._sign_and_send(
+                wallet_id=fee_payer_wallet_id,
+                transaction=treasury_signed,
+                reference_id=f"rwa-purchase-{invoice_id}",
+                from_address=str(treasury),
+            )
         return await self._sign_and_send(
             wallet_id=self._settings.privy_treasury_wallet_id or "",
             transaction=issuer_signed,
             reference_id=f"rwa-purchase-{invoice_id}",
+            from_address=str(treasury),
         )
 
     async def prepare_vault_deposit(
@@ -809,7 +835,7 @@ class PrivySolanaGateway:
             wallet_id=self._settings.privy_sponsor_wallet_id or "",
             transaction=bytes(submitted),
             reference_id=reference_id,
-            from_address=sponsor,
+            from_address=owner_wallet_address,
         )
 
     async def verify_vault_deposit(
@@ -990,6 +1016,21 @@ class PrivySolanaGateway:
         if not wallet_id:
             raise IntegrationError("RWA 발행용 Privy Issuer 지갑이 설정되지 않았습니다.")
         return wallet_id
+
+    async def _platform_fee_payer(self, *, fallback: Pubkey) -> tuple[Pubkey, str | None]:
+        """Return the account that pays platform-side RWA transaction fees.
+
+        When gasless mode is enabled, issuance and the automatic RWA exchange
+        use the dedicated Sponsor wallet as the message fee payer.  The issuer
+        and Treasury wallets still sign only the instructions that move their
+        respective assets.  Keeping the choice here prevents future Cloud Run
+        orchestration from changing signing semantics at each call site.
+        """
+
+        if not self._settings.gasless_enabled:
+            return fallback, None
+        sponsor = Pubkey.from_string(await self._sponsor_address())
+        return sponsor, self._settings.privy_sponsor_wallet_id
 
     async def _unsigned_transaction(self, *, payer: Pubkey, instructions: list[Any]) -> bytes:
         blockhash = Hash.from_string(await self._latest_blockhash())

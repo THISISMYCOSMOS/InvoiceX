@@ -66,7 +66,7 @@ from invoicex_backend.policy import (
 )
 from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.solana import SolanaGateway
-from invoicex_backend.storage import LocalDocumentStorage
+from invoicex_backend.storage import DocumentStorage
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class InvoiceService:
         settings: BackendSettings,
         agent_gateway: AgentGateway,
         solana_gateway: SolanaGateway,
-        storage: LocalDocumentStorage,
+        storage: DocumentStorage,
         repository: RwaRepository | None = None,
     ) -> None:
         self._settings = settings

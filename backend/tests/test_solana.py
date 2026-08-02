@@ -203,18 +203,24 @@ async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
 ) -> None:
     treasury = str(Pubkey.new_unique())
     issuer = str(Pubkey.new_unique())
+    sponsor = str(Pubkey.new_unique())
     supplier = str(Pubkey.new_unique())
     signature = str(Signature.from_bytes(bytes(reversed(range(64)))))
     methods: list[tuple[str, str]] = []
+    submitted_transactions: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content) if request.content else {}
         if request.url.host == "privy.test" and request.method == "GET":
-            address = issuer if request.url.path.endswith("/issuer") else treasury
+            address = {
+                "/v1/wallets/issuer": issuer,
+                "/v1/wallets/sponsor": sponsor,
+            }.get(request.url.path, treasury)
             return httpx.Response(200, json={"chain_type": "solana", "address": address})
         if request.url.host == "privy.test":
             method = payload["method"]
             methods.append((request.url.path, method))
+            submitted_transactions.append((request.url.path, payload["params"]["transaction"]))
             if method == "signTransaction":
                 return httpx.Response(
                     200,
@@ -240,12 +246,15 @@ async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
         _env_file=None,
         AGENT_MODE="mock",
         SOLANA_MODE="privy",
+        GASLESS_ENABLED=True,
         UPLOAD_DIRECTORY=tmp_path / "uploads",
         PRIVY_APP_ID="app-id",
         PRIVY_APP_SECRET="app-secret",
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
         PRIVY_TREASURY_WALLET_ADDRESS=treasury,
+        PRIVY_SPONSOR_WALLET_ID="sponsor",
+        PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
         PRIVY_API_BASE_URL="https://privy.test",
         SOLANA_RPC_URL="https://rpc.test",
     )
@@ -264,10 +273,23 @@ async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
     assert issued.transaction.provider == "PRIVY"
     assert purchase.provider == "PRIVY"
     assert methods == [
-        ("/v1/wallets/issuer/rpc", "signAndSendTransaction"),
         ("/v1/wallets/issuer/rpc", "signTransaction"),
-        ("/v1/wallets/treasury/rpc", "signAndSendTransaction"),
+        ("/v1/wallets/sponsor/rpc", "signAndSendTransaction"),
+        ("/v1/wallets/issuer/rpc", "signTransaction"),
+        ("/v1/wallets/treasury/rpc", "signTransaction"),
+        ("/v1/wallets/sponsor/rpc", "signAndSendTransaction"),
     ]
+    submitted_by_sponsor = [
+        encoded
+        for path, encoded in submitted_transactions
+        if path == "/v1/wallets/sponsor/rpc"
+    ]
+    assert len(submitted_by_sponsor) == 2
+    for encoded in submitted_by_sponsor:
+        transaction = VersionedTransaction.from_bytes(base64.b64decode(encoded))
+        assert str(transaction.message.account_keys[0]) == sponsor
+    assert issued.transaction.from_address == issuer
+    assert purchase.from_address == treasury
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Protocol
 from uuid import uuid4
 
 from invoicex_backend.config import BackendSettings
@@ -12,6 +13,18 @@ from invoicex_backend.models import (
     UploadedDocument,
     UploadStatus,
 )
+
+
+class DocumentStorage(Protocol):
+    """Document persistence boundary for local and Cloud Storage adapters."""
+
+    async def store(
+        self,
+        *,
+        document_id: str,
+        invoice_id: str,
+        upload: UploadedDocument,
+    ) -> InvoiceDocument: ...
 
 
 class LocalDocumentStorage:
