@@ -18,50 +18,27 @@ uv run uvicorn invoicex_backend.main:app --reload --port 8000
 - API base URL: `http://localhost:8000/api/v1`
 
 `AGENT_MODE=auto` uses the real Gemini agents only when `GEMINI_API_KEY` is
-configured. `SOLANA_MODE=auto` uses the direct Devnet adapter only when every
-service-wallet and demo-stablecoin value is configured; otherwise it uses mock
-mode. Explicit `real`, `direct`, or `privy` modes fail during startup when
-their required configuration is missing; provider failures never fall back to
-mock execution.
+configured. For the shared Devnet flow, set `SOLANA_MODE=privy` explicitly so
+the server fails during startup when Privy configuration is missing rather than
+falling back to mock execution. The older `direct` adapter remains only for
+isolated local tests with developer-managed keypairs.
 
 ## Real Devnet RWA demo
 
-The Devnet demo issues one indivisible SPL token per invoice. The platform
-service wallet controls the mint and escrow; the Agent Vault service wallet
-holds only the investor's deposited demo stablecoin. Neither private key is
-sent to the frontend.
+The Devnet demo issues one indivisible SPL token per invoice. Privy manages
+three service wallets: Treasury / Agent Vault holds the investor's deposited
+USDC, Issuer / Escrow mints and holds the RWA, and Sponsor pays Devnet SOL
+fees. External supplier and investor wallets remain browser wallets; neither
+their private keys nor Privy secrets are sent to the frontend.
 
-1. Create two service keypairs locally. Do **not** commit the printed secrets.
+1. Copy `.env.example` to `backend/.env` and set the Privy App ID / Secret,
+   Treasury, Issuer, and Sponsor wallet values. Keep the App Secret in Secret
+   Manager for Cloud Run; do not share it through Git or the frontend.
 
-   ```bash
-   uv run python scripts/devnet_stablecoin.py generate-keypair --label SOLANA_PLATFORM
-   uv run python scripts/devnet_stablecoin.py generate-keypair --label SOLANA_AGENT_VAULT
-   ```
+2. Fund the Sponsor wallet with Devnet SOL and fund the investor's external
+   wallet with Circle Devnet USDC using the Mint configured in `SOLANA_USDC_MINT`.
 
-2. Put the two `*_KEYPAIR` values in `SOLANA_PLATFORM_KEYPAIR` and
-   `SOLANA_AGENT_VAULT_KEYPAIR` in `backend/.env`, then give both public keys
-   Devnet SOL using a trusted faucet or the local CLI:
-
-   ```bash
-   uv run python scripts/devnet_stablecoin.py airdrop-sol --wallet <platform-public-key>
-   uv run python scripts/devnet_stablecoin.py airdrop-sol --wallet <agent-vault-public-key>
-   ```
-
-3. Create the platform test stablecoin, paste the printed mint into
-   `DEMO_STABLECOIN_MINT`, and set `SOLANA_MODE=direct`.
-
-   ```bash
-   uv run python scripts/devnet_stablecoin.py create-mint
-   ```
-
-4. Fund the investor's connected Devnet wallet from the developer machine;
-   there is intentionally no public funding API.
-
-   ```bash
-   uv run python scripts/devnet_stablecoin.py mint --wallet <investor-wallet> --amount-usdc 50000
-   ```
-
-5. Start the backend and frontend with `VITE_USE_MOCK_API=false`. The investor
+3. Start the backend and frontend with `VITE_USE_MOCK_API=false`. The investor
    signs the policy and Vault deposit in their browser wallet. A qualifying RWA
    then transfers atomically: Agent Vault stablecoin to the supplier and the
    escrowed RWA to Agent Vault.

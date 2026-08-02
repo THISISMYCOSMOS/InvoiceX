@@ -65,6 +65,8 @@ class RealAgentGateway:
         agent_settings = AgentSettings(
             GEMINI_API_KEY=settings.gemini_api_key,
             GEMINI_MODEL=settings.gemini_model,
+            GEMINI_TIMEOUT_SECONDS=settings.gemini_timeout_seconds,
+            GEMINI_MAX_ATTEMPTS=settings.gemini_max_attempts,
         )
         client = GoogleGeminiClient(agent_settings)
         self._document_agent = DocumentAgent(client)

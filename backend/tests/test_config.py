@@ -43,6 +43,16 @@ def test_explicit_real_agent_requires_gemini_key() -> None:
         )
 
 
+def test_backend_exposes_agent_retry_settings() -> None:
+    settings = BackendSettings(
+        _env_file=None,
+        GEMINI_TIMEOUT_SECONDS=90,
+        GEMINI_MAX_ATTEMPTS=3,
+    )
+    assert settings.gemini_timeout_seconds == 90
+    assert settings.gemini_max_attempts == 3
+
+
 def test_explicit_privy_mode_requires_complete_configuration() -> None:
     with pytest.raises(ValidationError, match="SOLANA_MODE=privy"):
         BackendSettings(

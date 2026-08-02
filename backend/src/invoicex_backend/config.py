@@ -50,6 +50,18 @@ class BackendSettings(BaseSettings):
         default="gemini-3.6-flash",
         validation_alias="GEMINI_MODEL",
     )
+    gemini_timeout_seconds: float = Field(
+        default=60,
+        validation_alias="GEMINI_TIMEOUT_SECONDS",
+        gt=0,
+        le=300,
+    )
+    gemini_max_attempts: int = Field(
+        default=2,
+        validation_alias="GEMINI_MAX_ATTEMPTS",
+        ge=1,
+        le=3,
+    )
 
     solana_mode: Literal["auto", "direct", "privy", "mock"] = Field(
         default="auto",

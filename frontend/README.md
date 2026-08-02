@@ -14,16 +14,16 @@ npm run dev
 
 ## 환경 변수
 
-`.env.example`을 복사해 `.env`를 만들고 필요에 따라 수정합니다.
+`.env.example`을 복사해 `.env.local`을 만들고 필요에 따라 수정합니다.
 
 ```env
-VITE_API_BASE_URL=http://localhost:8080
-VITE_USE_MOCK_API=true
+VITE_API_BASE_URL=http://localhost:8000
+VITE_USE_MOCK_API=false
 VITE_SOLANA_NETWORK=devnet
 ```
 
 - `VITE_USE_MOCK_API=true`: 메모리 기반 해피 패스 데모 상태 머신을 사용합니다.
-- `VITE_USE_MOCK_API=false`: `VITE_API_BASE_URL/api/v1`의 실제 백엔드 API adapter를 사용합니다.
+- `VITE_USE_MOCK_API=false`: `VITE_API_BASE_URL/api/v1`의 실제 백엔드 API adapter를 사용합니다. 실제 Gemini·Privy·Solana Devnet 테스트는 이 값이어야 합니다.
 
 ## 제공 라우트
 

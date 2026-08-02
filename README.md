@@ -22,7 +22,8 @@ Run the backend and configure Gemini there; never expose `GEMINI_API_KEY` throug
 `VITE_USE_MOCK_API=false` makes the frontend use the backend API. With no Gemini key,
 `AGENT_MODE=auto` deliberately uses the backend's mock analyzer instead.
 
-For the direct Devnet RWA demo, follow the **Real Devnet RWA demo** section in
-`backend/README.md`. Keep `SOLANA_PLATFORM_KEYPAIR` and
-`SOLANA_AGENT_VAULT_KEYPAIR` only in `backend/.env`; do not put them in a Vite
-environment file.
+For the Privy-backed Devnet RWA demo, follow the **Real Devnet RWA demo**
+section in `backend/README.md`. Keep `PRIVY_APP_SECRET` only in
+`backend/.env` locally or Secret Manager on Cloud Run; never put it in a Vite
+environment file. The older direct keypair tooling is for isolated local tests
+only.
