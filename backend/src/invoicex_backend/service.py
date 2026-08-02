@@ -62,7 +62,6 @@ from invoicex_backend.models import (
 from invoicex_backend.policy import (
     DeterministicRiskPolicy,
     RiskDecision,
-    TreasuryMandatePolicy,
 )
 from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.solana import SolanaGateway
@@ -108,7 +107,6 @@ class InvoiceService:
         self._storage = storage
         self._repository = repository or SQLiteRwaRepository(settings.rwa_database_path)
         self._risk_policy = DeterministicRiskPolicy()
-        self._mandate_policy = TreasuryMandatePolicy(settings)
         self._invoices: dict[str, Invoice] = {}
         self._agent_analyses: dict[str, DocumentAnalysisResult] = {}
         self._verifications: dict[str, Verification] = {}
@@ -714,70 +712,6 @@ class InvoiceService:
                 if invoice.status is InvoiceStatus.RWA_ISSUED
             )
         )
-
-    async def complete_funding(self, invoice_id: str) -> None:
-        async with self._invoice_lock(invoice_id):
-            invoice = self._invoice(invoice_id)
-            if invoice.status is not InvoiceStatus.FUNDING:
-                return
-            rejection = self._mandate_policy.rejection_reason(invoice)
-            if rejection is not None:
-                invoice.status = InvoiceStatus.BLOCKED
-                self._append_trace(
-                    invoice,
-                    source="TREASURY_AGENT",
-                    target="SETTLEMENT_AGENT",
-                    status="FAILED",
-                    summary=f"AP2 Mandate 차단: {rejection}",
-                )
-                self._save_invoice(invoice)
-                return
-
-            passport = invoice.risk_passport
-            if passport is None or passport.suggested_advance_amount_usdc is None:
-                invoice.status = InvoiceStatus.BLOCKED
-                self._save_invoice(invoice)
-                return
-            amount = passport.suggested_advance_amount_usdc
-            try:
-                result = await self._solana.send_usdc(
-                    wallet_id=self._settings.privy_treasury_wallet_id or "MOCK_TREASURY",
-                    transfers=[
-                        ChainTransfer(
-                            to_address=invoice.supplier.wallet_address or "",
-                            amount_usdc=amount,
-                        )
-                    ],
-                    reference_id=f"funding-{invoice.id}",
-                )
-            except IntegrationError as exc:
-                invoice.status = InvoiceStatus.ERROR
-                self._append_trace(
-                    invoice,
-                    source="TREASURY_AGENT",
-                    target="SETTLEMENT_AGENT",
-                    status="FAILED",
-                    summary="Solana 조기정산금 전송에 실패했습니다.",
-                )
-                self._save_invoice(invoice)
-                logger.error("Funding failed for %s: %s", invoice.id, exc)
-                return
-
-            invoice.funding_transaction = self._transaction(
-                result=result,
-                amount_usdc=amount,
-                to_address=invoice.supplier.wallet_address or "",
-            )
-            if result.status is TransactionStatus.CONFIRMED:
-                invoice.status = InvoiceStatus.FUNDED
-                self._append_trace(
-                    invoice,
-                    source="TREASURY_AGENT",
-                    target="SETTLEMENT_AGENT",
-                    status="COMPLETED",
-                    summary="AP2 Mandate 검증과 Solana Devnet USDC 전송을 완료했습니다.",
-                )
-            self._save_invoice(invoice)
 
     async def settle_mock_payment(self, invoice_id: str) -> Invoice:
         async with self._invoice_lock(invoice_id):

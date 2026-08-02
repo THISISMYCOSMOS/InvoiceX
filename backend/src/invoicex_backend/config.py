@@ -162,17 +162,6 @@ class BackendSettings(BaseSettings):
         default="DEMO_PLATFORM_FEE_WALLET",
         validation_alias="PLATFORM_FEE_WALLET_ADDRESS",
     )
-    mandate_min_risk_score: int = Field(
-        default=80,
-        validation_alias="MANDATE_MIN_RISK_SCORE",
-        ge=0,
-        le=100,
-    )
-    mandate_max_advance_usdc: int = Field(
-        default=25_000,
-        validation_alias="MANDATE_MAX_ADVANCE_USDC",
-        gt=0,
-    )
 
     @model_validator(mode="after")
     def validate_explicit_real_modes(self) -> BackendSettings:
