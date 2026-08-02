@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from io import BytesIO
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from PIL import Image
-from pypdf import PdfWriter
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
@@ -15,10 +12,10 @@ from invoicex_backend.config import BackendSettings
 
 def mock_settings(upload_directory: Path, **overrides: object) -> BackendSettings:
     values: dict[str, object] = {
-        "FIREBASE_MODE": "local",
         "AGENT_MODE": "mock",
         "SOLANA_MODE": "mock",
         "UPLOAD_DIRECTORY": upload_directory,
+        "RWA_DATABASE_PATH": upload_directory.parent / "invoicex-rwa.sqlite3",
         "PUBLIC_BASE_URL": "http://testserver",
     }
     values.update(overrides)
@@ -34,18 +31,10 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
 @pytest.fixture
 def contract_files() -> dict[str, tuple[str, bytes, str]]:
-    pdf_buffer = BytesIO()
-    writer = PdfWriter()
-    writer.add_blank_page(width=200, height=200)
-    writer.write(pdf_buffer)
-    pdf = pdf_buffer.getvalue()
-
-    image_buffer = BytesIO()
-    Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
-    png = image_buffer.getvalue()
+    pdf = b"%PDF-1.4\nInvoiceX deterministic test document\n%%EOF"
     return {
         "INVOICE": ("invoice.pdf", pdf, "application/pdf"),
         "CONTRACT": ("contract.pdf", pdf, "application/pdf"),
         "PURCHASE_ORDER": ("purchase-order.pdf", pdf, "application/pdf"),
-        "DELIVERY_PROOF": ("delivery-proof.png", png, "image/png"),
+        "DELIVERY_PROOF": ("delivery-proof.png", b"\x89PNG\r\n\x1a\n", "image/png"),
     }

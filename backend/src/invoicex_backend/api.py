@@ -10,6 +10,7 @@ from fastapi import (
     Depends,
     File,
     Path,
+    Query,
     Request,
     UploadFile,
     status,
@@ -17,22 +18,23 @@ from fastapi import (
 
 from invoicex_backend.errors import DocumentValidationError
 from invoicex_backend.models import (
+    ConfirmVaultDepositRequest,
+    CreateMandateRequest,
     DocumentType,
     ErrorResponse,
     InvestorDashboard,
-    InvestorDeposit,
-    InvestorDepositConfirmRequest,
-    InvestorDepositPreparation,
-    InvestorDepositPrepareRequest,
     InvestorMandate,
-    InvestorMandateActivateRequest,
-    InvestorMandateDraftRequest,
-    InvestorMandateEmergencyStopRequest,
-    InvestorMandatePreparation,
     InvoiceListResponse,
     InvoiceResponse,
+    MandateSigningPayload,
     OfferResponseRequest,
+    PrepareMandateRequest,
+    PrepareVaultDepositRequest,
+    SaveSupplierWalletRequest,
+    SponsorVaultDepositRequest,
     UploadedDocument,
+    VaultBalance,
+    VaultDepositPreparation,
     VerificationListResponse,
     VerificationResponse,
 )
@@ -47,11 +49,10 @@ def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
         404: "Invoice or Verification was not found",
         409: "The requested state transition is not allowed",
         422: "The request does not match the API contract",
-        502: "Firebase, Gemini, Privy, or Solana integration failed",
+        502: "Gemini, Privy, or Solana integration failed",
     }
     return {
-        code: {"model": ErrorResponse, "description": descriptions[code]}
-        for code in status_codes
+        code: {"model": ErrorResponse, "description": descriptions[code]} for code in status_codes
     }
 
 
@@ -198,9 +199,7 @@ async def get_verification(
     verification_id: VerificationId,
     service: InvoiceServiceDependency,
 ) -> VerificationResponse:
-    return VerificationResponse(
-        verification=service.get_verification(verification_id)
-    )
+    return VerificationResponse(verification=service.get_verification(verification_id))
 
 
 @router.post(
@@ -214,9 +213,7 @@ async def confirm_verification(
     verification_id: VerificationId,
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
-    return InvoiceResponse(
-        invoice=await service.confirm_verification(verification_id)
-    )
+    return InvoiceResponse(invoice=await service.confirm_verification(verification_id))
 
 
 @router.post(
@@ -235,11 +232,133 @@ async def respond_to_offer(
     invoice, should_schedule = await service.respond_to_offer(
         invoice_id,
         payload.response,
-        payload.supplier_wallet_address,
     )
     if should_schedule:
-        background_tasks.add_task(service.complete_funding, invoice_id)
+        background_tasks.add_task(service.execute_mandated_investment, invoice_id)
     return InvoiceResponse(invoice=invoice)
+
+
+@router.post(
+    "/supplier/wallet",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=documented_errors(409, 422),
+    tags=["Funding"],
+    summary="공급기업 정산 지갑 저장",
+)
+async def save_supplier_wallet(
+    payload: SaveSupplierWalletRequest,
+    service: InvoiceServiceDependency,
+) -> None:
+    service.save_supplier_wallet(payload.wallet_address)
+
+
+@router.post(
+    "/investor/mandates/prepare",
+    response_model=MandateSigningPayload,
+    responses=documented_errors(409, 422),
+    tags=["Investor"],
+    summary="Mandate 지갑 서명 메시지 준비",
+)
+async def prepare_mandate(
+    payload: PrepareMandateRequest,
+    service: InvoiceServiceDependency,
+) -> MandateSigningPayload:
+    return MandateSigningPayload(
+        canonical_message=service.prepare_mandate_message(
+            owner_wallet_address=payload.owner_wallet_address,
+            policy=payload.policy,
+        )
+    )
+
+
+@router.post(
+    "/investor/mandates",
+    response_model=InvestorMandate,
+    responses=documented_errors(409, 422),
+    tags=["Investor"],
+    summary="지갑 서명 Mandate 활성화",
+)
+async def create_mandate(
+    payload: CreateMandateRequest,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> InvestorMandate:
+    mandate = service.create_mandate(payload)
+    background_tasks.add_task(service.execute_pending_investments)
+    return mandate
+
+
+@router.get(
+    "/investor/vault",
+    response_model=VaultBalance,
+    responses=documented_errors(409, 422),
+    tags=["Investor"],
+    summary="Agent Vault 잔액 조회",
+)
+async def get_vault(
+    service: InvoiceServiceDependency,
+    owner_wallet_address: str = Query(alias="ownerWalletAddress"),
+) -> VaultBalance:
+    return service.get_vault(owner_wallet_address)
+
+
+@router.post(
+    "/investor/vault/deposits/prepare",
+    response_model=VaultDepositPreparation,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="Agent Vault 예치 트랜잭션 준비",
+)
+async def prepare_vault_deposit(
+    payload: PrepareVaultDepositRequest,
+    service: InvoiceServiceDependency,
+) -> VaultDepositPreparation:
+    prepared = await service.prepare_vault_deposit(
+        owner_wallet_address=payload.owner_wallet_address,
+        amount_usdc=payload.amount_usdc,
+    )
+    return VaultDepositPreparation(
+        transaction_base64=prepared.transaction_base64,
+        vault_address=prepared.vault_address,
+        stablecoin_mint_address=prepared.stablecoin_mint_address,
+        sponsored=prepared.sponsored,
+        sponsor_deposit_id=prepared.sponsor_deposit_id,
+        sponsor_wallet_address=prepared.sponsor_wallet_address,
+    )
+
+
+@router.post(
+    "/investor/vault/deposits/sponsor",
+    response_model=VaultBalance,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="가스리스 Agent Vault 예치 서명 완결",
+)
+async def sponsor_vault_deposit(
+    payload: SponsorVaultDepositRequest,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> VaultBalance:
+    vault = await service.sponsor_vault_deposit(payload)
+    background_tasks.add_task(service.execute_pending_investments)
+    return vault
+
+
+@router.post(
+    "/investor/vault/deposits/confirm",
+    response_model=VaultBalance,
+    responses=documented_errors(409, 422, 502),
+    tags=["Investor"],
+    summary="Agent Vault 예치 확인",
+)
+async def confirm_vault_deposit(
+    payload: ConfirmVaultDepositRequest,
+    background_tasks: BackgroundTasks,
+    service: InvoiceServiceDependency,
+) -> VaultBalance:
+    vault = await service.confirm_vault_deposit(payload)
+    background_tasks.add_task(service.execute_pending_investments)
+    return vault
 
 
 @router.get(
@@ -252,93 +371,6 @@ async def investor_dashboard(
     service: InvoiceServiceDependency,
 ) -> InvestorDashboard:
     return service.investor_dashboard()
-
-
-@router.post(
-    "/investor/deposits/prepare",
-    response_model=InvestorDepositPreparation,
-    responses=documented_errors(409, 422, 502),
-    tags=["Investor"],
-    summary="투자자 Solana Devnet USDC 예치 준비",
-)
-async def prepare_investor_deposit(
-    payload: InvestorDepositPrepareRequest,
-    service: InvoiceServiceDependency,
-) -> InvestorDepositPreparation:
-    return await service.prepare_investor_deposit(
-        payload.investor_wallet_address,
-        payload.amount_usdc,
-    )
-
-
-@router.post(
-    "/investor/deposits/confirm",
-    response_model=InvestorDeposit,
-    responses=documented_errors(404, 409, 422, 502),
-    tags=["Investor"],
-    summary="투자자 Solana Devnet USDC 예치 온체인 확인",
-)
-async def confirm_investor_deposit(
-    payload: InvestorDepositConfirmRequest,
-    service: InvoiceServiceDependency,
-) -> InvestorDeposit:
-    return await service.confirm_investor_deposit(
-        payload.reference_id,
-        payload.signature,
-    )
-
-
-@router.post(
-    "/investor/mandate/prepare",
-    response_model=InvestorMandatePreparation,
-    responses=documented_errors(422),
-    tags=["Investor"],
-    summary="투자 Mandate 서명 준비",
-)
-async def prepare_mandate(
-    payload: InvestorMandateDraftRequest,
-    service: InvoiceServiceDependency,
-) -> InvestorMandatePreparation:
-    return await service.prepare_mandate(payload)
-
-
-@router.post(
-    "/investor/mandate/activate",
-    response_model=InvestorMandate,
-    responses=documented_errors(404, 409, 422),
-    tags=["Investor"],
-    summary="투자 Mandate 서명 검증 및 활성화",
-)
-async def activate_mandate(
-    payload: InvestorMandateActivateRequest,
-    service: InvoiceServiceDependency,
-) -> InvestorMandate:
-    return await service.activate_mandate(payload.mandate_id, payload.signature)
-
-
-@router.get(
-    "/investor/mandate",
-    response_model=InvestorMandate,
-    responses=documented_errors(404),
-    tags=["Investor"],
-    summary="현재 활성 Investor Mandate 조회",
-)
-async def get_mandate(service: InvoiceServiceDependency) -> InvestorMandate:
-    return service.get_mandate()
-
-
-@router.post(
-    "/investor/mandate/emergency-stop",
-    response_model=InvestorMandate,
-    responses=documented_errors(404, 409, 422),
-    tags=["Investor"],
-    summary="Mandate 긴급 중지 전환 (신규 투자만 중단)",
-)
-async def set_mandate_emergency_stop(
-    payload: InvestorMandateEmergencyStopRequest,
-    service: InvoiceServiceDependency,
-) -> InvestorMandate:
-    return await service.set_mandate_emergency_stop(payload.stopped)
 
 
 @router.post(
@@ -365,9 +397,7 @@ async def _read_upload(
     finally:
         await upload.close()
     if len(data) > max_bytes:
-        raise DocumentValidationError(
-            f"{document_type.value} 파일은 20MB를 초과할 수 없습니다."
-        )
+        raise DocumentValidationError(f"{document_type.value} 파일은 20MB를 초과할 수 없습니다.")
     return UploadedDocument(
         type=document_type,
         file_name=upload.filename or f"{document_type.value}.bin",

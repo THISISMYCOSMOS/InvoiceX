@@ -18,10 +18,11 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Your early settlement offer is ready" })).toBeInTheDocument();
-  expect(screen.getByText("18,800 USDC")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Decline offer" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "1 USDC" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Risk Passport" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Decline offer" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
 });
 
 test("shows the transaction receipt for a funded invoice", () => {
@@ -34,6 +35,65 @@ test("shows the transaction receipt for a funded invoice", () => {
 
   expect(screen.getByRole("heading", { name: "Your USDC early settlement has been paid" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "INV-2026-001" })).not.toBeInTheDocument();
+});
+
+test("shows the supplier RWA issuance summary after RWA issuance", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "RWA_ISSUED", riskPassport: DEMO_RISK_PASSPORT }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Your invoice RWA has been issued" })).toBeInTheDocument();
+  expect(screen.getByText("RWA ISSUED")).toBeInTheDocument();
+  expect(screen.getByText("Invoice ID")).toBeInTheDocument();
+  expect(screen.getByText("Supplier")).toBeInTheDocument();
+  expect(screen.getByText("Buyer")).toBeInTheDocument();
+  expect(screen.getByText("Risk Passport score")).toBeInTheDocument();
+  expect(screen.getByText("RWA asset details")).toBeInTheDocument();
+  expect(screen.getByText("Delivery date")).toBeInTheDocument();
+  expect(screen.queryByText("Treasury Agent is processing the RWA investment")).not.toBeInTheDocument();
+});
+
+test("shows the shared lifecycle for an in-progress risk assessment", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "RISK_ASSESSING" }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("list", { name: "Invoice lifecycle" })).toHaveTextContent("Document analysis");
+  expect(screen.getByRole("list", { name: "Invoice lifecycle" })).toHaveTextContent("Maturity settlement");
+  expect(screen.getByRole("heading", { name: "Generating the Risk Passport" })).toBeInTheDocument();
+});
+
+test("shows Agent policy evaluation details while funding is in progress", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "FUNDING",
+        riskPassport: DEMO_RISK_PASSPORT,
+        agentDecision: {
+          invoiceId: DEMO_INVOICE.id,
+          status: "APPROVED",
+          checks: { minimumRiskScore: true, buyerAllowlist: true },
+          amountUsdc: 1,
+          reason: "All signed investment criteria passed.",
+          createdAt: "2026-07-30T09:06:00.000Z",
+        },
+      }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Treasury Agent is evaluating this issued RWA" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Policy checks" })).toBeInTheDocument();
+  expect(screen.getByText("minimumRiskScore")).toBeInTheDocument();
+  expect(screen.getAllByText("Passed")).toHaveLength(2);
 });
 
 test("labels a capped live Devnet payment as a demo transfer", () => {
@@ -42,7 +102,10 @@ test("labels a capped live Devnet payment as a demo transfer", () => {
       invoice={{
         ...DEMO_INVOICE,
         status: "FUNDED",
-        riskPassport: DEMO_RISK_PASSPORT,
+        riskPassport: {
+          ...DEMO_RISK_PASSPORT,
+          suggestedAdvanceAmountUsdc: 2,
+        },
         fundingTransaction: {
           ...DEMO_FUNDING_TRANSACTION,
           amountUsdc: 1,
@@ -53,7 +116,7 @@ test("labels a capped live Devnet payment as a demo transfer", () => {
   );
 
   expect(screen.getByRole("heading", { name: "Devnet demo transfer confirmed" })).toBeInTheDocument();
-  expect(screen.getByText("Demo transfer only · Offer amount 18,800 USDC")).toBeInTheDocument();
+  expect(screen.getByText("Demo transfer only · Offer amount 2 USDC")).toBeInTheDocument();
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {
@@ -105,7 +168,7 @@ test("shows the buyer-verification pending summary from the invoice", () => {
 
   expect(screen.getByRole("heading", { name: "Waiting for buyer verification" })).toBeInTheDocument();
   expect(screen.getByText("Prime Mobility")).toBeInTheDocument();
-  expect(screen.getByText("₩20,000,000")).toBeInTheDocument();
+  expect(screen.getByText("₩3,000")).toBeInTheDocument();
   expect(screen.getByText("Oct 30, 2026")).toBeInTheDocument();
   expect(screen.getByText("Verification requested · Jul 29, 2026 · 10:42")).toBeInTheDocument();
   expect(screen.getByText("Buyer verification")).toHaveAttribute("aria-current", "step");

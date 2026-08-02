@@ -2,37 +2,6 @@
 
 FastAPI implementation of `docs/FRONTEND_API_CONTRACT_DRAFT.md`.
 
-## Firebase architecture
-
-The backend now follows a Firebase-first persistence plan with Firebase Admin
-SDK:
-
-- Cloud Firestore persists invoice aggregates, Document Agent analyses, and
-  buyer verifications.
-- Investor Vault runtime state (connected investor wallet, Treasury address,
-  deposit preparations, confirmed deposits, already-applied Solana signatures,
-  logical Vault balance, funding reservations, and the deposit ID sequence) is
-  written as a single Firestore document, `{prefix}_runtime/investor`, so that
-  balance, reservation, and replay-protection updates commit atomically.
-- Cloud Storage for Firebase stores uploaded PDFs and images under
-  `invoices/{invoiceId}/{documentId}`.
-- API responses expose a stable backend `/uploads/{invoiceId}/{documentId}`
-  URL; the backend reads the private object instead of persisting expiring
-  signed URLs.
-- Application Default Credentials authenticate the trusted backend.
-- Firestore and Storage Security Rules deny direct client access. The Admin SDK
-  uses IAM and does not rely on client Security Rules.
-- `FIREBASE_MODE=auto` selects Firebase when `FIREBASE_PROJECT_ID` (or
-  `GOOGLE_CLOUD_PROJECT`) is present; otherwise it uses local memory and disk.
-
-Firebase Authentication is reserved for the account/role API slice. The current
-frontend contract has no user or role claims, so this change does not invent an
-incompatible authentication contract.
-
-The current workflow cache, locks, and readable IDs are process-local. Run one
-API worker/replica for the MVP; move state transitions and ID allocation into
-Firestore transactions before horizontal scaling.
-
 ## Run
 
 The repository's existing `agent/` package must be present beside `backend/`.
@@ -48,32 +17,54 @@ uv run uvicorn invoicex_backend.main:app --reload --port 8000
 - OpenAPI JSON: `http://localhost:8000/api/docs-json`
 - API base URL: `http://localhost:8000/api/v1`
 
-For Firebase, set at least `FIREBASE_PROJECT_ID`. The default bucket is derived
-as `{projectId}.firebasestorage.app`; override it with
-`FIREBASE_STORAGE_BUCKET` when the Firebase console shows a different bucket.
-In local shells, set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON
-file outside the repository. Managed Firebase/Google runtimes should use their
-attached identity and require no key file.
-Cloud Storage for Firebase requires the Firebase Blaze plan, so enable billing
-before the first production upload.
-
 `AGENT_MODE=auto` uses the real Gemini agents only when `GEMINI_API_KEY` is
-configured. `SOLANA_MODE=auto` uses Privy/Solana Devnet only when every wallet
-and provider value is configured. Explicit `real` or `privy` modes fail during
-startup when required configuration is missing; provider failures never fall
-back to mock execution.
+configured. `SOLANA_MODE=auto` uses the direct Devnet adapter only when every
+service-wallet and demo-stablecoin value is configured; otherwise it uses mock
+mode. Explicit `real`, `direct`, or `privy` modes fail during startup when
+their required configuration is missing; provider failures never fall back to
+mock execution.
 
-## Firebase emulators
+## Real Devnet RWA demo
 
-From the repository root:
+The Devnet demo issues one indivisible SPL token per invoice. The platform
+service wallet controls the mint and escrow; the Agent Vault service wallet
+holds only the investor's deposited demo stablecoin. Neither private key is
+sent to the frontend.
 
-```powershell
-firebase emulators:start --only firestore,storage
-```
+1. Create two service keypairs locally. Do **not** commit the printed secrets.
 
-Then set `FIREBASE_PROJECT_ID`, `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`, and
-`FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199`. Emulator host values must not
-include `http://`.
+   ```bash
+   uv run python scripts/devnet_stablecoin.py generate-keypair --label SOLANA_PLATFORM
+   uv run python scripts/devnet_stablecoin.py generate-keypair --label SOLANA_AGENT_VAULT
+   ```
+
+2. Put the two `*_KEYPAIR` values in `SOLANA_PLATFORM_KEYPAIR` and
+   `SOLANA_AGENT_VAULT_KEYPAIR` in `backend/.env`, then give both public keys
+   Devnet SOL using a trusted faucet or the local CLI:
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py airdrop-sol --wallet <platform-public-key>
+   uv run python scripts/devnet_stablecoin.py airdrop-sol --wallet <agent-vault-public-key>
+   ```
+
+3. Create the platform test stablecoin, paste the printed mint into
+   `DEMO_STABLECOIN_MINT`, and set `SOLANA_MODE=direct`.
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py create-mint
+   ```
+
+4. Fund the investor's connected Devnet wallet from the developer machine;
+   there is intentionally no public funding API.
+
+   ```bash
+   uv run python scripts/devnet_stablecoin.py mint --wallet <investor-wallet> --amount-usdc 50000
+   ```
+
+5. Start the backend and frontend with `VITE_USE_MOCK_API=false`. The investor
+   signs the policy and Vault deposit in their browser wallet. A qualifying RWA
+   then transfers atomically: Agent Vault stablecoin to the supplier and the
+   escrowed RWA to Agent Vault.
 
 ## Verify
 

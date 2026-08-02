@@ -233,7 +233,7 @@ def test_document_agent_rejects_quote_for_different_value() -> None:
                 "invoice",
                 values={"totalAmount": "999999999"},
                 evidence_overrides={
-                    "totalAmount": {"quote": "20,000,000 KRW"},
+                        "totalAmount": {"quote": "3,000 KRW"},
                 },
             )
         ]

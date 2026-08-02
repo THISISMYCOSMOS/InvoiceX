@@ -1,6 +1,6 @@
 """Generate the mock InvoiceX transaction document sets and their answer keys.
 
-The sets follow the transaction described in the product documents: a 20,000,000 KRW
+The sets follow the transaction described in the product documents: a 3,000 KRW
 invoice issued by a supplier against a purchase order and a supply contract. Every
 company, number and date here is synthetic.
 
@@ -140,7 +140,7 @@ def _contract(document_id: str) -> MockDocument:
             ("계약 기간", "2026-01-01 ~ 2026-12-31"),
             ("통화", "KRW"),
             ("계약 품목", ITEM),
-            ("계약 단가", "200,000 KRW"),
+            ("계약 단가", "30 KRW"),
             ("대금 지급 조건", PAYMENT_TERMS),
         ),
         extracted={
@@ -149,7 +149,7 @@ def _contract(document_id: str) -> MockDocument:
             "contractNumber": "CT-2026-0007",
             "currency": "KRW",
             "itemName": ITEM,
-            "unitPrice": "200000",
+            "unitPrice": "30",
             "paymentTerms": PAYMENT_TERMS,
         },
         note=(
@@ -214,8 +214,8 @@ def _delivery_note(document_id: str, purchase_order_number: str) -> MockDocument
             ("통화", "KRW"),
             ("품목", ITEM),
             ("수량", "100"),
-            ("단가", "200,000 KRW"),
-            ("공급가액 합계", "20,000,000 KRW"),
+            ("단가", "30 KRW"),
+            ("공급가액 합계", "3,000 KRW"),
             ("인수 확인", "발주 수량 전량 납품 완료"),
             ("인수 부서", "구매기업 물류팀"),
         ),
@@ -224,11 +224,11 @@ def _delivery_note(document_id: str, purchase_order_number: str) -> MockDocument
             "buyerName": BUYER,
             "purchaseOrderNumber": purchase_order_number,
             "currency": "KRW",
-            "totalAmount": "20000000",
+            "totalAmount": "3000",
             "issueDate": "2026-07-24",
             "itemName": ITEM,
             "quantity": "100",
-            "unitPrice": "200000",
+            "unitPrice": "30",
             "deliveryCompleted": True,
         },
         note="납품 완료 사실을 확인하는 증빙이다. 지급 만기일과 계약번호는 담지 않는다.",
@@ -239,9 +239,9 @@ SET_A = MockDocumentSet(
     set_id="set-a-happy-path",
     title="해피패스 — 4개 문서의 공통 항목이 모두 일치",
     documents=(
-        _invoice("a-invoice", "INV-2026-0001", "PO-2026-1001", 200_000, 20_000_000),
+        _invoice("a-invoice", "INV-2026-0001", "PO-2026-1001", 30, 3_000),
         _contract("a-contract"),
-        _purchase_order("a-purchase-order", "PO-2026-1001", 200_000, 20_000_000),
+        _purchase_order("a-purchase-order", "PO-2026-1001", 30, 3_000),
         _delivery_note("a-delivery-note", "PO-2026-1001"),
     ),
     expected_mismatches=(),
@@ -256,30 +256,30 @@ SET_B = MockDocumentSet(
     set_id="set-b-amount-mismatch",
     title="불일치 — 발주서 단가가 계약·청구서보다 낮게 발행됨",
     documents=(
-        _invoice("b-invoice", "INV-2026-0002", "PO-2026-1002", 200_000, 20_000_000),
+        _invoice("b-invoice", "INV-2026-0002", "PO-2026-1002", 30, 3_000),
         _contract("b-contract"),
-        _purchase_order("b-purchase-order", "PO-2026-1002", 190_000, 19_000_000),
+        _purchase_order("b-purchase-order", "PO-2026-1002", 28, 2_800),
         _delivery_note("b-delivery-note", "PO-2026-1002"),
     ),
     expected_mismatches=(
         {
             "field": "totalAmount",
             "values": [
-                {"documentId": "b-invoice", "value": "20000000"},
-                {"documentId": "b-purchase-order", "value": "19000000"},
-                {"documentId": "b-delivery-note", "value": "20000000"},
+                {"documentId": "b-invoice", "value": "3000"},
+                {"documentId": "b-purchase-order", "value": "2800"},
+                {"documentId": "b-delivery-note", "value": "3000"},
             ],
-            "description": "청구서와 거래명세서는 20,000,000원, 발주서는 19,000,000원이다.",
+            "description": "청구서와 거래명세서는 3,000원, 발주서는 2,800원이다.",
         },
         {
             "field": "unitPrice",
             "values": [
-                {"documentId": "b-invoice", "value": "200000"},
-                {"documentId": "b-contract", "value": "200000"},
-                {"documentId": "b-purchase-order", "value": "190000"},
-                {"documentId": "b-delivery-note", "value": "200000"},
+                {"documentId": "b-invoice", "value": "30"},
+                {"documentId": "b-contract", "value": "30"},
+                {"documentId": "b-purchase-order", "value": "28"},
+                {"documentId": "b-delivery-note", "value": "30"},
             ],
-            "description": "계약 단가는 200,000원이나 발주서만 190,000원으로 발행되었다.",
+            "description": "계약 단가는 30원이나 발주서만 28원으로 발행되었다.",
         },
     ),
     notes=(

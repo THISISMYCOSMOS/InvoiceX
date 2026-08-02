@@ -1,13 +1,5 @@
 # InvoiceX
 
-## Firebase integration handoff
-
-The Firebase project is prepared, and the remaining backend persistence work is
-tracked in [`docs/FIREBASE_INTEGRATION_HANDOFF.md`](docs/FIREBASE_INTEGRATION_HANDOFF.md).
-The handoff covers the preserved implementation commit, expected conflicts,
-owner-managed authentication, missing investor-state persistence, verification,
-and the definition of done.
-
 ## Solana Devnet wallet runbook
 
 팀원 또는 AI 작업자가 Devnet SOL·USDC 준비, MetaMask 역할별 계정 연결,
@@ -29,3 +21,8 @@ Run the backend and configure Gemini there; never expose `GEMINI_API_KEY` throug
 
 `VITE_USE_MOCK_API=false` makes the frontend use the backend API. With no Gemini key,
 `AGENT_MODE=auto` deliberately uses the backend's mock analyzer instead.
+
+For the direct Devnet RWA demo, follow the **Real Devnet RWA demo** section in
+`backend/README.md`. Keep `SOLANA_PLATFORM_KEYPAIR` and
+`SOLANA_AGENT_VAULT_KEYPAIR` only in `backend/.env`; do not put them in a Vite
+environment file.

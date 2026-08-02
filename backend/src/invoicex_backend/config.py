@@ -38,38 +38,6 @@ class BackendSettings(BaseSettings):
         ge=1,
     )
 
-    firebase_mode: Literal["auto", "firebase", "local"] = Field(
-        default="auto",
-        validation_alias="FIREBASE_MODE",
-    )
-    firebase_project_id: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "FIREBASE_PROJECT_ID",
-            "GOOGLE_CLOUD_PROJECT",
-            "GCLOUD_PROJECT",
-        ),
-    )
-    firebase_storage_bucket: str | None = Field(
-        default=None,
-        validation_alias="FIREBASE_STORAGE_BUCKET",
-    )
-    firebase_firestore_database: str = Field(
-        default="(default)",
-        validation_alias="FIREBASE_FIRESTORE_DATABASE",
-        min_length=1,
-    )
-    firebase_collection_prefix: str = Field(
-        default="invoicex",
-        validation_alias="FIREBASE_COLLECTION_PREFIX",
-        pattern=r"^[A-Za-z0-9_-]+$",
-    )
-    firebase_app_name: str = Field(
-        default="invoicex-backend",
-        validation_alias="FIREBASE_APP_NAME",
-        min_length=1,
-    )
-
     agent_mode: Literal["auto", "real", "mock"] = Field(
         default="auto",
         validation_alias="AGENT_MODE",
@@ -83,7 +51,7 @@ class BackendSettings(BaseSettings):
         validation_alias="GEMINI_MODEL",
     )
 
-    solana_mode: Literal["auto", "privy", "mock"] = Field(
+    solana_mode: Literal["auto", "direct", "privy", "mock"] = Field(
         default="auto",
         validation_alias="SOLANA_MODE",
     )
@@ -96,19 +64,29 @@ class BackendSettings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("PRIVY_TREASURY_WALLET_ID", "PRIVY_WALLET_ID"),
     )
+    privy_rwa_issuer_wallet_id: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_RWA_ISSUER_WALLET_ID",
+    )
     privy_settlement_wallet_id: str | None = Field(
         default=None,
         validation_alias="PRIVY_SETTLEMENT_WALLET_ID",
     )
-    privy_rwa_wallet_id: str | None = Field(
-        default=None,
-        validation_alias="PRIVY_RWA_WALLET_ID",
-    )
+    privy_sponsor: bool = Field(default=True, validation_alias="PRIVY_SPONSOR")
+    gasless_enabled: bool = Field(default=False, validation_alias="GASLESS_ENABLED")
     privy_sponsor_wallet_id: str | None = Field(
         default=None,
         validation_alias="PRIVY_SPONSOR_WALLET_ID",
     )
-    privy_sponsor: bool = Field(default=True, validation_alias="PRIVY_SPONSOR")
+    privy_sponsor_wallet_address: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_SPONSOR_WALLET_ADDRESS",
+    )
+    gasless_deposit_max_usdc: int = Field(
+        default=1,
+        validation_alias="GASLESS_DEPOSIT_MAX_USDC",
+        gt=0,
+    )
     privy_api_base_url: str = Field(
         default="https://api.privy.io",
         validation_alias="PRIVY_API_BASE_URL",
@@ -145,7 +123,28 @@ class BackendSettings(BaseSettings):
     solana_demo_transfer_amount_usdc: int = Field(
         default=1,
         validation_alias="SOLANA_DEMO_TRANSFER_AMOUNT_USDC",
-        gt=0,
+        ge=1,
+    )
+    demo_krw_per_usdc: int = Field(
+        default=1_500,
+        validation_alias="DEMO_KRW_PER_USDC",
+        ge=1,
+    )
+    rwa_database_path: Path = Field(
+        default=Path("invoicex-devnet.sqlite3"),
+        validation_alias="RWA_DATABASE_PATH",
+    )
+    solana_platform_keypair: str | None = Field(
+        default=None,
+        validation_alias="SOLANA_PLATFORM_KEYPAIR",
+    )
+    solana_agent_vault_keypair: str | None = Field(
+        default=None,
+        validation_alias="SOLANA_AGENT_VAULT_KEYPAIR",
+    )
+    demo_stablecoin_mint: str | None = Field(
+        default=None,
+        validation_alias="DEMO_STABLECOIN_MINT",
     )
 
     supplier_wallet_address: str = Field(
@@ -154,7 +153,10 @@ class BackendSettings(BaseSettings):
     )
     investor_settlement_wallet_address: str = Field(
         default="DEMO_AGENT_VAULT",
-        validation_alias="INVESTOR_SETTLEMENT_WALLET_ADDRESS",
+        validation_alias=AliasChoices(
+            "PRIVY_TREASURY_WALLET_ADDRESS",
+            "INVESTOR_SETTLEMENT_WALLET_ADDRESS",
+        ),
     )
     platform_fee_wallet_address: str = Field(
         default="DEMO_PLATFORM_FEE_WALLET",
@@ -174,97 +176,64 @@ class BackendSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_explicit_real_modes(self) -> BackendSettings:
-        if self.firebase_mode == "firebase":
-            missing = self.missing_firebase_configuration()
-            if missing:
-                raise ValueError(
-                    "FIREBASE_MODE=firebase requires configuration: "
-                    + ", ".join(missing)
-                )
         if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
             raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")
         if self.solana_mode == "privy":
-            missing = self.missing_privy_funding_configuration()
+            missing = self.missing_privy_configuration()
             if missing:
-                raise ValueError(
-                    "SOLANA_MODE=privy requires configuration: " + ", ".join(missing)
-                )
+                raise ValueError("SOLANA_MODE=privy requires configuration: " + ", ".join(missing))
+        if self.solana_mode == "direct":
+            missing = self.missing_direct_solana_configuration()
+            if missing:
+                raise ValueError("SOLANA_MODE=direct requires configuration: " + ", ".join(missing))
+        if self.gasless_enabled:
+            if self.resolved_solana_mode() != "privy":
+                raise ValueError("GASLESS_ENABLED requires a complete Privy Solana configuration")
+            missing = self.missing_gasless_configuration()
+            if missing:
+                raise ValueError("GASLESS_ENABLED requires configuration: " + ", ".join(missing))
         return self
-
-    def resolved_firebase_mode(self) -> Literal["firebase", "local"]:
-        if self.firebase_mode == "auto":
-            return (
-                "firebase"
-                if self._non_blank(self.firebase_project_id)
-                else "local"
-            )
-        return self.firebase_mode
-
-    def resolved_firebase_storage_bucket(self) -> str:
-        if self._non_blank(self.firebase_storage_bucket):
-            return str(self.firebase_storage_bucket).strip()
-        if self._non_blank(self.firebase_project_id):
-            return f"{str(self.firebase_project_id).strip()}.firebasestorage.app"
-        raise ValueError("FIREBASE_PROJECT_ID is required to derive the storage bucket")
-
-    def missing_firebase_configuration(self) -> list[str]:
-        return (
-            []
-            if self._non_blank(self.firebase_project_id)
-            else ["FIREBASE_PROJECT_ID"]
-        )
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
         if self.agent_mode == "auto":
             return "real" if self._non_blank(self.gemini_api_key) else "mock"
         return self.agent_mode
 
-    def resolved_solana_mode(self) -> Literal["privy", "mock"]:
+    def resolved_solana_mode(self) -> Literal["direct", "privy", "mock"]:
         if self.solana_mode == "auto":
-            return (
-                "privy"
-                if not self.missing_privy_funding_configuration()
-                else "mock"
-            )
+            if not self.missing_privy_configuration():
+                return "privy"
+            return "direct" if not self.missing_direct_solana_configuration() else "mock"
         return self.solana_mode
 
-    def missing_privy_funding_configuration(self) -> list[str]:
+    def missing_direct_solana_configuration(self) -> list[str]:
+        values = {
+            "SOLANA_PLATFORM_KEYPAIR": self.solana_platform_keypair,
+            "SOLANA_AGENT_VAULT_KEYPAIR": self.solana_agent_vault_keypair,
+            "DEMO_STABLECOIN_MINT": self.demo_stablecoin_mint,
+        }
+        return [name for name, value in values.items() if not self._non_blank(value)]
+
+    def missing_privy_configuration(self) -> list[str]:
         values = {
             "PRIVY_APP_ID": self.privy_app_id,
             "PRIVY_APP_SECRET": self.privy_app_secret,
             "PRIVY_WALLET_ID": self.privy_treasury_wallet_id,
+            "PRIVY_RWA_ISSUER_WALLET_ID": self.privy_rwa_issuer_wallet_id,
+            "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (self.investor_settlement_wallet_address),
         }
-        return self._missing_configuration(values)
-
-    def missing_privy_settlement_configuration(self) -> list[str]:
-        values = {
-            "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
-            "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (
-                self.investor_settlement_wallet_address
-            ),
-            "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
-        }
-        return self._missing_configuration(values)
-
-    def missing_privy_rwa_configuration(self) -> list[str]:
-        values = {
-            "PRIVY_RWA_WALLET_ID": self.privy_rwa_wallet_id,
-            "PRIVY_SPONSOR_WALLET_ID": self.privy_sponsor_wallet_id,
-        }
-        return self._missing_configuration(values)
-
-    def missing_privy_configuration(self) -> list[str]:
-        return [
-            *self.missing_privy_funding_configuration(),
-            *self.missing_privy_settlement_configuration(),
-        ]
-
-    def _missing_configuration(self, values: dict[str, str | None]) -> list[str]:
         return [
             name
             for name, value in values.items()
             if not self._non_blank(value) or str(value).startswith("DEMO_")
         ]
+
+    def missing_gasless_configuration(self) -> list[str]:
+        values = {
+            "PRIVY_SPONSOR_WALLET_ID": self.privy_sponsor_wallet_id,
+            "PRIVY_SPONSOR_WALLET_ADDRESS": self.privy_sponsor_wallet_address,
+        }
+        return [name for name, value in values.items() if not self._non_blank(value)]
 
     @staticmethod
     def _non_blank(value: str | None) -> bool:

@@ -7,12 +7,10 @@ import asyncio
 import statistics
 import tempfile
 import time
-from io import BytesIO
 from pathlib import Path
 
 import httpx
-from PIL import Image
-from pypdf import PdfWriter
+from solders.keypair import Keypair
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
@@ -22,31 +20,60 @@ async def run(iterations: int, concurrency: int) -> None:
     with tempfile.TemporaryDirectory(prefix="invoicex-stress-") as directory:
         settings = BackendSettings(
             _env_file=None,
-            FIREBASE_MODE="local",
             AGENT_MODE="mock",
             SOLANA_MODE="mock",
             UPLOAD_DIRECTORY=Path(directory),
+            RWA_DATABASE_PATH=Path(directory) / "invoicex-rwa.sqlite3",
             PUBLIC_BASE_URL="http://stress",
         )
         app = create_app(settings=settings)
         transport = httpx.ASGITransport(app=app)
         semaphore = asyncio.Semaphore(concurrency)
         latencies: list[float] = []
-        pdf_buffer = BytesIO()
-        writer = PdfWriter()
-        writer.add_blank_page(width=200, height=200)
-        writer.write(pdf_buffer)
-        pdf = pdf_buffer.getvalue()
-        image_buffer = BytesIO()
-        Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
-        png = image_buffer.getvalue()
+        pdf = b"%PDF-1.4\nInvoiceX stress document\n%%EOF"
 
         async with httpx.AsyncClient(
             transport=transport,
             base_url="http://stress",
             timeout=30,
         ) as client:
-            await _seed_investor_vault(client, iterations)
+            investor = Keypair()
+            policy = {
+                "totalInvestmentLimitUsdc": iterations * 25_000,
+                "perInvoiceLimitUsdc": 25_000,
+                "buyerAllowlist": ["Prime Mobility"],
+                "minimumRiskScore": 80,
+                "maximumRemainingTermDays": 365,
+                "expiresAt": "2030-12-31",
+            }
+            prepared_mandate = await client.post(
+                "/api/v1/investor/mandates/prepare",
+                json={"ownerWalletAddress": str(investor.pubkey()), "policy": policy},
+            )
+            _require(prepared_mandate)
+            signature = str(
+                investor.sign_message(
+                    prepared_mandate.json()["canonicalMessage"].encode()
+                )
+            )
+            mandate = await client.post(
+                "/api/v1/investor/mandates",
+                json={
+                    "ownerWalletAddress": str(investor.pubkey()),
+                    "policy": policy,
+                    "signature": signature,
+                },
+            )
+            _require(mandate)
+            deposited = await client.post(
+                "/api/v1/investor/vault/deposits/confirm",
+                json={
+                    "ownerWalletAddress": str(investor.pubkey()),
+                    "amountUsdc": iterations * 20_000,
+                    "signature": "stress-mock-vault-deposit",
+                },
+            )
+            _require(deposited)
 
             async def workflow(index: int) -> None:
                 async with semaphore:
@@ -61,7 +88,7 @@ async def run(iterations: int, concurrency: int) -> None:
                         ),
                         "DELIVERY_PROOF": (
                             f"delivery-{index}.png",
-                            png,
+                            b"\x89PNG\r\n\x1a\n",
                             "image/png",
                         ),
                     }
@@ -106,33 +133,12 @@ async def run(iterations: int, concurrency: int) -> None:
         p95 = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
         print(
             "stress_result "
-            f"workflows={iterations} requests={iterations * 6} "
+            f"workflows={iterations} requests={iterations * 6 + 3} "
             f"concurrency={concurrency} elapsed_seconds={elapsed:.3f} "
             f"workflows_per_second={iterations / elapsed:.2f} "
             f"mean_seconds={statistics.fmean(latencies):.4f} "
             f"p95_seconds={p95:.4f}"
         )
-
-
-async def _seed_investor_vault(client: httpx.AsyncClient, iterations: int) -> None:
-    """Fund the Agent Vault so mandate funding is the bottleneck, not the balance."""
-
-    prepared = await client.post(
-        "/api/v1/investor/deposits/prepare",
-        json={
-            "investorWalletAddress": "99HjRok4PZoX16d7Zz88S3EW4yjTDaHXJ492GaMJHD1U",
-            "amountUsdc": iterations * 20_000,
-        },
-    )
-    _require(prepared)
-    confirmed = await client.post(
-        "/api/v1/investor/deposits/confirm",
-        json={
-            "referenceId": prepared.json()["referenceId"],
-            "signature": "stress-seed-deposit",
-        },
-    )
-    _require(confirmed)
 
 
 def _require(response: httpx.Response, status_code: int = 200) -> None:

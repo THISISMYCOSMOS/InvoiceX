@@ -4,7 +4,9 @@ import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvoices } from "../../hooks/useInvoices";
+import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
+import type { Invoice, InvoiceStatus } from "../../types/invoice";
 
 const krwFormatter = new Intl.NumberFormat("ko-KR", {
   style: "currency",
@@ -12,12 +14,37 @@ const krwFormatter = new Intl.NumberFormat("ko-KR", {
   maximumFractionDigits: 0,
 });
 
+const earlySettlementStatuses = new Set<InvoiceStatus>([
+  "RISK_ASSESSING",
+  "OFFER_READY",
+  "RWA_ISSUED",
+  "FUNDING",
+]);
+
+function getDashboardSummary(invoices: Invoice[]) {
+  return invoices.reduce(
+    (summary, invoice) => ({
+      earlySettlementInProgress: summary.earlySettlementInProgress
+        + (earlySettlementStatuses.has(invoice.status) ? 1 : 0),
+      waitingForBuyer: summary.waitingForBuyer + (invoice.status === "BUYER_REVIEW" ? 1 : 0),
+      settlementReceivedUsdc: summary.settlementReceivedUsdc
+        + (invoice.fundingTransaction?.status === "CONFIRMED" ? invoice.fundingTransaction.amountUsdc : 0),
+    }),
+    { earlySettlementInProgress: 0, waitingForBuyer: 0, settlementReceivedUsdc: 0 },
+  );
+}
+
 export function SupplierDashboardPage() {
   const invoices = useInvoices();
+  const supplierWalletBalance = useDevnetUsdcBalance();
   const { language, t } = useLanguage();
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
+  const summary = getDashboardSummary(items);
+  const usdcFormatter = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US", {
+    maximumFractionDigits: 6,
+  });
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "2-digit",
@@ -29,7 +56,8 @@ export function SupplierDashboardPage() {
       BUYER_REVIEW: ["Buyer review", "구매기업 검증"],
       BUYER_VERIFIED: ["Buyer verified", "구매기업 검증 완료"],
       RISK_ASSESSING: ["Preparing offer", "조기정산 제안 준비 중"],
-      OFFER_READY: ["RWA issuance request", "RWA 발행 요청"],
+      OFFER_READY: ["Buyer verified", "구매기업 확인 완료"],
+      RWA_ISSUED: ["RWA issued", "RWA 발행 완료"],
       FUNDING: ["Funding in progress", "조기정산 진행 중"],
       FUNDED: ["Funded", "정산 완료"],
       SETTLED: ["Settled", "상환 완료"],
@@ -38,7 +66,7 @@ export function SupplierDashboardPage() {
     return language === "ko" ? korean : english;
   };
   const statusTone = (status: string) => {
-    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY") return "blue";
+    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY" || status === "RWA_ISSUED") return "blue";
     if (status === "FUNDING" || status === "RISK_ASSESSING") return "amber";
     if (status === "FUNDED" || status === "SETTLED") return "green";
     return "slate";
@@ -49,7 +77,7 @@ export function SupplierDashboardPage() {
       <header className="page-heading">
         <div>
           <h1>{t("Good morning, Minjun", "좋은 아침이에요, 민준님")}</h1>
-          <p>{t("Track invoices and access working capital faster.", "인보이스를 관리하고 운전자금을 더 빠르게 확보하세요.")}</p>
+          <p>{t("Track invoices and access working capital faster.", "인보이스를 관리하고 운용자금을 더 빠르게 확보하세요.")}</p>
         </div>
         <Link className="primary-button compact-button" to="/supplier/invoices/new">
           <Plus aria-hidden="true" size={14} weight="bold" />
@@ -58,21 +86,32 @@ export function SupplierDashboardPage() {
       </header>
 
       <div className="dashboard-stats">
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("USDC wallet balance", "USDC 지갑 잔액")}>
           <span>{t("USDC wallet balance", "USDC 지갑 잔액")}</span>
-          <strong>24,680 <small>USDC</small></strong>
+          <strong>
+            {supplierWalletBalance.isLoading
+              ? "…"
+              : supplierWalletBalance.balanceUsdc === null
+                ? "—"
+                : usdcFormatter.format(supplierWalletBalance.balanceUsdc)} <small>USDC</small>
+          </strong>
+          <p>{supplierWalletBalance.address
+            ? supplierWalletBalance.isError
+              ? t("Unable to load balance", "잔액을 불러오지 못했습니다")
+              : t("Connected wallet", "연결된 정산 지갑")
+            : t("Connect a settlement wallet", "정산 지갑을 연결해 주세요")}</p>
         </section>
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("In early settlement", "조기정산 진행 중")}>
           <span>{t("In early settlement", "조기정산 진행 중")}</span>
-          <strong>3 <small>{t("invoices", "건")}</small></strong>
+          <strong>{summary.earlySettlementInProgress} <small>{t("invoices", "건")}</small></strong>
         </section>
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("Waiting for buyer", "구매자 응답 대기")}>
           <span>{t("Waiting for buyer", "구매자 응답 대기")}</span>
-          <strong>2 <small>{t("requests", "건")}</small></strong>
+          <strong>{summary.waitingForBuyer} <small>{t("requests", "건")}</small></strong>
         </section>
-        <section className="stat-card">
+        <section className="stat-card" aria-label={t("Settlement received", "수령한 정산금")}>
           <span>{t("Settlement received", "수령한 정산금")}</span>
-          <strong>42,400 <small>USDC</small></strong>
+          <strong>{summary.settlementReceivedUsdc.toLocaleString()} <small>USDC</small></strong>
         </section>
       </div>
 

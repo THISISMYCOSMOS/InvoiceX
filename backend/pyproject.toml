@@ -5,7 +5,6 @@ description = "FastAPI backend implementing the InvoiceX frontend API contract"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.116,<1",
-  "firebase-admin>=7.5,<8",
   "httpx>=0.28,<1",
   "invoicex-agents",
   "pydantic-settings>=2.7,<3",

@@ -2,29 +2,14 @@ import { Link } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
+import { useInvoices } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
-
-const activityRows = [
-  {
-    invoiceId: "INV-2026-001",
-    buyer: "Prime Mobility",
-    result: "invested",
-    amount: "18,800 USDC",
-    time: "14:32",
-  },
-  {
-    invoiceId: "INV-2026-021",
-    buyer: "Global Retail",
-    result: "excluded",
-    amount: "Risk 74",
-    time: "14:18",
-  },
-] as const;
 
 const usdc = new Intl.NumberFormat("en-US");
 
 export function InvestorDashboardPage() {
   const dashboard = useInvestorDashboard();
+  const invoices = useInvoices();
   const { t } = useLanguage();
 
   if (dashboard.isLoading) return <LoadingState />;
@@ -40,6 +25,7 @@ export function InvestorDashboardPage() {
   }
 
   const data = dashboard.data;
+  const fundedInvoices = invoices.data?.filter((invoice) => invoice.status === "FUNDED" || invoice.status === "SETTLED") ?? [];
   const stats = [
     {
       label: t("Available to invest", "투자 가능 금액"),
@@ -102,27 +88,23 @@ export function InvestorDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {activityRows.map((activity) => (
-                <tr key={activity.invoiceId}>
+              {fundedInvoices.length > 0 ? fundedInvoices.map((invoice) => (
+                <tr key={invoice.id}>
                   <td>
-                    <Link to={`/investor/activities/${activity.invoiceId}`}>
-                      {activity.invoiceId}
+                    <Link to={`/investor/activities/${invoice.id}`}>
+                      {invoice.id}
                     </Link>
                   </td>
-                  <td>{activity.buyer}</td>
+                  <td>{invoice.buyer.name}</td>
                   <td>
-                    <span className={`investor-result investor-result--${activity.result}`}>
-                      {activity.result === "invested"
-                        ? t("Invested", "투자 완료")
-                        : t("Excluded", "제외")}
-                    </span>
+                    <span className="investor-result investor-result--invested">{t("Invested", "투자 완료")}</span>
                   </td>
-                  <td className={activity.result === "invested" ? "is-strong" : ""}>
-                    {activity.result === "excluded" ? t("Risk 74", "위험도 74") : activity.amount}
-                  </td>
-                  <td>{activity.time}</td>
+                  <td className="is-strong">{usdc.format(invoice.fundingTransaction?.amountUsdc ?? 0)} USDC</td>
+                  <td>{t("Completed", "완료")}</td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td colSpan={5} className="investor-activity-empty">{t("No investment has been executed yet.", "아직 실행된 투자가 없습니다.")}</td></tr>
+              )}
             </tbody>
           </table>
         </div>

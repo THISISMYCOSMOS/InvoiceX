@@ -8,7 +8,7 @@ import { shortenWalletAddress, walletErrorMessage, type WalletConnectionStatus }
 interface SolanaWalletConnectionProps {
   title: string;
   description: string;
-  onWalletConnected?: (address: string) => void;
+  onWalletConnected?: (address: string) => void | Promise<void>;
   onWalletDisconnected?: () => void;
 }
 
@@ -79,7 +79,9 @@ export function SolanaWalletConnection({
     if (connected && publicKey && connectedAddressRef.current !== publicKey) {
       connectedAddressRef.current = publicKey;
       setError(null);
-      onWalletConnected?.(publicKey);
+      void Promise.resolve(onWalletConnected?.(publicKey)).catch(() => {
+        setError("지갑 연결 정보를 저장하지 못했습니다. 다시 연결해 주세요.");
+      });
       return;
     }
 

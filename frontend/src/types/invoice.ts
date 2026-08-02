@@ -10,6 +10,7 @@ export type InvoiceStatus =
   | "BUYER_VERIFIED"
   | "RISK_ASSESSING"
   | "OFFER_READY"
+  | "RWA_ISSUED"
   | "FUNDING"
   | "FUNDED"
   | "REPAYMENT_PENDING"
@@ -31,6 +32,7 @@ const statusLabels: Record<InvoiceStatus, string> = {
   BUYER_VERIFIED: "구매기업 검증 완료",
   RISK_ASSESSING: "Risk Passport 생성 중",
   OFFER_READY: "조기정산 조건 확인",
+  RWA_ISSUED: "RWA 발행 완료",
   FUNDING: "Treasury Agent 처리 중",
   FUNDED: "USDC 지급 완료",
   REPAYMENT_PENDING: "만기 입금 대기",
@@ -73,6 +75,26 @@ export interface SettlementResult {
   supplierResidualUsdc: number;
 }
 
+export interface RwaAsset {
+  invoiceId: string;
+  mintAddress: string;
+  escrowTokenAccount: string;
+  status: "ISSUED" | "SOLD";
+  issueTransaction: BlockchainTransaction;
+  purchaseTransaction?: BlockchainTransaction;
+  ownerVaultAddress?: string;
+}
+
+export interface AgentDecision {
+  invoiceId: string;
+  mandateId?: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED";
+  checks: Record<string, boolean>;
+  amountUsdc: number;
+  reason?: string;
+  createdAt: string;
+}
+
 export interface Invoice {
   id: string;
   supplier: InvoiceParty;
@@ -92,6 +114,8 @@ export interface Invoice {
   fundingTransaction?: BlockchainTransaction;
   settlementTransaction?: BlockchainTransaction;
   settlement?: SettlementResult;
+  rwaAsset?: RwaAsset;
+  agentDecision?: AgentDecision;
   agentTraces: AgentTrace[];
 }
 

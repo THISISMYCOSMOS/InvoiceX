@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from invoicex_backend.agents import create_agent_gateway
@@ -22,18 +21,9 @@ from invoicex_backend.errors import (
     NotFoundError,
     StateConflictError,
 )
-from invoicex_backend.firebase import create_firebase_resources
-from invoicex_backend.repository import (
-    FirestoreStateRepository,
-    MemoryStateRepository,
-)
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import create_solana_gateway
-from invoicex_backend.storage import (
-    DocumentStorage,
-    FirebaseDocumentStorage,
-    LocalDocumentStorage,
-)
+from invoicex_backend.storage import LocalDocumentStorage
 
 
 def create_app(
@@ -43,34 +33,19 @@ def create_app(
     """Create the API and allow dependency injection for contract tests."""
 
     resolved_settings = settings or BackendSettings()
-    storage: DocumentStorage | None = None
     if service is None:
-        if resolved_settings.resolved_firebase_mode() == "firebase":
-            firebase = create_firebase_resources(resolved_settings)
-            storage = FirebaseDocumentStorage(
-                resolved_settings,
-                firebase.storage_bucket,
-            )
-            repository = FirestoreStateRepository(
-                resolved_settings,
-                firebase.firestore_client,
-            )
-        else:
-            storage = LocalDocumentStorage(resolved_settings)
-            repository = MemoryStateRepository()
+        storage = LocalDocumentStorage(resolved_settings)
         service = InvoiceService(
             settings=resolved_settings,
             agent_gateway=create_agent_gateway(resolved_settings),
             solana_gateway=create_solana_gateway(resolved_settings),
             storage=storage,
-            repository=repository,
         )
-    elif resolved_settings.resolved_firebase_mode() == "local":
+    else:
         storage = LocalDocumentStorage(resolved_settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        await service.initialize()
         yield
         await service.close()
 
@@ -78,8 +53,8 @@ def create_app(
         title="InvoiceX Backend API",
         version="1.0.0",
         description=(
-            "Firebase-backed frontend API contract implementation with Gemini "
-            "Document/Risk Agents and Privy-managed Solana Devnet settlement."
+            "Frontend API contract implementation with Gemini Document/Risk Agents "
+            "and direct Solana Devnet RWA automation."
         ),
         docs_url="/api/docs",
         redoc_url="/api/redoc",
@@ -102,33 +77,11 @@ def create_app(
         allow_headers=["*"],
     )
     app.include_router(router)
-
-    @app.get(
-        "/uploads/{invoice_id}/{document_id}",
-        include_in_schema=False,
+    app.mount(
+        "/uploads",
+        StaticFiles(directory=storage.directory),
+        name="uploads",
     )
-    async def read_uploaded_document(
-        invoice_id: str,
-        document_id: str,
-    ) -> Response:
-        document, content = await service.read_document(invoice_id, document_id)
-        safe_name = document.file_name.replace("\\", "/").rsplit("/", 1)[-1]
-        encoded_name = quote(safe_name or "document", safe="")
-        return Response(
-            content=content,
-            media_type=document.mime_type,
-            headers={
-                "Content-Disposition": f"inline; filename*=UTF-8''{encoded_name}",
-                "Cache-Control": "private, no-store",
-            },
-        )
-
-    if storage is not None and storage.directory is not None:
-        app.mount(
-            "/uploads",
-            StaticFiles(directory=storage.directory),
-            name="uploads",
-        )
 
     @app.exception_handler(NotFoundError)
     async def not_found_handler(_: Request, exc: NotFoundError) -> JSONResponse:

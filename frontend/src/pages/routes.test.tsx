@@ -100,13 +100,21 @@ test("shows the institution wallet only in investor setup, never buyer pages", a
   const investor = renderAt("/investor/setup");
 
   expect(await screen.findByRole("heading", { name: "Institution wallet" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Investment mandate setup" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Investment policy" })).toBeInTheDocument();
-  expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("50,000");
+  expect(screen.getByRole("heading", { name: "Automatic investment setup" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Automatic investment authorization" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Investment criteria" })).toBeInTheDocument();
+  expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("5");
   expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Sign authorization" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Sign Vault deposit" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("Prime Mobility");
 
-  await user.click(screen.getByRole("button", { name: "Save policy draft" }));
-  expect(screen.getByRole("status")).toHaveTextContent("Policy draft is ready for the future mandate API integration.");
+  await user.click(screen.getByRole("button", { name: "Buyer allowlist" }));
+  expect(screen.getByPlaceholderText("Search companies")).toBeInTheDocument();
+  expect(screen.queryByText("BUYER_PRIME")).not.toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: /Orbit Components/ })).not.toBeChecked();
+  await user.click(screen.getByRole("checkbox", { name: /Orbit Components/ }));
+  expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("2 buyers selected");
 
   investor.unmount();
   renderAt("/buyer");
@@ -159,6 +167,11 @@ test("switches demo roles from the topbar dropdown", async () => {
 });
 
 test("renders the investor Figma navigation and agent decision route", async () => {
+  await scenarioAdapter.analyzeInvoice("INV-2026-001");
+  await scenarioAdapter.requestVerification("INV-2026-001");
+  await scenarioAdapter.confirmVerification("VER-2026-001");
+  await scenarioAdapter.respondToOffer("INV-2026-001", "ACCEPT");
+
   const user = userEvent.setup();
   renderAt("/investor");
 
@@ -174,7 +187,7 @@ test("renders the investor Figma navigation and agent decision route", async () 
   expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/investor/setup");
   expect(screen.queryByText("Settlement Reports")).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("link", { name: "INV-2026-001" }));
+  await user.click(screen.getByRole("link", { name: "Agent Activity" }));
 
   expect(await screen.findByRole("heading", { name: "Treasury Agent decision" })).toBeInTheDocument();
   expect(screen.getByText("6 / 6 PASSED")).toBeInTheDocument();
@@ -224,8 +237,8 @@ test("shows the supplier RWA issuance request after buyer confirmation", async (
   buyer.unmount();
   renderAt("/supplier/invoices/INV-2026-001");
 
-  expect(await screen.findByRole("heading", { name: "Your early settlement offer is ready" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Accept & request RWA issuance" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
 });
 
 test("translates buyer and investor screens into Korean", async () => {

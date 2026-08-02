@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
 
 from invoicex_backend.config import BackendSettings
 
@@ -9,39 +11,27 @@ from invoicex_backend.config import BackendSettings
 def test_auto_modes_use_mock_without_external_credentials() -> None:
     settings = BackendSettings(
         _env_file=None,
-        FIREBASE_MODE="auto",
         AGENT_MODE="auto",
         SOLANA_MODE="auto",
-        FIREBASE_PROJECT_ID="",
         GEMINI_API_KEY="",
         PRIVY_APP_ID="",
         PRIVY_APP_SECRET="",
     )
-    assert settings.resolved_firebase_mode() == "local"
     assert settings.resolved_agent_mode() == "mock"
     assert settings.resolved_solana_mode() == "mock"
 
 
-def test_firebase_mode_uses_project_default_bucket() -> None:
+def test_auto_mode_prefers_complete_privy_configuration() -> None:
     settings = BackendSettings(
         _env_file=None,
-        FIREBASE_MODE="firebase",
-        FIREBASE_PROJECT_ID="invoicex-demo",
+        SOLANA_MODE="auto",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
     )
-    assert settings.resolved_firebase_mode() == "firebase"
-    assert (
-        settings.resolved_firebase_storage_bucket()
-        == "invoicex-demo.firebasestorage.app"
-    )
-
-
-def test_explicit_firebase_mode_requires_project_id() -> None:
-    with pytest.raises(ValidationError, match="FIREBASE_PROJECT_ID"):
-        BackendSettings(
-            _env_file=None,
-            FIREBASE_MODE="firebase",
-            FIREBASE_PROJECT_ID="",
-        )
+    assert settings.resolved_solana_mode() == "privy"
 
 
 def test_explicit_real_agent_requires_gemini_key() -> None:
@@ -63,16 +53,29 @@ def test_explicit_privy_mode_requires_complete_configuration() -> None:
         )
 
 
-def test_funding_mode_does_not_require_settlement_wallets() -> None:
+def test_gasless_mode_requires_a_separate_privy_sponsor_wallet() -> None:
+    with pytest.raises(ValidationError, match="GASLESS_ENABLED"):
+        BackendSettings(
+            _env_file=None,
+            SOLANA_MODE="privy",
+            GASLESS_ENABLED=True,
+            PRIVY_APP_ID="app-id",
+            PRIVY_APP_SECRET="app-secret",
+            PRIVY_TREASURY_WALLET_ID="treasury",
+            PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+            PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+        )
+
+
+def test_direct_mode_requires_keys_and_selects_direct_when_configured() -> None:
+    with pytest.raises(ValidationError, match="SOLANA_MODE=direct"):
+        BackendSettings(_env_file=None, SOLANA_MODE="direct")
+
     settings = BackendSettings(
         _env_file=None,
-        SOLANA_MODE="auto",
-        PRIVY_APP_ID="app-id",
-        PRIVY_APP_SECRET="app-secret",
-        PRIVY_TREASURY_WALLET_ID="treasury",
+        SOLANA_MODE="direct",
+        SOLANA_PLATFORM_KEYPAIR=str(Keypair()),
+        SOLANA_AGENT_VAULT_KEYPAIR=str(Keypair()),
+        DEMO_STABLECOIN_MINT=str(Pubkey.new_unique()),
     )
-
-    assert settings.resolved_solana_mode() == "privy"
-    assert settings.solana_demo_transfer_amount_usdc == 1
-    assert settings.missing_privy_funding_configuration() == []
-    assert settings.missing_privy_settlement_configuration()
+    assert settings.resolved_solana_mode() == "direct"

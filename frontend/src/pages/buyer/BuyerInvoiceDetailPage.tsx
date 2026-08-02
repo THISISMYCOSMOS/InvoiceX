@@ -197,13 +197,6 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const accountNumber = "123-456-789012";
-  const paymentGuide = [
-    `${t("Invoice", "인보이스")}: ${invoice.id}`,
-    `${t("Amount", "금액")}: ${krw.format(invoice.invoiceAmountKrw)}`,
-    `${t("Bank", "은행")}: OOBank`,
-    `${t("Virtual account", "가상계좌")}: ${accountNumber}`,
-    `${t("Account holder", "예금주")}: InvoiceX Settlement Partner`,
-  ].join("\n");
 
   const copyAccount = async () => {
     await navigator.clipboard?.writeText(accountNumber);
@@ -241,13 +234,6 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
             <button type="button" className="copy-account-button" onClick={copyAccount}>
               {copied ? t("Account number copied", "계좌번호 복사 완료") : t("Copy account number", "계좌번호 복사")}
             </button>
-            <a
-              className="secondary-button payment-guide-link"
-              href={`data:text/plain;charset=utf-8,${encodeURIComponent(paymentGuide)}`}
-              download={`InvoiceX-${invoice.id}-payment-guide.txt`}
-            >
-              {t("Download payment guide", "결제 안내 다운로드")}
-            </a>
           </footer>
         </section>
 

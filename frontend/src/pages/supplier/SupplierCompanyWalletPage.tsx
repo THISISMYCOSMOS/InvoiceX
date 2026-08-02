@@ -1,5 +1,6 @@
 import { BuildingOffice, CheckCircle } from "@phosphor-icons/react";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
+import { rwaApi } from "../../api/rwa.api";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 export function SupplierCompanyWalletPage() {
@@ -69,7 +70,7 @@ export function SupplierCompanyWalletPage() {
             "Early-settlement funds will be paid in USDC to the connected Solana wallet.",
             "조기정산 금액은 연결된 Solana 지갑으로 USDC 지급됩니다.",
           )}
-          onWalletConnected={() => undefined}
+          onWalletConnected={(address) => rwaApi.saveSupplierWallet(address)}
           onWalletDisconnected={() => undefined}
         />
       </div>

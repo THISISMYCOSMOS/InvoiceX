@@ -13,12 +13,12 @@
         "purchaseOrderNumber": "PO-2026-1002",
         "contractNumber": "CT-2026-0007",
         "currency": "KRW",
-        "totalAmount": "20000000",
+        "totalAmount": "3000",
         "issueDate": "2026-07-29",
         "dueDate": "2026-10-30",
         "itemName": "정밀 가공 부품",
         "quantity": "100",
-        "unitPrice": "200000",
+        "unitPrice": "30",
         "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
         "deliveryCompleted": true
       },
@@ -41,7 +41,7 @@
         "dueDate": null,
         "itemName": "정밀 가공 부품",
         "quantity": null,
-        "unitPrice": "200000",
+        "unitPrice": "30",
         "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
         "deliveryCompleted": null
       },
@@ -67,12 +67,12 @@
         "purchaseOrderNumber": "PO-2026-1002",
         "contractNumber": "CT-2026-0007",
         "currency": "KRW",
-        "totalAmount": "19000000",
+        "totalAmount": "2800",
         "issueDate": "2026-07-01",
         "dueDate": null,
         "itemName": "정밀 가공 부품",
         "quantity": "100",
-        "unitPrice": "190000",
+        "unitPrice": "28",
         "paymentTerms": null,
         "deliveryCompleted": null
       },
@@ -95,12 +95,12 @@
         "purchaseOrderNumber": "PO-2026-1002",
         "contractNumber": null,
         "currency": "KRW",
-        "totalAmount": "20000000",
+        "totalAmount": "3000",
         "issueDate": "2026-07-24",
         "dueDate": null,
         "itemName": "정밀 가공 부품",
         "quantity": "100",
-        "unitPrice": "200000",
+        "unitPrice": "30",
         "paymentTerms": null,
         "deliveryCompleted": true
       },
@@ -119,40 +119,40 @@
       "values": [
         {
           "documentId": "b-invoice",
-          "value": "20000000"
+          "value": "3000"
         },
         {
           "documentId": "b-purchase-order",
-          "value": "19000000"
+          "value": "2800"
         },
         {
           "documentId": "b-delivery-note",
-          "value": "20000000"
+          "value": "3000"
         }
       ],
-      "description": "청구서와 거래명세서는 20,000,000원, 발주서는 19,000,000원이다."
+      "description": "청구서와 거래명세서는 3,000원, 발주서는 2,800원이다."
     },
     {
       "field": "unitPrice",
       "values": [
         {
           "documentId": "b-invoice",
-          "value": "200000"
+          "value": "30"
         },
         {
           "documentId": "b-contract",
-          "value": "200000"
+          "value": "30"
         },
         {
           "documentId": "b-purchase-order",
-          "value": "190000"
+          "value": "28"
         },
         {
           "documentId": "b-delivery-note",
-          "value": "200000"
+          "value": "30"
         }
       ],
-      "description": "계약 단가는 200,000원이나 발주서만 190,000원으로 발행되었다."
+      "description": "계약 단가는 30원이나 발주서만 28원으로 발행되었다."
     }
   ],
   "expectedReviewRequired": true,

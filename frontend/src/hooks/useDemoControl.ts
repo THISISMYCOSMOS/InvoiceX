@@ -45,7 +45,6 @@ export function useDemoControl() {
     confirm: confirmInvoice,
     generateRiskPassport: useDemoMutation<string>(invoiceApi.getInvoice),
     acceptOffer: useDemoMutation<string>((invoiceId) => invoiceApi.respondToOffer(invoiceId, "ACCEPT")),
-    fund: useDemoMutation<string>(invoiceApi.runFunding),
     mockPayment: useDemoMutation<string>(settlementApi.mockPayment),
     settle: useDemoMutation<string>(settlementApi.runSettlement),
   };
