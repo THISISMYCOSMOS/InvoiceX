@@ -131,7 +131,7 @@ export interface InvestorDashboard {
   mandateStatus: "DRAFT" | "SIGNED" | "ACTIVE";
   availableVaultUsdc: number;
   outstandingPrincipalUsdc: number;
-  dueWithin30DaysUsdc?: number;
+  dueWithin30DaysUsdc: number;
   recentAgentTraces: AgentTrace[];
   walletAddress?: string;
   vaultAddress?: string;

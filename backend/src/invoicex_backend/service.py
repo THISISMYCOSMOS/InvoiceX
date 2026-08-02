@@ -777,10 +777,21 @@ class InvoiceService:
             InvoiceStatus.REPAYMENT_PENDING,
             InvoiceStatus.SETTLING,
         }
-        outstanding = sum(
-            invoice.risk_passport.suggested_advance_amount_usdc or 0
+        active_invoices_with_passport = [
+            invoice
             for invoice in self._invoices.values()
             if invoice.status in active and invoice.risk_passport is not None
+        ]
+        outstanding = sum(
+            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            for invoice in active_invoices_with_passport
+        )
+        today = date.today()
+        due_within_30_days = sum(
+            invoice.risk_passport.suggested_advance_amount_usdc or 0
+            for invoice in active_invoices_with_passport
+            if (due_date := self._try_parse_iso_date(invoice.due_date)) is not None
+            and 0 <= (due_date - today).days <= 30
         )
         traces = sorted(
             (trace for invoice in self._invoices.values() for trace in invoice.agent_traces),
@@ -791,10 +802,11 @@ class InvoiceService:
         vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
         return InvestorDashboard(
             investor_name="Nova Capital",
-            automated_investment_active=True,
+            automated_investment_active=bool(mandates),
             mandate_status="ACTIVE" if mandates else "DRAFT",
             available_vault_usdc=vault.available_usdc if vault else 0,
             outstanding_principal_usdc=outstanding,
+            due_within_30_days_usdc=due_within_30_days,
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
         )
 
@@ -920,7 +932,6 @@ class InvoiceService:
             analysis.purchase_order_number.value or invoice.purchase_order_number
         )
         invoice.supplier.name = analysis.supplier_name.value or invoice.supplier.name
-        invoice.buyer.name = analysis.buyer_name.value or invoice.buyer.name
         issue_date = self._first_raw_value(result, "issue_date")
         if isinstance(issue_date, str):
             invoice.issue_date = issue_date
@@ -1098,6 +1109,13 @@ class InvoiceService:
             return date.fromisoformat(value)
         except ValueError as exc:
             raise StateConflictError(f"{label} 형식이 올바르지 않습니다.") from exc
+
+    @staticmethod
+    def _try_parse_iso_date(value: str) -> date | None:
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
 
     @staticmethod
     def _validate_wallet_address(wallet_address: str) -> None:

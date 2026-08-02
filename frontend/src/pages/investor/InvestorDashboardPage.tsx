@@ -37,7 +37,7 @@ export function InvestorDashboardPage() {
     },
     {
       label: t("Due within 30 days", "30일 이내 만기"),
-      value: data.dueWithin30DaysUsdc ?? 72_840,
+      value: data.dueWithin30DaysUsdc,
     },
   ];
 
