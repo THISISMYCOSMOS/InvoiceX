@@ -24,6 +24,11 @@ from invoicex_backend.models import (
     InvestorDepositConfirmRequest,
     InvestorDepositPreparation,
     InvestorDepositPrepareRequest,
+    InvestorMandate,
+    InvestorMandateActivateRequest,
+    InvestorMandateDraftRequest,
+    InvestorMandateEmergencyStopRequest,
+    InvestorMandatePreparation,
     InvoiceListResponse,
     InvoiceResponse,
     OfferResponseRequest,
@@ -42,7 +47,7 @@ def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
         404: "Invoice or Verification was not found",
         409: "The requested state transition is not allowed",
         422: "The request does not match the API contract",
-        502: "Gemini, Privy, or Solana integration failed",
+        502: "Firebase, Gemini, Privy, or Solana integration failed",
     }
     return {
         code: {"model": ErrorResponse, "description": descriptions[code]}
@@ -281,6 +286,59 @@ async def confirm_investor_deposit(
         payload.reference_id,
         payload.signature,
     )
+
+
+@router.post(
+    "/investor/mandate/prepare",
+    response_model=InvestorMandatePreparation,
+    responses=documented_errors(422),
+    tags=["Investor"],
+    summary="투자 Mandate 서명 준비",
+)
+async def prepare_mandate(
+    payload: InvestorMandateDraftRequest,
+    service: InvoiceServiceDependency,
+) -> InvestorMandatePreparation:
+    return await service.prepare_mandate(payload)
+
+
+@router.post(
+    "/investor/mandate/activate",
+    response_model=InvestorMandate,
+    responses=documented_errors(404, 409, 422),
+    tags=["Investor"],
+    summary="투자 Mandate 서명 검증 및 활성화",
+)
+async def activate_mandate(
+    payload: InvestorMandateActivateRequest,
+    service: InvoiceServiceDependency,
+) -> InvestorMandate:
+    return await service.activate_mandate(payload.mandate_id, payload.signature)
+
+
+@router.get(
+    "/investor/mandate",
+    response_model=InvestorMandate,
+    responses=documented_errors(404),
+    tags=["Investor"],
+    summary="현재 활성 Investor Mandate 조회",
+)
+async def get_mandate(service: InvoiceServiceDependency) -> InvestorMandate:
+    return service.get_mandate()
+
+
+@router.post(
+    "/investor/mandate/emergency-stop",
+    response_model=InvestorMandate,
+    responses=documented_errors(404, 409, 422),
+    tags=["Investor"],
+    summary="Mandate 긴급 중지 전환 (신규 투자만 중단)",
+)
+async def set_mandate_emergency_stop(
+    payload: InvestorMandateEmergencyStopRequest,
+    service: InvoiceServiceDependency,
+) -> InvestorMandate:
+    return await service.set_mandate_emergency_stop(payload.stopped)
 
 
 @router.post(

@@ -7,9 +7,12 @@ import asyncio
 import statistics
 import tempfile
 import time
+from io import BytesIO
 from pathlib import Path
 
 import httpx
+from PIL import Image
+from pypdf import PdfWriter
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
@@ -19,6 +22,7 @@ async def run(iterations: int, concurrency: int) -> None:
     with tempfile.TemporaryDirectory(prefix="invoicex-stress-") as directory:
         settings = BackendSettings(
             _env_file=None,
+            FIREBASE_MODE="local",
             AGENT_MODE="mock",
             SOLANA_MODE="mock",
             UPLOAD_DIRECTORY=Path(directory),
@@ -28,13 +32,21 @@ async def run(iterations: int, concurrency: int) -> None:
         transport = httpx.ASGITransport(app=app)
         semaphore = asyncio.Semaphore(concurrency)
         latencies: list[float] = []
-        pdf = b"%PDF-1.4\nInvoiceX stress document\n%%EOF"
+        pdf_buffer = BytesIO()
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        writer.write(pdf_buffer)
+        pdf = pdf_buffer.getvalue()
+        image_buffer = BytesIO()
+        Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
+        png = image_buffer.getvalue()
 
         async with httpx.AsyncClient(
             transport=transport,
             base_url="http://stress",
             timeout=30,
         ) as client:
+            await _seed_investor_vault(client, iterations)
 
             async def workflow(index: int) -> None:
                 async with semaphore:
@@ -49,7 +61,7 @@ async def run(iterations: int, concurrency: int) -> None:
                         ),
                         "DELIVERY_PROOF": (
                             f"delivery-{index}.png",
-                            b"\x89PNG\r\n\x1a\n",
+                            png,
                             "image/png",
                         ),
                     }
@@ -100,6 +112,27 @@ async def run(iterations: int, concurrency: int) -> None:
             f"mean_seconds={statistics.fmean(latencies):.4f} "
             f"p95_seconds={p95:.4f}"
         )
+
+
+async def _seed_investor_vault(client: httpx.AsyncClient, iterations: int) -> None:
+    """Fund the Agent Vault so mandate funding is the bottleneck, not the balance."""
+
+    prepared = await client.post(
+        "/api/v1/investor/deposits/prepare",
+        json={
+            "investorWalletAddress": "99HjRok4PZoX16d7Zz88S3EW4yjTDaHXJ492GaMJHD1U",
+            "amountUsdc": iterations * 20_000,
+        },
+    )
+    _require(prepared)
+    confirmed = await client.post(
+        "/api/v1/investor/deposits/confirm",
+        json={
+            "referenceId": prepared.json()["referenceId"],
+            "signature": "stress-seed-deposit",
+        },
+    )
+    _require(confirmed)
 
 
 def _require(response: httpx.Response, status_code: int = 200) -> None:

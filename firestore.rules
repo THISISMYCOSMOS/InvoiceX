@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The FastAPI backend is the only data access boundary for this MVP.
+    // Firebase Admin SDK requests use IAM and bypass Security Rules.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

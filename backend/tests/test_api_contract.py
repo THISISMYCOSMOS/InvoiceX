@@ -72,6 +72,18 @@ def test_complete_frontend_contract_workflow(
     assert offered["riskPassport"]["riskScore"] == 86
     assert offered["riskPassport"]["suggestedAdvanceRateBps"] == 9_400
     assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 18_800
+    assert offered["rwa"] is not None
+    assert offered["rwa"]["invoiceId"] == invoice_id
+    assert offered["rwa"]["amount"] == 1
+    assert offered["rwa"]["decimals"] == 0
+    assert offered["rwa"]["network"] == "SOLANA_DEVNET"
+    assert offered["rwa"]["status"] == "CONFIRMED"
+    assert offered["rwa"]["provider"] == "MOCK"
+    assert offered["rwa"]["mintAddress"]
+    assert offered["rwa"]["mintExplorerUrl"] == (
+        f"https://explorer.solana.com/address/{offered['rwa']['mintAddress']}"
+        "?cluster=devnet"
+    )
 
     duplicate_confirm = client.post(
         f"/api/v1/verifications/{verification_id}/confirm"
@@ -281,6 +293,10 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/investor/dashboard",
         "/api/v1/investor/deposits/prepare",
         "/api/v1/investor/deposits/confirm",
+        "/api/v1/investor/mandate/prepare",
+        "/api/v1/investor/mandate/activate",
+        "/api/v1/investor/mandate",
+        "/api/v1/investor/mandate/emergency-stop",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
     }
     assert set(schema["paths"]) == expected_paths

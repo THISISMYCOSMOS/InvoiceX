@@ -1,5 +1,13 @@
 # InvoiceX
 
+## Firebase integration handoff
+
+The Firebase project is prepared, and the remaining backend persistence work is
+tracked in [`docs/FIREBASE_INTEGRATION_HANDOFF.md`](docs/FIREBASE_INTEGRATION_HANDOFF.md).
+The handoff covers the preserved implementation commit, expected conflicts,
+owner-managed authentication, missing investor-state persistence, verification,
+and the definition of done.
+
 ## Solana Devnet wallet runbook
 
 팀원 또는 AI 작업자가 Devnet SOL·USDC 준비, MetaMask 역할별 계정 연결,

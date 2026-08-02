@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from solders.pubkey import Pubkey
 
 
@@ -99,6 +99,13 @@ class OfferResponse(StrEnum):
     DECLINE = "DECLINE"
 
 
+class MandateStatus(StrEnum):
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    EXPIRED = "EXPIRED"
+    STOPPED = "STOPPED"
+
+
 class InvoiceParty(ApiModel):
     id: str
     name: str
@@ -186,6 +193,27 @@ class BlockchainTransaction(ApiModel):
     provider: Literal["PRIVY", "MOCK"]
 
 
+class RwaToken(ApiModel):
+    invoice_id: str
+    mint_address: str
+    escrow_address: str
+    amount: int = 1
+    decimals: int = 0
+    network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
+    status: TransactionStatus
+    issuance_signature: str | None = None
+    mint_explorer_url: str
+    issuance_explorer_url: str | None = None
+    issued_at: str
+    provider: Literal["PRIVY", "MOCK"]
+    # Current holder of the RWA token: the escrow right after issuance, the
+    # Agent Vault once execute_rwa_purchase() has moved it atomically. These
+    # default to None so existing Firestore documents deserialize unchanged.
+    holder_address: str | None = None
+    transfer_signature: str | None = None
+    transfer_explorer_url: str | None = None
+
+
 class Settlement(ApiModel):
     invoice_face_value_usdc: int
     investor_settlement_usdc: int
@@ -227,6 +255,7 @@ class Invoice(ApiModel):
     risk_passport: RiskPassport | None
     funding_transaction: BlockchainTransaction | None
     settlement_transaction: BlockchainTransaction | None
+    rwa: RwaToken | None = None
     settlement: Settlement | None
     agent_traces: list[AgentTrace]
 
@@ -312,6 +341,111 @@ class InvestorDeposit(ApiModel):
     confirmed_at: datetime
 
 
+def _format_mandate_message_value(value: object) -> str:
+    """Render one canonical-message value deterministically for wallet signing."""
+
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list):
+        return ",".join(str(item) for item in sorted(str(item) for item in value))
+    return str(value)
+
+
+class _MandateTerms(ApiModel):
+    """Fields an investor sets and signs; shared by drafts and issued Mandates."""
+
+    investor_wallet_address: str
+    # 1. 자금 한도
+    total_outstanding_limit_usdc: int = Field(gt=0)
+    per_invoice_limit_usdc: int = Field(gt=0)
+    daily_new_investment_limit_usdc: int = Field(gt=0)
+    # 2. 투자 대상
+    buyer_allowlist: list[str] = Field(default_factory=list)
+    excluded_buyer_ids: list[str] = Field(default_factory=list)
+    max_buyer_concentration_bps: int = Field(default=10_000, ge=0, le=10_000)
+    # 3. 위험·수익 조건
+    min_risk_score: int = Field(ge=0, le=100)
+    max_remaining_tenor_days: int = Field(gt=0)
+    max_advance_rate_bps: int = Field(ge=0, le=10_000)
+    min_target_net_yield_bps: int = Field(ge=0)
+    # 4. 권한·중지 조건
+    valid_from: str
+    valid_until: str
+    halt_new_investment_on_overdue: bool = True
+    emergency_stopped: bool = False
+
+    @field_validator("investor_wallet_address")
+    @classmethod
+    def validate_investor_wallet_address(cls, value: str) -> str:
+        address = value.strip()
+        try:
+            Pubkey.from_string(address)
+        except ValueError as exc:
+            raise ValueError("investorWalletAddress must be a Solana address") from exc
+        return address
+
+    @field_validator("valid_from", "valid_until")
+    @classmethod
+    def validate_iso_date(cls, value: str) -> str:
+        try:
+            date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("must be an ISO date formatted as YYYY-MM-DD") from exc
+        return value
+
+    @model_validator(mode="after")
+    def validate_validity_window(self) -> _MandateTerms:
+        if date.fromisoformat(self.valid_until) < date.fromisoformat(self.valid_from):
+            raise ValueError("validUntil must not be before validFrom")
+        return self
+
+
+class InvestorMandateDraftRequest(_MandateTerms):
+    """POST /investor/mandate/prepare body; id/version/status are server-assigned."""
+
+
+class InvestorMandate(_MandateTerms):
+    id: str
+    version: int = Field(default=1, ge=1)
+    status: MandateStatus = MandateStatus.DRAFT
+    signature: str | None = None
+    signed_at: str | None = None
+
+    def canonical_message(self) -> str:
+        """Deterministic text the investor's wallet signs; excludes signing fields."""
+
+        data = self.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude={"status", "signature", "signed_at"},
+        )
+        header = [
+            "InvoiceX Investment Mandate",
+            f"id: {data.pop('id')}",
+            f"version: {data.pop('version')}",
+            f"investor: {data.pop('investorWalletAddress')}",
+        ]
+        body = [
+            f"{key}: {_format_mandate_message_value(data[key])}"
+            for key in sorted(data)
+        ]
+        return "\n".join(header + body)
+
+
+class InvestorMandatePreparation(ApiModel):
+    mandate: InvestorMandate
+    message: str
+
+
+class InvestorMandateActivateRequest(ApiModel):
+    mandate_id: str
+    signature: str
+
+
+class InvestorMandateEmergencyStopRequest(ApiModel):
+    stopped: bool
+
+
 class InvestorDashboard(ApiModel):
     investor_name: str
     automated_investment_active: bool
@@ -322,6 +456,27 @@ class InvestorDashboard(ApiModel):
     wallet_address: str | None = None
     vault_address: str | None = None
     latest_deposit: InvestorDeposit | None = None
+    mandate: InvestorMandate | None = None
+
+
+class InvestorRuntimeState(ApiModel):
+    """Investor Vault state persisted as one atomically written document."""
+
+    investor_wallet_address: str | None = None
+    investor_vault_address: str | None = None
+    available_vault_usdc: int = 0
+    deposit_sequence: int = 0
+    deposit_preparations: dict[str, InvestorDepositPreparation] = Field(
+        default_factory=dict
+    )
+    deposits: dict[str, InvestorDeposit] = Field(default_factory=dict)
+    used_deposit_signatures: list[str] = Field(default_factory=list)
+    latest_deposit: InvestorDeposit | None = None
+    funding_reservations: dict[str, int] = Field(default_factory=dict)
+    mandate: InvestorMandate | None = None
+    mandate_drafts: dict[str, InvestorMandate] = Field(default_factory=dict)
+    mandate_sequence: int = 0
+    daily_invested_usdc: dict[str, int] = Field(default_factory=dict)
 
 
 class ErrorResponse(ApiModel):
@@ -356,3 +511,34 @@ class ChainTransferResult:
     from_address: str
     provider: Literal["PRIVY", "MOCK"]
     sandbox: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RwaIssuance:
+    """Provider-neutral result of minting exactly one non-divisible RWA token."""
+
+    mint_address: str
+    escrow_address: str
+    escrow_token_account: str
+    signature: str | None
+    status: TransactionStatus
+    already_issued: bool
+    provider: Literal["PRIVY", "MOCK"]
+    sandbox: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RwaPurchaseResult:
+    """Result of atomically paying the supplier and moving the RWA to the Vault."""
+
+    signature: str
+    status: TransactionStatus
+    vault_address: str
+    escrow_address: str
+    sponsor_address: str
+    supplier_address: str
+    amount_usdc: int
+    rwa_mint_address: str
+    provider: Literal["PRIVY", "MOCK"]
+    sandbox: bool
+    already_executed: bool
