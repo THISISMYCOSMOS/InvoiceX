@@ -109,6 +109,24 @@ deployment pins Cloud Run to one request at a time and one instance. Before
 raising either limit, move the remaining workflow lock/queue state into Cloud
 SQL and Cloud Tasks.
 
+## Deployed frontend demo
+
+The React frontend is served by the separate `invoicex-web` Cloud Run service.
+It uses `frontend/Dockerfile` to build Vite and Nginx to serve the resulting
+single-page application, including client-side route fallbacks.
+
+Build it with the API service URL at compile time:
+
+```bash
+gcloud builds submit --config=cloudbuild.frontend.yaml \
+  --substitutions=_API_BASE_URL=https://your-api-service.run.app,_IMAGE_TAG=$(git rev-parse --short HEAD)
+```
+
+After the web service receives its HTTPS URL, configure the API's
+`FRONTEND_ORIGIN` to exactly that value and redeploy/update the API. The API
+currently permits one exact browser origin; do not leave `localhost` configured
+for a shared or remote judging demo.
+
 ## Document security
 
 Original PDFs and images are written beneath

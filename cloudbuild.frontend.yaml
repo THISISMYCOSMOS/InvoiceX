@@ -1,0 +1,42 @@
+substitutions:
+  _REGION: asia-northeast3
+  _ARTIFACT_REPOSITORY: invoicex
+  _SERVICE: invoicex-web
+  _SERVICE_ACCOUNT: invoicex-web@${PROJECT_ID}.iam.gserviceaccount.com
+  _IMAGE_TAG: manual
+  _API_BASE_URL: ''
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=frontend/Dockerfile
+      - --build-arg=VITE_API_BASE_URL=${_API_BASE_URL}
+      - --build-arg=VITE_USE_MOCK_API=false
+      - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${_IMAGE_TAG}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${_IMAGE_TAG}
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${_IMAGE_TAG}
+      - --region=${_REGION}
+      - --service-account=${_SERVICE_ACCOUNT}
+      - --allow-unauthenticated
+      - --ingress=all
+      - --port=8080
+      - --min-instances=0
+      - --max-instances=1
+      - --concurrency=80
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${_IMAGE_TAG}
+
+options:
+  dynamic_substitutions: true
