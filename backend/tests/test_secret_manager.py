@@ -34,6 +34,7 @@ def _pin_non_secret_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AGENT_MODE", "mock")
     monkeypatch.setenv("SOLANA_MODE", "mock")
     monkeypatch.setenv("GASLESS_ENABLED", "false")
+    monkeypatch.setenv("MOCK_SETTLEMENT_ENABLED", "false")
 
 
 def _clear_managed_keys(monkeypatch: pytest.MonkeyPatch) -> None:

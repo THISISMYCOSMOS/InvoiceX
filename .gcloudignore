@@ -1,0 +1,15 @@
+# Exclude local state and credentials from Cloud Build source uploads.
+.gcloudignore
+.git
+.gitignore
+#!include:.gitignore
+
+# Build dependencies are installed inside the container image.
+**/node_modules
+**/.venv
+
+# User-local and generated workspace directories.
+output/
+scripts/
+backend/uploads/
+backend/*.sqlite3

@@ -29,6 +29,12 @@ MANAGED_SECRET_KEYS: dict[str, str] = {
     "AUTH_TOKEN_SECRET": "auth-token-secret",
 }
 
+# These secrets support the separate mock repayment-distribution flow.  The
+# production Cloud Run configuration intentionally disables that flow because
+# the current product path is investor deposit -> agent vault -> supplier
+# payout.  Avoid querying a secret that is neither provisioned nor needed.
+MOCK_SETTLEMENT_SECRET_KEYS = frozenset({"PRIVY_SETTLEMENT_WALLET_ID"})
+
 
 class _SecretManagerBootstrapSettings(BaseSettings):
     """Minimal settings needed to decide whether Secret Manager should be consulted.
@@ -54,6 +60,10 @@ class _SecretManagerBootstrapSettings(BaseSettings):
         validation_alias=AliasChoices("GCP_PROJECT_ID", "GOOGLE_CLOUD_PROJECT"),
     )
     secret_name_prefix: str = Field(default="", validation_alias="SECRET_NAME_PREFIX")
+    mock_settlement_enabled: bool = Field(
+        default=True,
+        validation_alias="MOCK_SETTLEMENT_ENABLED",
+    )
 
 
 def _create_secret_manager_client() -> Any:
@@ -77,6 +87,11 @@ def _apply_secret_manager_overrides(
 ) -> None:
     client: Any | None = None
     for env_key, secret_suffix in MANAGED_SECRET_KEYS.items():
+        if (
+            env_key in MOCK_SETTLEMENT_SECRET_KEYS
+            and not bootstrap.mock_settlement_enabled
+        ):
+            continue
         if env_key in os.environ:
             continue
         try:

@@ -90,6 +90,12 @@ def create_app(
 
         return {"status": "ok"}
 
+    @app.get("/api/v1/healthz", include_in_schema=False)
+    async def api_healthz() -> dict[str, str]:
+        """API-namespaced liveness endpoint for clients and reverse proxies."""
+
+        return {"status": "ok"}
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[resolved_settings.frontend_origin],
