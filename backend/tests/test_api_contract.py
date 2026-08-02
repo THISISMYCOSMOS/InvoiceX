@@ -287,3 +287,44 @@ def test_fixed_demo_accounts_issue_tokens_and_protect_gcp_api(tmp_path: Path) ->
             },
         )
         assert rejected.status_code == 401
+
+
+def test_fixed_demo_accounts_cannot_cross_role_boundaries(tmp_path: Path) -> None:
+    settings = mock_settings(
+        tmp_path / "uploads",
+        API_AUTH_REQUIRED=True,
+        AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
+    )
+    with TestClient(create_app(settings=settings)) as authenticated_client:
+        investor_login = authenticated_client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Investor",
+                "email": "investor@company.com",
+                "password": "investor",
+            },
+        )
+        investor_headers = {"Authorization": f"Bearer {investor_login.json()['accessToken']}"}
+
+        supplier_login = authenticated_client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Supplier",
+                "email": "supplier@company.com",
+                "password": "supplier",
+            },
+        )
+        supplier_headers = {"Authorization": f"Bearer {supplier_login.json()['accessToken']}"}
+
+        rejected_upload = authenticated_client.post(
+            "/api/v1/invoices",
+            headers=investor_headers,
+            files={
+                part: (f"{part}.pdf", b"%PDF-1.4", "application/pdf")
+                for part in ("INVOICE", "CONTRACT", "PURCHASE_ORDER", "DELIVERY_PROOF")
+            },
+        )
+        assert rejected_upload.status_code == 403
+        assert authenticated_client.get(
+            "/api/v1/investor/dashboard", headers=supplier_headers
+        ).status_code == 403

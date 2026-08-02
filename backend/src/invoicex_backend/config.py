@@ -250,6 +250,14 @@ class BackendSettings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_explicit_real_modes(self) -> BackendSettings:
+        if (
+            self.api_auth_required
+            and self.auth_token_secret == "local-development-only-token-secret"
+        ):
+            raise ValueError(
+                "API_AUTH_REQUIRED=true requires a non-default AUTH_TOKEN_SECRET "
+                "from Secret Manager"
+            )
         if self.deployment_target == "gcp":
             missing = {
                 "GCP_PROJECT_ID": self.gcp_project_id,

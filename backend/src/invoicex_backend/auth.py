@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -52,12 +53,40 @@ def require_authenticated_identity(request: Request) -> AuthenticatedIdentity | 
         payload = json.loads(_decode(body))
         if not isinstance(payload, dict) or int(payload["exp"]) < int(time.time()):
             raise ValueError("expired")
-        return AuthenticatedIdentity(
+        identity = AuthenticatedIdentity(
             role=LoginRole(str(payload["role"])),
             email=str(payload["email"]),
         )
+        request.state.authenticated_identity = identity
+        return identity
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         raise _unauthorized() from None
+
+
+def require_roles(*allowed_roles: LoginRole) -> Callable[[Request], AuthenticatedIdentity | None]:
+    """Return a dependency that restricts GCP demo API actions by role.
+
+    Local mock mode deliberately keeps the API open, preserving the existing
+    browser-only demo and contract tests. Once API authentication is enabled,
+    a valid token must additionally belong to one of the explicitly permitted
+    fixed demo roles.
+    """
+
+    allowed = frozenset(allowed_roles)
+
+    def dependency(request: Request) -> AuthenticatedIdentity | None:
+        identity = require_authenticated_identity(request)
+        if identity is None:
+            return None
+        if identity.role not in allowed:
+            names = ", ".join(role.value for role in sorted(allowed, key=lambda role: role.value))
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This action requires one of the following roles: {names}.",
+            )
+        return identity
+
+    return dependency
 
 
 def _encode(value: bytes) -> str:

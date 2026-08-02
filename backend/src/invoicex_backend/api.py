@@ -21,6 +21,7 @@ from invoicex_backend.auth import (
     AuthenticatedIdentity,
     issue_access_token,
     require_authenticated_identity,
+    require_roles,
 )
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import DocumentValidationError, NotFoundError
@@ -36,6 +37,7 @@ from invoicex_backend.models import (
     InvoiceResponse,
     LoginRequest,
     LoginResponse,
+    LoginRole,
     MandateSigningPayload,
     OfferResponseRequest,
     PrepareMandateRequest,
@@ -57,10 +59,16 @@ router = APIRouter(
     dependencies=[Depends(require_authenticated_identity)],
 )
 
+supplier_only = Depends(require_roles(LoginRole.SUPPLIER))
+buyer_only = Depends(require_roles(LoginRole.BUYER))
+investor_only = Depends(require_roles(LoginRole.INVESTOR))
+invoice_reader = Depends(require_roles(LoginRole.SUPPLIER, LoginRole.BUYER, LoginRole.INVESTOR))
+
 
 def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
     descriptions = {
         400: "Document or domain validation failed",
+        403: "The authenticated demo account is not permitted to perform this action",
         404: "Invoice or Verification was not found",
         409: "The requested state transition is not allowed",
         422: "The request does not match the API contract",
@@ -153,6 +161,7 @@ async def login(payload: LoginRequest, settings: SettingsDependency) -> LoginRes
     response_model=list[InvestmentCriteriaBuyer],
     tags=["Investor"],
     summary="투자 조건용 목업 구매기업 목록",
+    dependencies=[investor_only],
 )
 async def list_investment_criteria_buyers() -> list[InvestmentCriteriaBuyer]:
     return list(INVESTMENT_CRITERIA_BUYERS)
@@ -162,9 +171,10 @@ async def list_investment_criteria_buyers() -> list[InvestmentCriteriaBuyer]:
     "/invoices",
     response_model=InvoiceResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=documented_errors(400, 422, 502),
+    responses=documented_errors(403, 400, 422, 502),
     tags=["Invoices"],
     summary="문서 등록 및 Gemini 분석",
+    dependencies=[supplier_only],
 )
 async def create_invoice(
     invoice_file: InvoiceFile,
@@ -198,6 +208,7 @@ async def create_invoice(
     response_model=InvoiceListResponse,
     tags=["Invoices"],
     summary="Supplier Invoice 목록",
+    dependencies=[supplier_only],
 )
 async def list_invoices(service: InvoiceServiceDependency) -> InvoiceListResponse:
     return InvoiceListResponse(items=service.list_invoices())
@@ -206,9 +217,10 @@ async def list_invoices(service: InvoiceServiceDependency) -> InvoiceListRespons
 @router.get(
     "/invoices/{invoiceId}",
     response_model=InvoiceResponse,
-    responses=documented_errors(404),
+    responses=documented_errors(403, 404),
     tags=["Invoices"],
     summary="Invoice 통합 상세",
+    dependencies=[invoice_reader],
 )
 async def get_invoice(
     invoice_id: InvoiceId,
@@ -220,9 +232,10 @@ async def get_invoice(
 @router.post(
     "/invoices/{invoiceId}/verification-request",
     response_model=InvoiceResponse,
-    responses=documented_errors(404, 409),
+    responses=documented_errors(403, 404, 409),
     tags=["Verifications"],
     summary="Buyer 검증 요청 생성",
+    dependencies=[supplier_only],
 )
 async def request_verification(
     invoice_id: InvoiceId,
@@ -236,6 +249,7 @@ async def request_verification(
     response_model=VerificationListResponse,
     tags=["Verifications"],
     summary="Buyer 검증 목록",
+    dependencies=[buyer_only],
 )
 async def list_verifications(
     service: InvoiceServiceDependency,
@@ -246,9 +260,10 @@ async def list_verifications(
 @router.get(
     "/verifications/{verificationId}",
     response_model=VerificationResponse,
-    responses=documented_errors(404),
+    responses=documented_errors(403, 404),
     tags=["Verifications"],
     summary="Buyer 검증 상세",
+    dependencies=[buyer_only],
 )
 async def get_verification(
     verification_id: VerificationId,
@@ -260,9 +275,10 @@ async def get_verification(
 @router.post(
     "/verifications/{verificationId}/confirm",
     response_model=InvoiceResponse,
-    responses=documented_errors(404, 409, 502),
+    responses=documented_errors(403, 404, 409, 502),
     tags=["Verifications"],
     summary="Buyer 검증 확정 및 Risk Passport 생성",
+    dependencies=[buyer_only],
 )
 async def confirm_verification(
     verification_id: VerificationId,
@@ -274,9 +290,10 @@ async def confirm_verification(
 @router.post(
     "/invoices/{invoiceId}/offer-response",
     response_model=InvoiceResponse,
-    responses=documented_errors(404, 409, 422),
+    responses=documented_errors(403, 404, 409, 422),
     tags=["Funding"],
     summary="Supplier 조기정산 조건 응답",
+    dependencies=[supplier_only],
 )
 async def respond_to_offer(
     invoice_id: InvoiceId,
@@ -296,9 +313,10 @@ async def respond_to_offer(
 @router.post(
     "/supplier/wallet",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=documented_errors(409, 422),
+    responses=documented_errors(403, 409, 422),
     tags=["Funding"],
     summary="공급기업 정산 지갑 저장",
+    dependencies=[supplier_only],
 )
 async def save_supplier_wallet(
     payload: SaveSupplierWalletRequest,
@@ -310,9 +328,10 @@ async def save_supplier_wallet(
 @router.post(
     "/investor/mandates/prepare",
     response_model=MandateSigningPayload,
-    responses=documented_errors(409, 422),
+    responses=documented_errors(403, 409, 422),
     tags=["Investor"],
     summary="Mandate 지갑 서명 메시지 준비",
+    dependencies=[investor_only],
 )
 async def prepare_mandate(
     payload: PrepareMandateRequest,
@@ -329,9 +348,10 @@ async def prepare_mandate(
 @router.post(
     "/investor/mandates",
     response_model=InvestorMandate,
-    responses=documented_errors(409, 422),
+    responses=documented_errors(403, 409, 422),
     tags=["Investor"],
     summary="지갑 서명 Mandate 활성화",
+    dependencies=[investor_only],
 )
 async def create_mandate(
     payload: CreateMandateRequest,
@@ -346,9 +366,10 @@ async def create_mandate(
 @router.get(
     "/investor/mandates/active",
     response_model=InvestorMandate,
-    responses=documented_errors(404, 409, 422),
+    responses=documented_errors(403, 404, 409, 422),
     tags=["Investor"],
     summary="지갑의 활성 Mandate 조회",
+    dependencies=[investor_only],
 )
 async def get_active_mandate(
     service: InvoiceServiceDependency,
@@ -363,9 +384,10 @@ async def get_active_mandate(
 @router.get(
     "/investor/vault",
     response_model=VaultBalance,
-    responses=documented_errors(409, 422),
+    responses=documented_errors(403, 409, 422),
     tags=["Investor"],
     summary="Agent Vault 잔액 조회",
+    dependencies=[investor_only],
 )
 async def get_vault(
     service: InvoiceServiceDependency,
@@ -377,9 +399,10 @@ async def get_vault(
 @router.post(
     "/investor/vault/deposits/prepare",
     response_model=VaultDepositPreparation,
-    responses=documented_errors(409, 422, 502),
+    responses=documented_errors(403, 409, 422, 502),
     tags=["Investor"],
     summary="Agent Vault 예치 트랜잭션 준비",
+    dependencies=[investor_only],
 )
 async def prepare_vault_deposit(
     payload: PrepareVaultDepositRequest,
@@ -402,9 +425,10 @@ async def prepare_vault_deposit(
 @router.post(
     "/investor/vault/deposits/sponsor",
     response_model=VaultBalance,
-    responses=documented_errors(409, 422, 502),
+    responses=documented_errors(403, 409, 422, 502),
     tags=["Investor"],
     summary="가스리스 Agent Vault 예치 서명 완결",
+    dependencies=[investor_only],
 )
 async def sponsor_vault_deposit(
     payload: SponsorVaultDepositRequest,
@@ -419,9 +443,10 @@ async def sponsor_vault_deposit(
 @router.post(
     "/investor/vault/deposits/confirm",
     response_model=VaultBalance,
-    responses=documented_errors(409, 422, 502),
+    responses=documented_errors(403, 409, 422, 502),
     tags=["Investor"],
     summary="Agent Vault 예치 확인",
+    dependencies=[investor_only],
 )
 async def confirm_vault_deposit(
     payload: ConfirmVaultDepositRequest,
@@ -438,6 +463,7 @@ async def confirm_vault_deposit(
     response_model=InvestorDashboard,
     tags=["Investor"],
     summary="Investor Dashboard",
+    dependencies=[investor_only],
 )
 async def investor_dashboard(
     service: InvoiceServiceDependency,
@@ -448,9 +474,10 @@ async def investor_dashboard(
 @router.post(
     "/invoices/{invoiceId}/settlement/mock-payment",
     response_model=InvoiceResponse,
-    responses=documented_errors(404, 409, 502),
+    responses=documented_errors(403, 404, 409, 502),
     tags=["Settlement"],
     summary="KRW Mock 입금 및 Solana 정산",
+    dependencies=[supplier_only],
 )
 async def settle_mock_payment(
     invoice_id: InvoiceId,

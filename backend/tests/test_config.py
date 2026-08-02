@@ -101,6 +101,7 @@ def test_gcp_target_requires_managed_persistence_and_storage() -> None:
         PERSISTENCE_BACKEND="cloud_sql",
         DOCUMENT_STORAGE_BACKEND="gcs",
         API_AUTH_REQUIRED=True,
+        AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
         GCP_PROJECT_ID="invoicex-demo",
         CLOUD_SQL_INSTANCE_CONNECTION_NAME="invoicex-demo:asia-northeast3:invoicex",
         CLOUD_SQL_DATABASE="invoicex",
@@ -110,3 +111,8 @@ def test_gcp_target_requires_managed_persistence_and_storage() -> None:
     )
     assert settings.persistence_backend == "cloud_sql"
     assert settings.document_storage_backend == "gcs"
+
+
+def test_api_auth_refuses_the_local_default_token_secret() -> None:
+    with pytest.raises(ValidationError, match="non-default AUTH_TOKEN_SECRET"):
+        BackendSettings(_env_file=None, API_AUTH_REQUIRED=True)

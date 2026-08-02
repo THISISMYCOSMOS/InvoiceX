@@ -15,6 +15,10 @@ Create these resources in one region (the default build substitutions use
 - user-managed Cloud Run service account: `invoicex-api`
 - Secret Manager values named in `backend/src/invoicex_backend/secrets.py`
 
+`auth-token-secret` must be a fresh value of at least 32 characters. The
+backend refuses to start with its local-development token secret when API
+authentication is enabled.
+
 Grant the Cloud Run service account only the roles it needs:
 
 - Secret Manager Secret Accessor for InvoiceX secrets
@@ -44,6 +48,12 @@ buyers. They are defined in `backend/src/invoicex_backend/seed.py`:
 The Investment Criteria endpoint returns Prime Mobility, Orbit Components,
 Daon Logistics, and Vertex Retail. In GCP mode the frontend calls the API for
 this list rather than treating the browser copy as authoritative.
+
+In GCP mode these fixed accounts are also enforced as role boundaries:
+Supplier can create and fund invoices, Buyer can review and confirm
+verifications, and Investor can manage mandates, vault deposits, the dashboard,
+and Investment Criteria. Local mock mode intentionally leaves those endpoints
+open so the existing browser-only flow remains usable.
 
 ## Build and deploy
 
