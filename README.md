@@ -14,6 +14,12 @@ The frontend already sends uploaded invoice documents to `POST /api/v1/invoices`
 Run the backend and configure Gemini there; never expose `GEMINI_API_KEY` through a
 `VITE_` frontend variable.
 
+> **Keep the backend configuration in one file.** Settings are read from both
+> `.env` at the repository root and `backend/.env`, and the two are merged with
+> `backend/.env` winning on shared keys. A key left empty in `backend/.env` therefore
+> shadows a real value in the root `.env`, which drops the demo to mock mode with no
+> error. Pick one location and delete the other.
+
 1. Copy `backend/.env.example` to `backend/.env` and set `GEMINI_API_KEY`.
 2. Set `AGENT_MODE=real` in `backend/.env` to fail fast when the key is unavailable.
 3. Start the API with `cd backend && uv sync --all-groups && uv run uvicorn invoicex_backend.main:app --reload --port 8000`.

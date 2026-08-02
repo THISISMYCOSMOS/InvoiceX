@@ -124,5 +124,6 @@ export const DEMO_INVESTOR_DASHBOARD: InvestorDashboard = {
   availableVaultUsdc: 312_400,
   outstandingPrincipalUsdc: 187_600,
   dueWithin30DaysUsdc: 72_840,
+  attentionRequiredCount: 2,
   recentAgentTraces: DEMO_AGENT_TRACES,
 };

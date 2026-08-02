@@ -16,7 +16,7 @@ from fastapi import (
     status,
 )
 
-from invoicex_backend.errors import DocumentValidationError
+from invoicex_backend.errors import DocumentValidationError, NotFoundError
 from invoicex_backend.models import (
     ConfirmVaultDepositRequest,
     CreateMandateRequest,
@@ -285,6 +285,23 @@ async def create_mandate(
 ) -> InvestorMandate:
     mandate = service.create_mandate(payload)
     background_tasks.add_task(service.execute_pending_investments)
+    return mandate
+
+
+@router.get(
+    "/investor/mandates/active",
+    response_model=InvestorMandate,
+    responses=documented_errors(404, 409, 422),
+    tags=["Investor"],
+    summary="지갑의 활성 Mandate 조회",
+)
+async def get_active_mandate(
+    service: InvoiceServiceDependency,
+    owner_wallet_address: str = Query(alias="ownerWalletAddress"),
+) -> InvestorMandate:
+    mandate = service.active_mandate_for_wallet(owner_wallet_address)
+    if mandate is None:
+        raise NotFoundError(f"{owner_wallet_address}의 활성 Mandate를 찾을 수 없습니다.")
     return mandate
 
 

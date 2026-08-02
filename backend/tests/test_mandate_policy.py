@@ -79,6 +79,110 @@ def test_deposit_receipt_is_idempotent(client: TestClient) -> None:
     assert first.json()["availableUsdc"] == second.json()["availableUsdc"] == 1_000
 
 
+def test_get_active_mandate_returns_signed_policy(client: TestClient) -> None:
+    policy = {
+        "totalInvestmentLimitUsdc": 20_000,
+        "perInvoiceLimitUsdc": 20_000,
+        "buyerAllowlist": ["Prime Mobility"],
+        "minimumRiskScore": 80,
+        "maximumRemainingTermDays": 100,
+        "expiresAt": "2030-12-31",
+    }
+    investor = _create_signed_mandate(client, policy=policy)
+
+    response = client.get(
+        "/api/v1/investor/mandates/active",
+        params={"ownerWalletAddress": str(investor.pubkey())},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ownerWalletAddress"] == str(investor.pubkey())
+    assert body["status"] == "ACTIVE"
+    assert body["policy"] == policy
+
+
+def test_get_active_mandate_returns_404_for_wallet_without_a_mandate(
+    client: TestClient,
+) -> None:
+    unknown = Keypair()
+    response = client.get(
+        "/api/v1/investor/mandates/active",
+        params={"ownerWalletAddress": str(unknown.pubkey())},
+    )
+    assert response.status_code == 404
+
+
+def test_dashboard_attention_required_count_is_zero_without_exceptions(
+    client: TestClient,
+) -> None:
+    dashboard = client.get("/api/v1/investor/dashboard")
+    assert dashboard.status_code == 200
+    assert dashboard.json()["attentionRequiredCount"] == 0
+
+
+def test_dashboard_attention_required_count_increases_for_a_blocked_invoice(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    created = client.post("/api/v1/invoices", files=contract_files)
+    invoice_id = created.json()["invoice"]["id"]
+    verification_id = client.post(
+        f"/api/v1/invoices/{invoice_id}/verification-request"
+    ).json()["invoice"]["verificationId"]
+    client.post(f"/api/v1/verifications/{verification_id}/confirm")
+
+    declined = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={"response": "DECLINE"},
+    )
+    assert declined.status_code == 200
+    assert declined.json()["invoice"]["status"] == "BLOCKED"
+
+    dashboard = client.get("/api/v1/investor/dashboard")
+    assert dashboard.json()["attentionRequiredCount"] == 1
+
+
+def test_dashboard_attention_required_count_excludes_policy_rejected_invoices(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    policy = {
+        "totalInvestmentLimitUsdc": 50_000,
+        "perInvoiceLimitUsdc": 20_000,
+        "buyerAllowlist": ["Another Buyer"],
+        "minimumRiskScore": 80,
+        "maximumRemainingTermDays": 100,
+        "expiresAt": "2030-12-31",
+    }
+    investor = _create_signed_mandate(client, policy=policy)
+    client.post(
+        "/api/v1/investor/vault/deposits/confirm",
+        json={
+            "ownerWalletAddress": str(investor.pubkey()),
+            "amountUsdc": 20_000,
+            "signature": "mock-deposit-signature-attention-rejected",
+        },
+    )
+
+    created = client.post("/api/v1/invoices", files=contract_files)
+    invoice_id = created.json()["invoice"]["id"]
+    verification_id = client.post(
+        f"/api/v1/invoices/{invoice_id}/verification-request"
+    ).json()["invoice"]["verificationId"]
+    client.post(f"/api/v1/verifications/{verification_id}/confirm")
+
+    response = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={"response": "ACCEPT"},
+    )
+    assert response.status_code == 200
+    issued = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+    assert issued["agentDecision"]["status"] == "REJECTED"
+
+    dashboard = client.get("/api/v1/investor/dashboard")
+    assert dashboard.json()["attentionRequiredCount"] == 0
+
+
 def test_agent_keeps_rwa_issued_when_mandate_rejects_buyer(
     client: TestClient,
     contract_files: dict[str, tuple[str, bytes, str]],

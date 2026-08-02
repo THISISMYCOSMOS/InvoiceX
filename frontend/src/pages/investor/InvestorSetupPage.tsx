@@ -3,7 +3,7 @@ import bs58 from "bs58";
 import { VersionedTransaction } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
-import { rwaApi, type MandatePolicyInput } from "../../api/rwa.api";
+import { rwaApi, type InvestorMandate, type MandatePolicyInput } from "../../api/rwa.api";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -42,6 +42,17 @@ const defaultPolicy: InvestmentPolicyDraft = {
 
 function parseAmount(value: string): number {
   return Number(value.replace(/[^\d]/g, ""));
+}
+
+function policyFromMandate(policy: MandatePolicyInput): InvestmentPolicyDraft {
+  return {
+    totalLimit: String(policy.totalInvestmentLimitUsdc),
+    perInvoiceLimit: String(policy.perInvoiceLimitUsdc),
+    buyerAllowlist: policy.buyerAllowlist,
+    minimumScore: String(policy.minimumRiskScore),
+    maximumTerm: String(policy.maximumRemainingTermDays),
+    policyTerm: policy.expiresAt,
+  };
 }
 
 function fromBase64(value: string): Uint8Array {
@@ -106,6 +117,30 @@ export function InvestorSetupPage() {
       cancelled = true;
     };
   }, [connectedWalletAddress]);
+
+  useEffect(() => {
+    if (!publicKey) return;
+    const ownerWalletAddress = publicKey.toBase58();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const mandate: InvestorMandate | null = await rwaApi.getActiveMandate(ownerWalletAddress);
+        if (cancelled || mandate === null) return;
+        setPolicy(policyFromMandate(mandate.policy));
+        setActiveMandateId(mandate.id);
+        setHasPolicyChanges(false);
+      } catch (cause) {
+        // Deliberately not using t() here: adding it to the dependency array would
+        // re-run this effect on every language toggle and overwrite in-progress edits.
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : "저장된 투자 권한을 불러오지 못했습니다.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey]);
 
   const updatePolicy = <Key extends keyof InvestmentPolicyDraft>(key: Key, value: InvestmentPolicyDraft[Key]) => {
     setPolicy((current) => ({ ...current, [key]: value }));

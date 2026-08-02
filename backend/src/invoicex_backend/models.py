@@ -412,10 +412,11 @@ class SponsorVaultDepositRequest(ApiModel):
 class InvestorDashboard(ApiModel):
     investor_name: str
     automated_investment_active: bool
-    mandate_status: Literal["DRAFT", "SIGNED", "ACTIVE"]
+    mandate_status: Literal["DRAFT", "ACTIVE"]
     available_vault_usdc: int
     outstanding_principal_usdc: int
     due_within_30_days_usdc: int
+    attention_required_count: int
     recent_agent_traces: list[AgentTrace]
     wallet_address: str | None = None
     vault_address: str | None = None

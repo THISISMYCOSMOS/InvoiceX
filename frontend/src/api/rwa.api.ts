@@ -17,6 +17,17 @@ interface CreatedMandate {
   id: string;
 }
 
+export interface InvestorMandate {
+  id: string;
+  ownerWalletAddress: string;
+  vaultAddress: string;
+  policy: MandatePolicyInput;
+  canonicalMessage: string;
+  signature: string;
+  status: "ACTIVE" | "REVOKED";
+  createdAt: string;
+}
+
 interface VaultDepositPreparation {
   transactionBase64: string;
   vaultAddress: string;
@@ -48,6 +59,19 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function requestOrNullOn404<T>(path: string): Promise<T | null> {
+  const response = await fetch(`${apiBase}${path}`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = typeof body === "object" && body !== null && "message" in body
+      ? String(body.message)
+      : "요청을 처리하지 못했습니다. 다시 시도해 주세요.";
+    throw new Error(message);
+  }
+  return response.json() as Promise<T>;
+}
+
 export const rwaApi = {
   async saveSupplierWallet(walletAddress: string): Promise<void> {
     if (isMockApi) return;
@@ -57,6 +81,13 @@ export const rwaApi = {
       body: JSON.stringify({ walletAddress }),
     });
     if (!response.ok) throw new Error("정산 지갑을 저장하지 못했습니다. 다시 연결해 주세요.");
+  },
+
+  async getActiveMandate(ownerWalletAddress: string): Promise<InvestorMandate | null> {
+    if (isMockApi) return null;
+    return requestOrNullOn404<InvestorMandate>(
+      `/investor/mandates/active?ownerWalletAddress=${encodeURIComponent(ownerWalletAddress)}`,
+    );
   },
 
   async prepareMandate(ownerWalletAddress: string, policy: MandatePolicyInput): Promise<MandateSigningPayload> {

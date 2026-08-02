@@ -13,7 +13,16 @@ import threading
 from pathlib import Path
 from typing import Protocol
 
-from invoicex_backend.models import AgentDecision, InvestorMandate, RwaAsset, VaultBalance
+from invoicex_agents.models.document import DocumentAnalysisResult
+
+from invoicex_backend.models import (
+    AgentDecision,
+    InvestorMandate,
+    Invoice,
+    RwaAsset,
+    VaultBalance,
+    Verification,
+)
 
 
 class RwaRepository(Protocol):
@@ -32,6 +41,12 @@ class RwaRepository(Protocol):
     def finish_execution(self, invoice_id: str, status: str) -> None: ...
     def claim_deposit(self, signature: str) -> bool: ...
     def committed_for_mandate(self, mandate_id: str) -> int: ...
+    def save_invoice(self, invoice: Invoice) -> None: ...
+    def list_invoices(self) -> list[Invoice]: ...
+    def save_analysis(self, invoice_id: str, analysis: DocumentAnalysisResult) -> None: ...
+    def list_analyses(self) -> dict[str, DocumentAnalysisResult]: ...
+    def save_verification(self, verification: Verification) -> None: ...
+    def list_verifications(self) -> list[Verification]: ...
 
 
 class SQLiteRwaRepository:
@@ -73,6 +88,18 @@ class SQLiteRwaRepository:
                 );
                 CREATE TABLE IF NOT EXISTS deposit_receipts (
                     signature TEXT PRIMARY KEY
+                );
+                CREATE TABLE IF NOT EXISTS invoices (
+                    id TEXT PRIMARY KEY,
+                    document TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS document_analyses (
+                    invoice_id TEXT PRIMARY KEY,
+                    document TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS verifications (
+                    id TEXT PRIMARY KEY,
+                    document TEXT NOT NULL
                 );
                 """
             )
@@ -215,3 +242,44 @@ class SQLiteRwaRepository:
             for decision in decisions
             if decision.mandate_id == mandate_id and decision.status in {"APPROVED", "EXECUTED"}
         )
+
+    def save_invoice(self, invoice: Invoice) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT OR REPLACE INTO invoices (id, document) VALUES (?, ?)",
+                (invoice.id, self._encode(invoice)),
+            )
+
+    def list_invoices(self) -> list[Invoice]:
+        with self._lock:
+            rows = self._connection.execute("SELECT document FROM invoices").fetchall()
+        return [Invoice.model_validate_json(row["document"]) for row in rows]
+
+    def save_analysis(self, invoice_id: str, analysis: DocumentAnalysisResult) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT OR REPLACE INTO document_analyses (invoice_id, document) VALUES (?, ?)",
+                (invoice_id, self._encode(analysis)),
+            )
+
+    def list_analyses(self) -> dict[str, DocumentAnalysisResult]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT invoice_id, document FROM document_analyses"
+            ).fetchall()
+        return {
+            row["invoice_id"]: DocumentAnalysisResult.model_validate_json(row["document"])
+            for row in rows
+        }
+
+    def save_verification(self, verification: Verification) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT OR REPLACE INTO verifications (id, document) VALUES (?, ?)",
+                (verification.id, self._encode(verification)),
+            )
+
+    def list_verifications(self) -> list[Verification]:
+        with self._lock:
+            rows = self._connection.execute("SELECT document FROM verifications").fetchall()
+        return [Verification.model_validate_json(row["document"]) for row in rows]

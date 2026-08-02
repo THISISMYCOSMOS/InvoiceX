@@ -149,7 +149,7 @@ class BackendSettings(BaseSettings):
         ge=1,
     )
     demo_krw_per_usdc: int = Field(
-        default=1_500,
+        default=1_000,
         validation_alias="DEMO_KRW_PER_USDC",
         ge=1,
     )
@@ -184,17 +184,6 @@ class BackendSettings(BaseSettings):
     platform_fee_wallet_address: str = Field(
         default="DEMO_PLATFORM_FEE_WALLET",
         validation_alias="PLATFORM_FEE_WALLET_ADDRESS",
-    )
-    mandate_min_risk_score: int = Field(
-        default=80,
-        validation_alias="MANDATE_MIN_RISK_SCORE",
-        ge=0,
-        le=100,
-    )
-    mandate_max_advance_usdc: int = Field(
-        default=25_000,
-        validation_alias="MANDATE_MAX_ADVANCE_USDC",
-        gt=0,
     )
 
     @model_validator(mode="after")

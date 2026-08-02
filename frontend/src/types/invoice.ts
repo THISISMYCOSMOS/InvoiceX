@@ -128,10 +128,11 @@ export interface VerificationRequest {
 export interface InvestorDashboard {
   investorName: string;
   automatedInvestmentActive: boolean;
-  mandateStatus: "DRAFT" | "SIGNED" | "ACTIVE";
+  mandateStatus: "DRAFT" | "ACTIVE";
   availableVaultUsdc: number;
   outstandingPrincipalUsdc: number;
   dueWithin30DaysUsdc: number;
+  attentionRequiredCount: number;
   recentAgentTraces: AgentTrace[];
   walletAddress?: string;
   vaultAddress?: string;
