@@ -109,6 +109,7 @@ def test_gcp_target_requires_managed_persistence_and_storage() -> None:
         CLOUD_SQL_USER="invoicex_app",
         CLOUD_SQL_PASSWORD="cloud-sql-password-from-secret-manager",
         GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
+        GCS_SIGNING_SERVICE_ACCOUNT="invoicex-api@invoicex-demo.iam.gserviceaccount.com",
     )
     assert settings.persistence_backend == "cloud_sql"
     assert settings.document_storage_backend == "gcs"
@@ -139,4 +140,5 @@ def test_gcp_mock_settlement_requires_its_separate_wallets() -> None:
             CLOUD_SQL_USER="invoicex_app",
             CLOUD_SQL_PASSWORD="cloud-sql-password-from-secret-manager",
             GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
+            GCS_SIGNING_SERVICE_ACCOUNT="invoicex-api@invoicex-demo.iam.gserviceaccount.com",
         )

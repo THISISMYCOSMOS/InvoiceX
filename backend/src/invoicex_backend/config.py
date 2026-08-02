@@ -87,6 +87,10 @@ class BackendSettings(BaseSettings):
         ge=60,
         le=3600,
     )
+    gcs_signing_service_account: str | None = Field(
+        default=None,
+        validation_alias="GCS_SIGNING_SERVICE_ACCOUNT",
+    )
     api_auth_required: bool = Field(default=False, validation_alias="API_AUTH_REQUIRED")
     auth_token_secret: str = Field(
         default="local-development-only-token-secret",
@@ -270,6 +274,7 @@ class BackendSettings(BaseSettings):
                 "CLOUD_SQL_USER": self.cloud_sql_user,
                 "CLOUD_SQL_PASSWORD": self.cloud_sql_password,
                 "GCS_DOCUMENT_BUCKET": self.gcs_document_bucket,
+                "GCS_SIGNING_SERVICE_ACCOUNT": self.gcs_signing_service_account,
             }
             absent = [name for name, value in missing.items() if not self._non_blank(value)]
             if absent:

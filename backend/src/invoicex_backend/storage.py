@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
+from google.auth import default as default_google_credentials
+from google.auth.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleAuthRequest
+
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.models import (
     InvoiceDocument,
@@ -87,7 +91,13 @@ class GcsDocumentStorage:
     never stored in Cloud SQL.
     """
 
-    def __init__(self, settings: BackendSettings, client: object | None = None) -> None:
+    def __init__(
+        self,
+        settings: BackendSettings,
+        client: object | None = None,
+        signing_credentials: Credentials | None = None,
+        signing_request: GoogleAuthRequest | None = None,
+    ) -> None:
         if not settings.gcs_document_bucket:
             raise ValueError("GCS_DOCUMENT_BUCKET is required for GcsDocumentStorage")
         if client is None:
@@ -98,6 +108,14 @@ class GcsDocumentStorage:
         self._bucket = client.bucket(self._bucket_name)  # type: ignore[attr-defined]
         self._prefix = settings.gcs_document_prefix.strip("/")
         self._signed_url_ttl = timedelta(seconds=settings.gcs_signed_url_ttl_seconds)
+        self._signing_service_account = settings.gcs_signing_service_account
+        self._signing_credentials: Credentials | None = None
+        self._signing_request: GoogleAuthRequest | None = None
+        if self._signing_service_account:
+            if signing_credentials is None:
+                signing_credentials, _ = default_google_credentials()
+            self._signing_credentials = signing_credentials
+            self._signing_request = signing_request or GoogleAuthRequest()
 
     async def store(
         self,
@@ -143,9 +161,22 @@ class GcsDocumentStorage:
             Path(document.file_name).name.replace('"', "").replace("\r", "").replace("\n", "")
             or "document"
         )
+        signing_parameters: dict[str, str] = {}
+        if self._signing_service_account:
+            if self._signing_credentials is None or self._signing_request is None:
+                raise RuntimeError("GCS signing credentials are not configured")
+            self._signing_credentials.refresh(self._signing_request)
+            if not self._signing_credentials.token:
+                raise RuntimeError("GCS signing credentials did not provide an access token")
+            signing_parameters = {
+                "service_account_email": self._signing_service_account,
+                "access_token": self._signing_credentials.token,
+            }
+
         return self._bucket.blob(object_name).generate_signed_url(
             version="v4",
             expiration=self._signed_url_ttl,
             method="GET",
             response_disposition=f'inline; filename="{safe_file_name}"',
+            **signing_parameters,
         )
