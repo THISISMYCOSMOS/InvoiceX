@@ -31,7 +31,7 @@ type VaultDepositResult = {
 };
 
 const defaultPolicy: InvestmentPolicyDraft = {
-  totalLimit: "5",
+  totalLimit: "1",
   perInvoiceLimit: "1",
   buyerAllowlist: ["Prime Mobility"],
   minimumScore: "80",
