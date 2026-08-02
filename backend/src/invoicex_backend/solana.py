@@ -813,7 +813,7 @@ class PrivySolanaGateway:
             )
         except ValueError as exc:
             raise IntegrationError("가스리스 예치 서명 트랜잭션 형식이 올바르지 않습니다.") from exc
-        if bytes(expected.message) != bytes(submitted.message):
+        if not self._has_same_vault_deposit_effect(expected, submitted):
             raise IntegrationError(
                 "승인된 Agent Vault 예치 내용과 서명 트랜잭션이 일치하지 않습니다."
             )
@@ -836,6 +836,30 @@ class PrivySolanaGateway:
             transaction=bytes(submitted),
             reference_id=reference_id,
             from_address=owner_wallet_address,
+        )
+
+    @staticmethod
+    def _has_same_vault_deposit_effect(
+        expected: VersionedTransaction,
+        submitted: VersionedTransaction,
+    ) -> bool:
+        """Compare every spend-affecting part of a sponsored deposit message.
+
+        Browser wallets are allowed to refresh a recent blockhash while signing
+        a versioned transaction.  A blockhash is only a validity window, not a
+        transfer instruction, so it must not invalidate an otherwise identical
+        investor-signed deposit.  All account keys, signer metadata, compiled
+        instructions, and address lookups remain exact matches.
+        """
+
+        expected_message = expected.message
+        submitted_message = submitted.message
+        return (
+            expected_message.header == submitted_message.header
+            and expected_message.account_keys == submitted_message.account_keys
+            and expected_message.instructions == submitted_message.instructions
+            and expected_message.address_table_lookups
+            == submitted_message.address_table_lookups
         )
 
     async def verify_vault_deposit(

@@ -9,10 +9,17 @@ import httpx
 import pytest
 from solders.hash import Hash
 from solders.keypair import Keypair
-from solders.message import to_bytes_versioned
+from solders.message import MessageV0, to_bytes_versioned
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 from solders.transaction import VersionedTransaction
+from spl.token.constants import TOKEN_PROGRAM_ID
+from spl.token.instructions import (
+    create_idempotent_associated_token_account,
+    get_associated_token_address,
+    transfer_checked,
+)
+from spl.token.models import TransferCheckedParams
 
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.models import ChainTransfer, TransactionStatus
@@ -195,6 +202,39 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
     assert result.signature == signature
     assert submitted["method"] == "signAndSendTransaction"
     assert submitted["reference_id"] == "gasless-deposit-test"
+
+    refreshed_message = MessageV0.try_compile(
+        payer=Pubkey.from_string(sponsor),
+        instructions=[
+            create_idempotent_associated_token_account(
+                payer=Pubkey.from_string(sponsor),
+                owner=Pubkey.from_string(treasury),
+                mint=Pubkey.from_string(settings.solana_usdc_mint),
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=get_associated_token_address(
+                        investor.pubkey(), Pubkey.from_string(settings.solana_usdc_mint)
+                    ),
+                    mint=Pubkey.from_string(settings.solana_usdc_mint),
+                    dest=get_associated_token_address(
+                        Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
+                    ),
+                    owner=investor.pubkey(),
+                    amount=1_000_000,
+                    decimals=6,
+                )
+            ),
+        ],
+        address_lookup_table_accounts=[],
+        recent_blockhash=Hash.new_unique(),
+    )
+    refreshed_transaction = VersionedTransaction.populate(
+        refreshed_message,
+        list(unsigned.signatures),
+    )
+    assert gateway._has_same_vault_deposit_effect(unsigned, refreshed_transaction)
 
 
 @pytest.mark.asyncio
