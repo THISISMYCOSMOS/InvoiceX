@@ -309,6 +309,102 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
 
 
 @pytest.mark.asyncio
+async def test_privy_gateway_verifies_versioned_vault_deposit(tmp_path: Path) -> None:
+    investor = str(Pubkey.new_unique())
+    treasury = str(Pubkey.new_unique())
+    mint = str(Pubkey.new_unique())
+    signature = str(Signature.from_bytes(bytes(range(64))))
+    destination = str(
+        get_associated_token_address(Pubkey.from_string(treasury), Pubkey.from_string(mint))
+    )
+    request_options: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "privy.test" and request.method == "GET":
+            return httpx.Response(200, json={"chain_type": "solana", "address": treasury})
+        payload = json.loads(request.content)
+        assert payload["method"] == "getTransaction"
+        request_options.update(payload["params"][1])
+        result = {
+            "meta": {
+                "err": None,
+                "preTokenBalances": [
+                    {
+                        "accountIndex": 0,
+                        "mint": mint,
+                        "owner": investor,
+                        "uiTokenAmount": {"amount": "1000000"},
+                    },
+                    {
+                        "accountIndex": 1,
+                        "mint": mint,
+                        "owner": treasury,
+                        "uiTokenAmount": {"amount": "0"},
+                    },
+                ],
+                "postTokenBalances": [
+                    {
+                        "accountIndex": 0,
+                        "mint": mint,
+                        "owner": investor,
+                        "uiTokenAmount": {"amount": "0"},
+                    },
+                    {
+                        "accountIndex": 1,
+                        "mint": mint,
+                        "owner": treasury,
+                        "uiTokenAmount": {"amount": "1000000"},
+                    },
+                ],
+            },
+            "transaction": {
+                "message": {
+                    "instructions": [
+                        {
+                            "program": "spl-token",
+                            "parsed": {
+                                "type": "transferChecked",
+                                "info": {
+                                    "authority": investor,
+                                    "destination": destination,
+                                    "tokenAmount": {"amount": "1000000"},
+                                },
+                            },
+                        }
+                    ]
+                }
+            },
+        }
+        return httpx.Response(200, json={"jsonrpc": "2.0", "result": result, "id": 1})
+
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="privy",
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_TREASURY_WALLET_ADDRESS=treasury,
+        PRIVY_API_BASE_URL="https://privy.test",
+        SOLANA_RPC_URL="https://rpc.test",
+        SOLANA_USDC_MINT=mint,
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = PrivySolanaGateway(settings, http_client=client)
+    verified = await gateway.verify_vault_deposit(
+        signature=signature,
+        owner_wallet_address=investor,
+        amount_usdc=1,
+    )
+    await client.aclose()
+
+    assert verified is True
+    assert request_options["maxSupportedTransactionVersion"] == 0
+
+
+@pytest.mark.asyncio
 async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
     tmp_path: Path,
 ) -> None:

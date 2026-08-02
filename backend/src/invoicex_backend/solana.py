@@ -435,7 +435,14 @@ class DirectSolanaGateway:
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
-            [signature, {"encoding": "jsonParsed", "commitment": "confirmed"}],
+            [
+                signature,
+                {
+                    "encoding": "jsonParsed",
+                    "commitment": "confirmed",
+                    "maxSupportedTransactionVersion": 0,
+                },
+            ],
         )
         if payload is None:
             return False
@@ -921,7 +928,14 @@ class PrivySolanaGateway:
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
-            [signature, {"encoding": "jsonParsed", "commitment": "confirmed"}],
+            [
+                signature,
+                {
+                    "encoding": "jsonParsed",
+                    "commitment": "confirmed",
+                    "maxSupportedTransactionVersion": 0,
+                },
+            ],
         )
         if payload is None:
             return False
