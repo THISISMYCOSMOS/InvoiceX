@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
-import { useInvoices } from "../../hooks/useInvoices";
+import { getInvoiceDisplayReference, useInvoices } from "../../hooks/useInvoices";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { Invoice, InvoiceStatus } from "../../types/invoice";
@@ -138,8 +138,8 @@ export function SupplierDashboardPage() {
                 {items.map((invoice) => (
                   <tr key={invoice.id}>
                     <td>
-                      <Link to={`/supplier/invoices/${invoice.id}`} aria-label={t(`View invoice ${invoice.id}`, `${invoice.id} 상세 보기`)}>
-                        {invoice.id}
+                      <Link to={`/supplier/invoices/${invoice.id}`} aria-label={t(`View invoice ${getInvoiceDisplayReference(invoice)}`, `${getInvoiceDisplayReference(invoice)} 상세 보기`)}>
+                        {getInvoiceDisplayReference(invoice)}
                       </Link>
                     </td>
                     <td>{invoice.buyer.name}</td>

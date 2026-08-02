@@ -207,8 +207,8 @@ async def create_invoice(
     "/invoices",
     response_model=InvoiceListResponse,
     tags=["Invoices"],
-    summary="Supplier Invoice 목록",
-    dependencies=[supplier_only],
+    summary="역할별 Invoice 목록",
+    dependencies=[invoice_reader],
 )
 async def list_invoices(service: InvoiceServiceDependency) -> InvoiceListResponse:
     return InvoiceListResponse(items=service.list_invoices())

@@ -193,6 +193,7 @@ class InvoiceService:
             purchase_order_number=f"PO-{89340 + invoice_number}",
             status=InvoiceStatus.DOCUMENT_ANALYZING,
             verification_id=None,
+            verification_requested_at=None,
             documents=[],
             analysis=None,
             risk_passport=None,
@@ -347,11 +348,6 @@ class InvoiceService:
         )
         if not prepared.sponsored:
             return prepared
-        if amount_usdc > self._settings.gasless_deposit_max_usdc:
-            raise StateConflictError(
-                "가스리스 예치는 최대 "
-                f"{self._settings.gasless_deposit_max_usdc} USDC까지 가능합니다."
-            )
         sponsor_deposit_id = secrets.token_urlsafe(24)
         async with self._sponsored_deposit_lock:
             self._sponsored_deposit_intents[sponsor_deposit_id] = PendingSponsoredDeposit(
@@ -421,13 +417,16 @@ class InvoiceService:
                 verification_id = (
                     f"VER-{datetime.now(UTC).year}-{str(self._verification_sequence).zfill(3)}"
                 )
+            requested_at = datetime.now(UTC).isoformat()
             verification = Verification(
                 id=verification_id,
                 invoice_id=invoice_id,
                 status=VerificationStatus.PENDING,
+                created_at=requested_at,
             )
             self._verifications[verification_id] = verification
             invoice.verification_id = verification_id
+            invoice.verification_requested_at = requested_at
             invoice.status = InvoiceStatus.BUYER_REVIEW
             self._repository.save_verification(verification)
             self._save_invoice(invoice)
@@ -626,26 +625,7 @@ class InvoiceService:
                 status="WORKING",
                 summary="Mandate 기준을 통과해 Agent Vault 자동 매수를 실행합니다.",
             )
-            quoted_amount = decision.amount_usdc
-            amount = (
-                min(quoted_amount, self._settings.solana_demo_transfer_amount_usdc)
-                if self._solana.mode != "mock"
-                else quoted_amount
-            )
-            if amount != quoted_amount:
-                decision = decision.model_copy(
-                    update={
-                        "amount_usdc": amount,
-                        "checks": {
-                            **decision.checks,
-                            "demoTransferCapApplied": True,
-                            "quotedAmountUsdc": quoted_amount,
-                            "onchainAmountUsdc": amount,
-                        },
-                    }
-                )
-                self._repository.save_decision(decision)
-                invoice.agent_decision = decision
+            amount = decision.amount_usdc
             try:
                 result = await self._solana.purchase_rwa(
                     invoice_id=invoice.id,

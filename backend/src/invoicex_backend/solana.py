@@ -837,8 +837,6 @@ class PrivySolanaGateway:
         signature_is_valid = owner_signature.verify(owner, to_bytes_versioned(submitted.message))
         if owner_signature == Signature.default() or not signature_is_valid:
             raise IntegrationError("투자자 지갑 서명을 검증하지 못했습니다.")
-        if amount_usdc > self._settings.gasless_deposit_max_usdc:
-            raise IntegrationError("가스리스 예치 한도를 초과했습니다.")
         return await self._sign_and_send(
             wallet_id=self._settings.privy_sponsor_wallet_id or "",
             transaction=bytes(submitted),

@@ -1,6 +1,6 @@
 import type { AgentTrace, BlockchainTransaction, RiskPassport } from "../types/agents";
 import type { DocumentAnalysis, DocumentType, ExtractedField, InvoiceDocument } from "../types/documents";
-import type { Invoice, InvestorDashboard } from "../types/invoice";
+import type { AgentDecision, Invoice, InvestorDashboard, RwaAsset } from "../types/invoice";
 
 export const REQUIRED_DOCUMENT_TYPES: readonly DocumentType[] = [
   "INVOICE",
@@ -91,6 +91,23 @@ export const DEMO_FUNDING_TRANSACTION: BlockchainTransaction = {
   toAddress: "DEMO_SUPPLIER_WALLET",
   explorerUrl: "https://explorer.solana.com/tx/5igDemoFundingSignature?cluster=devnet",
   createdAt: "2026-07-30T09:10:00.000Z",
+};
+
+export const DEMO_RWA_ASSET: RwaAsset = {
+  invoiceId: DEMO_INVOICE.id,
+  mintAddress: "RwaMintDemo7H4cZ8xPmN2vLq5aYtK3eW9s",
+  escrowTokenAccount: "DemoRwaEscrow7H4cZ8xPmN2vLq5aYtK3eW9s",
+  status: "ISSUED",
+  issueTransaction: DEMO_FUNDING_TRANSACTION,
+};
+
+export const DEMO_AGENT_DECISION: AgentDecision = {
+  invoiceId: DEMO_INVOICE.id,
+  status: "PENDING",
+  checks: { activeMandate: false },
+  amountUsdc: DEMO_SETTLEMENT.supplierAdvanceUsdc,
+  reason: "활성화된 투자 Mandate를 기다리고 있습니다.",
+  createdAt: "2026-07-30T09:09:00.000Z",
 };
 
 export const DEMO_SETTLEMENT_TRANSACTION: BlockchainTransaction = {

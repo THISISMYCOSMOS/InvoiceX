@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 from solders.keypair import Keypair
 
+from invoicex_backend.models import AgentDecision
+
 
 def _create_signed_mandate(
     client: TestClient,
@@ -56,6 +58,25 @@ def test_rejects_invalid_wallet_signature(client: TestClient) -> None:
     )
     assert response.status_code == 409
     assert response.json()["message"] == "Mandate 서명을 검증하지 못했습니다."
+
+
+def test_legacy_execution_metadata_does_not_break_saved_agent_decisions() -> None:
+    decision = AgentDecision.model_validate(
+        {
+            "invoiceId": "INV-2026-005",
+            "status": "EXECUTED",
+            "checks": {
+                "policyActive": True,
+                "quotedAmountUsdc": 2,
+                "onchainAmountUsdc": 1,
+                "demoTransferCapApplied": True,
+            },
+            "amountUsdc": 1,
+            "createdAt": "2026-08-02T20:02:56+00:00",
+        }
+    )
+
+    assert decision.checks == {"policyActive": True}
 
 
 def test_deposit_receipt_is_idempotent(client: TestClient) -> None:

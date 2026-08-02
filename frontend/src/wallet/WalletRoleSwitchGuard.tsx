@@ -5,8 +5,8 @@ import { walletRoleFromPath, type WalletRole } from "./walletRole";
 
 /**
  * A browser wallet adapter has a single active account for the site. Clear it
- * when moving between supplier and investor routes so one role's connected
- * wallet is never presented as the other role's wallet.
+ * when moving between company-role routes so one role's connected wallet is
+ * never presented as another role's wallet.
  */
 export function WalletRoleSwitchGuard({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();

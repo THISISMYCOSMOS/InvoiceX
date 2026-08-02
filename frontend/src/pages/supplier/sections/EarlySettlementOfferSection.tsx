@@ -4,17 +4,28 @@ import { useLanguage } from "../../../i18n/LanguageContext";
 export function EarlySettlementOfferSection({
   invoice,
   onAccept,
+  isRequesting = false,
+  requestError,
 }: {
   invoice: Invoice;
   onAccept: () => void;
+  isRequesting?: boolean;
+  requestError?: string;
 }) {
   const { t } = useLanguage();
   const score = invoice.riskPassport?.riskScore ?? 86;
   const advanceRate = (invoice.riskPassport?.suggestedAdvanceRateBps ?? 9_400) / 100;
   const expectedProceeds = invoice.riskPassport?.suggestedAdvanceAmountUsdc ?? 1;
-  const faceValueUsdc = Math.round(invoice.invoiceAmountKrw / 1_500);
-  const estimatedCost = Math.max(faceValueUsdc - expectedProceeds, 0);
+  // Small Devnet invoices are rounded to whole USDC. Derive the cost from the
+  // policy rate so a rounded payout does not misleadingly show a zero fee.
+  const estimatedCost = advanceRate > 0
+    ? expectedProceeds * ((100 - advanceRate) / advanceRate)
+    : 0;
   const formatKrw = new Intl.NumberFormat("ko-KR").format(invoice.invoiceAmountKrw);
+  const formatUsdc = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: estimatedCost > 0 && estimatedCost < 1 ? 2 : 0,
+  }).format(estimatedCost);
 
   return (
     <section className="early-offer">
@@ -50,7 +61,7 @@ export function EarlySettlementOfferSection({
             <dl>
               <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>₩{formatKrw}</dd></div>
               <div><dt>{t("Advance rate", "선지급률")}</dt><dd>{advanceRate}%</dd></div>
-              <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>{estimatedCost.toLocaleString()} USDC</dd></div>
+              <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>{formatUsdc} USDC</dd></div>
               <div><dt>{t("Payment method", "지급 방식")}</dt><dd>Circle USDC · Solana Devnet</dd></div>
             </dl>
           </article>
@@ -58,8 +69,13 @@ export function EarlySettlementOfferSection({
             {t("Funds are paid after an eligible investor's Treasury Agent purchases the RWA. Matching is not guaranteed.", "적격 투자자의 Treasury Agent가 RWA를 매입한 후 자금이 지급됩니다. 투자 매칭은 보장되지 않습니다.")}
           </p>
           <footer className="offer-actions">
-            <button type="button" className="primary-button" onClick={onAccept}>{t("Request RWA issuance", "RWA 발행 요청")}</button>
+            <button type="button" className="primary-button" onClick={onAccept} disabled={isRequesting}>
+              {isRequesting
+                ? t("Requesting RWA issuance…", "RWA 발행 요청 중...")
+                : t("Request RWA issuance", "RWA 발행 요청")}
+            </button>
           </footer>
+          {requestError && <p className="offer-request-error" role="alert">{requestError}</p>}
         </section>
       </div>
     </section>

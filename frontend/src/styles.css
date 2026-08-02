@@ -128,6 +128,12 @@ a {
   outline-offset: 2px;
 }
 
+.topbar-role-error {
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 600;
+}
+
 .language-toggle {
   display: inline-flex;
   min-height: 28px;
@@ -3560,10 +3566,13 @@ a {
   padding: 0 22px 20px;
 }
 
-.document-preview img {
+.document-preview img,
+.document-preview iframe {
   display: block;
   width: min(390px, 100%);
+  height: 360px;
   max-height: 360px;
+  background: #fff;
   object-fit: cover;
   object-position: top;
   border: 1px solid #d9dee8;
@@ -3911,6 +3920,17 @@ a {
 
 .offer-actions .primary-button {
   width: auto;
+}
+
+.offer-request-error {
+  margin: 10px 0 0;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 9px 11px;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .buyer-idle-state {

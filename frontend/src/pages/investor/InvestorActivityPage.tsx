@@ -3,27 +3,96 @@ import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useLanguage } from "../../i18n/LanguageContext";
-import type { Invoice } from "../../types/invoice";
+import type { AgentDecision, Invoice } from "../../types/invoice";
 
 interface PolicyCheck {
   label: string;
-  value: string;
+  passed: boolean;
+}
+
+function shortAddress(value: string): string {
+  return value.length > 16 ? `${value.slice(0, 6)}…${value.slice(-6)}` : value;
+}
+
+function formatTimestamp(value: string | undefined, locale: string): string {
+  if (!value) return "—";
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.valueOf())
+    ? value
+    : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
+}
+
+function decisionCopy(
+  decision: AgentDecision | undefined,
+  t: (english: string, korean: string) => string,
+): { heading: string; description: string; notice: string } {
+  switch (decision?.status) {
+    case "EXECUTED":
+      return {
+        heading: t("Treasury Agent decision", "Treasury Agent 투자 결정"),
+        description: t(
+          "The agent evaluated the signed mandate and executed this investment without transaction-level human approval.",
+          "에이전트가 서명된 Mandate를 평가하고 건별 승인 없이 이 투자를 실행했습니다.",
+        ),
+        notice: t(
+          "The agent selected and executed this investment within the institution-approved mandate.",
+          "에이전트가 기관 승인 Mandate 범위 안에서 이 투자를 선택하고 실행했습니다.",
+        ),
+      };
+    case "REJECTED":
+      return {
+        heading: t("Treasury Agent decision", "Treasury Agent 투자 결정"),
+        description: decision.reason ?? t("The signed mandate did not approve this investment.", "서명된 Mandate가 이 투자를 승인하지 않았습니다."),
+        notice: t("No on-chain purchase was sent.", "온체인 매수 트랜잭션은 전송되지 않았습니다."),
+      };
+    case "FAILED":
+      return {
+        heading: t("Treasury Agent execution failed", "Treasury Agent 실행 실패"),
+        description: decision.reason ?? t("The mandate passed, but the on-chain purchase did not complete.", "Mandate는 통과했지만 온체인 매수가 완료되지 않았습니다."),
+        notice: t("The invoice remains available for a safe retry after the issue is resolved.", "문제가 해결되면 인보이스를 안전하게 다시 실행할 수 있습니다."),
+      };
+    case "APPROVED":
+      return {
+        heading: t("Treasury Agent purchase in progress", "Treasury Agent 매수 처리 중"),
+        description: t("The signed mandate approved this investment. The on-chain purchase is being confirmed.", "서명된 Mandate가 이 투자를 승인했습니다. 온체인 매수를 확인 중입니다."),
+        notice: t("No further investor approval is required within the signed mandate.", "서명된 Mandate 범위 안에서는 추가 투자자 승인이 필요하지 않습니다."),
+      };
+    default:
+      return {
+        heading: t("Treasury Agent evaluation pending", "Treasury Agent 평가 대기"),
+        description: decision?.reason ?? t("The RWA is waiting for an active mandate and sufficient Vault balance.", "RWA가 활성 Mandate와 충분한 Vault 잔액을 기다리고 있습니다."),
+        notice: t("A purchase starts automatically when every signed-mandate check passes.", "서명된 Mandate의 모든 검증을 통과하면 매수가 자동으로 시작됩니다."),
+      };
+  }
+}
+
+function policyChecks(decision: AgentDecision | undefined, t: (english: string, korean: string) => string): PolicyCheck[] {
+  const labels: Record<string, [string, string]> = {
+    policyActive: ["Mandate active", "Mandate 활성"],
+    riskEligible: ["Risk eligible", "위험 적격"],
+    minimumRiskScore: ["Minimum Risk Score", "최소 위험 점수"],
+    buyerAllowlist: ["Buyer allowlist", "구매기업 허용 목록"],
+    maximumRemainingTerm: ["Maximum remaining term", "최대 잔존 만기"],
+    perInvoiceLimit: ["Per-invoice limit", "인보이스별 한도"],
+    totalInvestmentLimit: ["Total investment limit", "총 투자 한도"],
+    vaultAvailableBalance: ["Vault available balance", "Vault 가용 잔액"],
+  };
+
+  return Object.entries(decision?.checks ?? {}).map(([key, passed]) => {
+    const [english, korean] = labels[key] ?? [key, key];
+    return { label: t(english, korean), passed };
+  });
 }
 
 export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
-  const { t } = useLanguage();
-  const riskScore = invoice.riskPassport?.riskScore ?? 86;
-  const investment = invoice.fundingTransaction?.amountUsdc ?? 18_800;
-  const transactionUrl = invoice.fundingTransaction?.explorerUrl
-    ?? "https://explorer.solana.com/tx/5igDemoFundingSignature?cluster=devnet";
-  const policyChecks: PolicyCheck[] = [
-    { label: t("Buyer allowlist", "구매기업 허용 목록"), value: invoice.buyer.name },
-    { label: t("Minimum Risk Score", "최소 위험 점수"), value: `${riskScore} ≥ 80` },
-    { label: t("Max amount / invoice", "인보이스당 최대 금액"), value: `${investment.toLocaleString("en-US")} ≤ 25,000` },
-    { label: t("Remaining maturity", "잔존 만기"), value: t("45 days ≤ 90 days", "45일 ≤ 90일") },
-    { label: t("Buyer concentration", "구매기업 집중도"), value: "18.7% ≤ 20%" },
-    { label: t("Vault available balance", "Vault 가용 잔액"), value: "331,200 USDC" },
-  ];
+  const { t, language } = useLanguage();
+  const decision = invoice.agentDecision;
+  const checks = policyChecks(decision, t);
+  const passedChecks = checks.filter((check) => check.passed).length;
+  const investment = invoice.fundingTransaction?.amountUsdc ?? decision?.amountUsdc ?? 0;
+  const transaction = invoice.fundingTransaction;
+  const copy = decisionCopy(decision, t);
+  const rwaId = invoice.rwaAsset?.mintAddress;
 
   return (
     <section className="investor-decision">
@@ -33,35 +102,30 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
 
       <header className="investor-decision__heading">
         <div>
-          <h1>{t("Treasury Agent decision", "Treasury Agent 투자 결정")}</h1>
-          <p>
-            {t(
-              "A deterministic mandate check approved this investment without transaction-level human approval.",
-              "결정론적 위임 정책 검증을 통해 건별 승인 없이 투자가 승인되었습니다.",
-            )}
-          </p>
+          <h1>{copy.heading}</h1>
+          <p>{copy.description}</p>
         </div>
-        <span>{t("6 / 6 PASSED", "6 / 6 통과")}</span>
+        <span>{checks.length > 0 ? `${passedChecks} / ${checks.length} ${t("PASSED", "통과")}` : t("PENDING", "대기")}</span>
       </header>
 
       <div className="investor-decision__grid">
         <section className="investor-policy-card">
           <header>
-            <h2>{t("Mandate evaluation · Policy v1.4", "위임 정책 평가 · Policy v1.4")}</h2>
-            <time dateTime="2026-07-30T14:32:00+09:00">
-              {t("Jul 30, 2026 · 14:32", "2026년 7월 30일 · 14:32")}
-            </time>
+            <h2>{t("Mandate evaluation", "Mandate 평가")}</h2>
+            <time dateTime={decision?.createdAt}>{formatTimestamp(decision?.createdAt, language === "ko" ? "ko-KR" : "en-US")}</time>
           </header>
           <div className="investor-policy-grid">
-            {policyChecks.map((check) => (
+            {checks.length > 0 ? checks.map((check) => (
               <article key={check.label}>
                 <div>
                   <span>{check.label}</span>
-                  <b>{t("PASS", "통과")}</b>
+                  <b>{check.passed ? t("PASS", "통과") : t("NOT MET", "미충족")}</b>
                 </div>
-                <strong>{check.value}</strong>
+                <strong>{check.passed ? t("Within mandate", "Mandate 충족") : t("Outside mandate", "Mandate 미충족")}</strong>
               </article>
-            ))}
+            )) : (
+              <p className="investor-activity-empty">{t("No mandate evaluation has been recorded yet.", "아직 기록된 Mandate 평가가 없습니다.")}</p>
+            )}
           </div>
         </section>
 
@@ -71,30 +135,27 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
               <h2>{t("Execution summary", "실행 요약")}</h2>
             </header>
             <dl>
-              <div><dt>{t("RWA ID", "RWA ID")}</dt><dd>RWA-INV-001</dd></div>
+              <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={rwaId}>{rwaId ? shortAddress(rwaId) : "—"}</dd></div>
               <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
-              <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{riskScore} / 100</dd></div>
-              <div><dt>Treasury Agent</dt><dd>v0.9.2</dd></div>
+              <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
+              <div><dt>{t("Decision", "결정")}</dt><dd>{decision?.status ?? t("NOT EVALUATED", "미평가")}</dd></div>
               <div>
                 <dt>{t("Transaction", "트랜잭션")}</dt>
-                <dd><a href={transactionUrl} target="_blank" rel="noreferrer">4pYh...9kL2</a></dd>
+                <dd>{transaction ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{shortAddress(transaction.signature)}</a> : "—"}</dd>
               </div>
             </dl>
-            <a
-              className="investor-primary-button investor-position-button"
-              href={transactionUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t("View RWA position", "RWA 포지션 보기")}
-            </a>
+            {transaction ? (
+              <a
+                className="investor-primary-button investor-position-button"
+                href={transaction.explorerUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t("View RWA position", "RWA 포지션 보기")}
+              </a>
+            ) : null}
           </section>
-          <p className="investor-agent-notice">
-            {t(
-              "The agent selected and executed this investment within the institution-approved mandate.",
-              "에이전트가 기관 승인 위임 범위 안에서 이 투자를 선택하고 실행했습니다.",
-            )}
-          </p>
+          <p className="investor-agent-notice">{copy.notice}</p>
         </div>
       </div>
     </section>

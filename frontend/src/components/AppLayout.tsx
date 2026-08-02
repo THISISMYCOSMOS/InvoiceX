@@ -1,6 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { authApi } from "../api/auth.api";
+import { isMockApi } from "../api/client";
+import { DEMO_ACCOUNTS, DEMO_SESSION_KEY, saveDemoSession } from "../auth/demoAccounts";
 import { useInvoice } from "../hooks/useInvoice";
+import { useInvoices } from "../hooks/useInvoices";
 import { useLanguage } from "../i18n/LanguageContext";
 import { Brand } from "./Brand";
 import { LanguageToggle } from "./LanguageToggle";
@@ -16,6 +20,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isInvestorSetup = pathname === "/investor/setup";
   const detailInvoiceId = pathname.match(/^\/(?:supplier|buyer)\/invoices\/([^/]+)/)?.[1] ?? "";
   const detailInvoice = useInvoice(detailInvoiceId, Boolean(detailInvoiceId));
+  const invoices = useInvoices();
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+  const [roleSwitchError, setRoleSwitchError] = useState<string>();
   const role = isSupplier ? "SUPPLIER" : isBuyer ? "BUYER" : isInvestor ? "INVESTOR" : "DEMO";
   const company = isSupplier
     ? "Alpha Components"
@@ -27,6 +34,45 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isBuyerPayment = isBuyer && search.includes("section=payment");
   const isSupplierOffer = isSupplier && detailInvoice.data?.status === "OFFER_READY";
   const homePath = isSupplier ? "/supplier" : isBuyer ? "/buyer" : isInvestor ? "/investor" : "/dev/demo";
+  const buyerVerificationInvoice = invoices.data?.find((invoice) => invoice.status === "BUYER_REVIEW") ?? invoices.data?.[0];
+  const buyerPaymentInvoice = invoices.data?.find((invoice) => (
+    invoice.status === "FUNDED" || invoice.status === "REPAYMENT_PENDING" || invoice.status === "SETTLING"
+  )) ?? buyerVerificationInvoice;
+  const buyerVerificationPath = buyerVerificationInvoice
+    ? `/buyer/invoices/${buyerVerificationInvoice.id}?section=verification`
+    : "/buyer";
+  const buyerPaymentPath = buyerPaymentInvoice
+    ? `/buyer/invoices/${buyerPaymentInvoice.id}?section=payment`
+    : "/buyer";
+  const investorActivityInvoice = invoices.data?.find((invoice) => (
+    Boolean(invoice.agentDecision || invoice.rwaAsset)
+  ));
+  const investorActivityPath = investorActivityInvoice
+    ? `/investor/activities/${investorActivityInvoice.id}`
+    : "/investor";
+  const investorActivityStatus = investorActivityInvoice?.agentDecision?.status;
+  const switchRole = async (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextRole = event.target.value;
+    const account = DEMO_ACCOUNTS.find((candidate) => candidate.role.toUpperCase() === nextRole);
+    if (!account) return;
+
+    setIsSwitchingRole(true);
+    setRoleSwitchError(undefined);
+    try {
+      const remember = Boolean(window.localStorage.getItem(DEMO_SESSION_KEY));
+      if (isMockApi) {
+        saveDemoSession(account, remember);
+      } else {
+        const authenticatedAccount = await authApi.login(account.role, account.email, account.password);
+        saveDemoSession(authenticatedAccount, remember, authenticatedAccount.accessToken);
+      }
+      navigate(`/${nextRole.toLowerCase()}`);
+    } catch {
+      setRoleSwitchError(t("Could not switch the demo role. Please try again.", "데모 역할을 전환하지 못했습니다. 다시 시도해 주세요."));
+    } finally {
+      setIsSwitchingRole(false);
+    }
+  };
   return (
     <div className="screen-stage">
       <div className="app-shell">
@@ -40,7 +86,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <select
                 aria-label={t("Switch role", "역할 변경")}
                 value={role === "DEMO" ? "" : role}
-                onChange={(event) => navigate(`/${event.target.value.toLowerCase()}`)}
+                onChange={(event) => void switchRole(event)}
+                disabled={isSwitchingRole}
               >
                 {role === "DEMO" && <option value="">{t("Switch role", "역할 변경")}</option>}
                 <option value="SUPPLIER">{t("Supplier", "공급기업")}</option>
@@ -48,6 +95,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <option value="INVESTOR">{t("Investor", "투자자")}</option>
               </select>
             </label>
+            {roleSwitchError && <span className="topbar-role-error" role="status">{roleSwitchError}</span>}
             <LanguageToggle />
             {isBuyer && detailInvoiceId && (
               <span className="topbar-status-pill topbar-status-pill--green">
@@ -64,7 +112,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             {isInvestor && (
               <span className="topbar-status-pill topbar-status-pill--purple">
                 {isInvestorActivity
-                  ? t("Investment completed", "투자 완료")
+                  ? investorActivityStatus === "EXECUTED"
+                    ? t("Investment completed", "투자 완료")
+                    : investorActivityStatus === "REJECTED"
+                      ? t("Investment not approved", "투자 미승인")
+                      : t("Investment evaluation", "투자 평가")
                   : t("Auto-invest active", "자동 투자 활성")}
               </span>
             )}
@@ -95,13 +147,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </Link>
                 <Link
                   className={pathname.startsWith("/buyer/invoices") && !isBuyerPayment ? "is-active" : ""}
-                  to="/buyer/invoices/INV-2026-001?section=verification"
+                  to={buyerVerificationPath}
                 >
                   {t("Verification Requests", "확인 요청")}
                 </Link>
                 <Link
                   className={isBuyerPayment ? "is-active" : ""}
-                  to="/buyer/invoices/INV-2026-001?section=payment"
+                  to={buyerPaymentPath}
                 >
                   {t("Payment Schedule", "결제 일정")}
                 </Link>
@@ -113,7 +165,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </Link>
                 <Link
                   className={isInvestorActivity ? "is-active" : ""}
-                  to="/investor/activities/INV-2026-001"
+                  to={investorActivityPath}
                 >
                   {t("Agent Activity", "에이전트 활동")}
                 </Link>

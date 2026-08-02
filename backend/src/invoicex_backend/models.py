@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from solders.pubkey import Pubkey
 
 
@@ -283,6 +283,30 @@ class AgentDecision(ApiModel):
     reason: str | None = None
     created_at: str
 
+    @model_validator(mode="before")
+    @classmethod
+    def discard_legacy_execution_metadata(cls, value: object) -> object:
+        """Keep policy checks boolean-only while reading decisions saved by v1.
+
+        The initial Devnet purchase path wrote transfer bookkeeping values into
+        ``checks``.  Those values were never policy checks and made persisted
+        decisions unreadable because this field correctly accepts booleans
+        only.  Strip the old values at the persistence boundary so a deploy can
+        recover existing invoices without mutating their historical records.
+        """
+
+        if not isinstance(value, dict):
+            return value
+        raw_checks = value.get("checks")
+        if not isinstance(raw_checks, dict):
+            return value
+        normalized = dict(value)
+        checks = dict(raw_checks)
+        for key in ("demoTransferCapApplied", "quotedAmountUsdc", "onchainAmountUsdc"):
+            checks.pop(key, None)
+        normalized["checks"] = checks
+        return normalized
+
 
 class Invoice(ApiModel):
     id: str
@@ -297,6 +321,7 @@ class Invoice(ApiModel):
     purchase_order_number: str
     status: InvoiceStatus
     verification_id: str | None
+    verification_requested_at: str | None = None
     documents: list[InvoiceDocument]
     analysis: DocumentAnalysis | None
     risk_passport: RiskPassport | None
@@ -312,6 +337,7 @@ class Verification(ApiModel):
     id: str
     invoice_id: str
     status: VerificationStatus
+    created_at: str | None = None
 
 
 class InvoiceResponse(ApiModel):

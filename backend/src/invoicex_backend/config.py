@@ -164,11 +164,6 @@ class BackendSettings(BaseSettings):
         default=None,
         validation_alias="PRIVY_SPONSOR_WALLET_ADDRESS",
     )
-    gasless_deposit_max_usdc: int = Field(
-        default=1,
-        validation_alias="GASLESS_DEPOSIT_MAX_USDC",
-        gt=0,
-    )
     mock_settlement_enabled: bool = Field(
         default=True,
         validation_alias="MOCK_SETTLEMENT_ENABLED",

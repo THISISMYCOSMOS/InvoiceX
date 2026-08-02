@@ -15,7 +15,11 @@ test("shows the Figma verification controls for a buyer-review invoice", async (
           ...DEMO_INVOICE,
           status: "BUYER_REVIEW",
           verificationId: "VER-2026-001",
-          documents: DEMO_DOCUMENTS,
+          verificationRequestedAt: "2026-08-03T19:22:08.000Z",
+          documents: DEMO_DOCUMENTS.map((document) => ({
+            ...document,
+            storageUrl: `https://storage.example.test/${document.fileName}`,
+          })),
         }}
         onConfirm={onConfirm}
       />
@@ -24,6 +28,11 @@ test("shows the Figma verification controls for a buyer-review invoice", async (
 
   expect(screen.getByRole("heading", { name: "Verify invoice INV-2026-001" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Invoice" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByTitle("01_Invoice_INV-2026-001.pdf")).toHaveAttribute(
+    "src",
+    "https://storage.example.test/01_Invoice_INV-2026-001.pdf",
+  );
+  expect(screen.getByText(/^Requested /)).toBeInTheDocument();
   expect(screen.getByText("Transaction exists")).toBeInTheDocument();
   expect(screen.getByText("Supplier information")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Request revision" })).toBeInTheDocument();

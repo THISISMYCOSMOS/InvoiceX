@@ -111,6 +111,7 @@ export interface Invoice {
   analysis?: DocumentAnalysis;
   riskPassport?: RiskPassport;
   verificationId?: string;
+  verificationRequestedAt?: string;
   fundingTransaction?: BlockchainTransaction;
   settlementTransaction?: BlockchainTransaction;
   settlement?: SettlementResult;
@@ -123,6 +124,7 @@ export interface VerificationRequest {
   id: string;
   invoiceId: string;
   status: "PENDING" | "CONFIRMED" | "REVISION_REQUESTED" | "DISPUTED";
+  createdAt?: string;
 }
 
 export interface InvestorDashboard {

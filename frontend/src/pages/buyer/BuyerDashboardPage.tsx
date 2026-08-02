@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
-import { useInvoices } from "../../hooks/useInvoices";
+import { getInvoiceDisplayReference, useInvoices } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { Invoice } from "../../types/invoice";
 
@@ -91,7 +91,7 @@ export function BuyerDashboardPage() {
                 <tr><td colSpan={5} className="buyer-empty-row">{t("No verification requests are waiting.", "대기 중인 확인 요청이 없습니다.")}</td></tr>
               ) : verificationRequests.map((invoice) => (
                 <tr key={invoice.id}>
-                  <td><strong>{invoice.id}</strong></td>
+                  <td><strong>{getInvoiceDisplayReference(invoice)}</strong></td>
                   <td>{invoice.supplier.name}</td>
                   <td>{krw.format(invoice.invoiceAmountKrw)}</td>
                   <td>{formatDueDate(invoice.dueDate, locale)}</td>
@@ -99,7 +99,7 @@ export function BuyerDashboardPage() {
                     <Link
                       className="buyer-review-link is-primary"
                       to={`/buyer/invoices/${invoice.id}?section=verification`}
-                      aria-label={t(`Review ${invoice.id}`, `${invoice.id} 확인`)}
+                      aria-label={t(`Review ${getInvoiceDisplayReference(invoice)}`, `${getInvoiceDisplayReference(invoice)} 확인`)}
                     >
                       {t("Review", "확인")}
                     </Link>
@@ -138,7 +138,7 @@ export function BuyerDashboardPage() {
                 const daysRemaining = Math.max(0, Math.ceil((new Date(`${invoice.dueDate}T00:00:00`).getTime() - new Date().getTime()) / (24 * 60 * 60 * 1_000)));
                 return (
                   <tr key={invoice.id}>
-                    <td><strong>{invoice.id}</strong></td>
+                  <td><strong>{getInvoiceDisplayReference(invoice)}</strong></td>
                     <td>{invoice.supplier.name}</td>
                     <td>{krw.format(invoice.invoiceAmountKrw)}</td>
                     <td>{formatDueDate(invoice.dueDate, locale)}</td>
@@ -147,7 +147,7 @@ export function BuyerDashboardPage() {
                       <Link
                         className="buyer-review-link is-primary"
                         to={`/buyer/invoices/${invoice.id}?section=payment`}
-                        aria-label={t(`Pay ${invoice.id}`, `${invoice.id} 결제하기`)}
+                        aria-label={t(`Pay ${getInvoiceDisplayReference(invoice)}`, `${getInvoiceDisplayReference(invoice)} 결제하기`)}
                       >
                         {t("Pay now", "결제하기")}
                       </Link>

@@ -35,6 +35,10 @@ test("renders the treasury overview from the investor dashboard design", async (
     "href",
     "/investor/setup",
   );
-  expect(await screen.findByText("No investment has been executed yet.")).toBeInTheDocument();
+  expect(await screen.findByText("Awaiting mandate")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "INV-2026-001" })).toHaveAttribute(
+    "href",
+    "/investor/activities/INV-2026-001",
+  );
   expect(screen.queryByRole("button", { name: "Purchase RWA" })).not.toBeInTheDocument();
 });

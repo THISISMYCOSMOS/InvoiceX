@@ -181,7 +181,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
     gateway = PrivySolanaGateway(settings, http_client=client)
     prepared = await gateway.prepare_vault_deposit(
         owner_wallet_address=str(investor.pubkey()),
-        amount_usdc=1,
+        amount_usdc=2,
     )
     unsigned = VersionedTransaction.from_bytes(base64.b64decode(prepared.transaction_base64))
     signatures = list(unsigned.signatures)
@@ -190,7 +190,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
     transaction = VersionedTransaction.populate(unsigned.message, signatures)
     result = await gateway.sponsor_vault_deposit(
         owner_wallet_address=str(investor.pubkey()),
-        amount_usdc=1,
+        amount_usdc=2,
         prepared_transaction_base64=prepared.transaction_base64,
         signed_transaction_base64=base64.b64encode(bytes(transaction)).decode("ascii"),
         reference_id="gasless-deposit-test",
@@ -223,7 +223,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
                         Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
                     ),
                     owner=investor.pubkey(),
-                    amount=1_000_000,
+                        amount=2_000_000,
                     decimals=6,
                 )
             ),
@@ -258,7 +258,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
                         Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
                     ),
                     owner=investor.pubkey(),
-                    amount=1_000_000,
+                        amount=2_000_000,
                     decimals=6,
                 )
             ),

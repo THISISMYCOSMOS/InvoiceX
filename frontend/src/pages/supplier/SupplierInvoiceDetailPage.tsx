@@ -19,11 +19,15 @@ import { useLanguage } from "../../i18n/LanguageContext";
 export function SupplierInvoiceDetailContent({
   invoice,
   onAccept,
+  isAccepting = false,
+  acceptError,
   onRequestVerification = () => undefined,
   isRequestingVerification = false,
 }: {
   invoice: Invoice;
   onAccept: () => void;
+  isAccepting?: boolean;
+  acceptError?: string;
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
 }) {
@@ -43,7 +47,14 @@ export function SupplierInvoiceDetailContent({
     }
 
     if (invoice.status === "OFFER_READY") {
-      return <EarlySettlementOfferSection invoice={invoice} onAccept={onAccept} />;
+      return (
+        <EarlySettlementOfferSection
+          invoice={invoice}
+          onAccept={onAccept}
+          isRequesting={isAccepting}
+          requestError={acceptError}
+        />
+      );
     }
 
     if (invoice.status === "RWA_ISSUED") {
@@ -89,6 +100,8 @@ export function SupplierInvoiceDetailPage() {
     <SupplierInvoiceDetailContent
       invoice={invoice.data}
       onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
+      isAccepting={acceptOffer.isPending}
+      acceptError={acceptOffer.error instanceof Error ? acceptOffer.error.message : undefined}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
     />

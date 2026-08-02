@@ -23,14 +23,15 @@ function RoleNavigation() {
     <>
       <p>{pathname}</p>
       <button type="button" onClick={() => navigate("/supplier/company-wallet")}>Supplier settings</button>
+      <button type="button" onClick={() => navigate("/buyer")}>Buyer overview</button>
       <button type="button" onClick={() => navigate("/investor/setup")}>Investor setup</button>
     </>
   );
 }
 
-function renderGuard() {
+function renderGuard(initialPath = "/supplier") {
   return render(
-    <MemoryRouter initialEntries={["/supplier"]}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <WalletRoleSwitchGuard>
         <RoleNavigation />
       </WalletRoleSwitchGuard>
@@ -45,15 +46,38 @@ beforeEach(() => {
 });
 
 describe("WalletRoleSwitchGuard", () => {
-  test("identifies only supplier and investor paths as wallet roles", () => {
+  test("identifies every company-role path as a wallet role", () => {
     expect(walletRoleFromPath("/supplier/company-wallet")).toBe("SUPPLIER");
+    expect(walletRoleFromPath("/buyer")).toBe("BUYER");
     expect(walletRoleFromPath("/investor/setup")).toBe("INVESTOR");
-    expect(walletRoleFromPath("/buyer")).toBeNull();
+    expect(walletRoleFromPath("/login")).toBeNull();
   });
 
   test("clears the active wallet when switching from supplier to investor", async () => {
     const user = userEvent.setup();
     renderGuard();
+
+    await user.click(screen.getByRole("button", { name: "Investor setup" }));
+
+    await waitFor(() => expect(screen.getByText("/investor/setup")).toBeInTheDocument());
+    expect(walletState.select).toHaveBeenCalledWith(null);
+    expect(walletState.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  test("clears the active wallet when switching from supplier to buyer", async () => {
+    const user = userEvent.setup();
+    renderGuard();
+
+    await user.click(screen.getByRole("button", { name: "Buyer overview" }));
+
+    await waitFor(() => expect(screen.getByText("/buyer")).toBeInTheDocument());
+    expect(walletState.select).toHaveBeenCalledWith(null);
+    expect(walletState.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  test("clears the active wallet when switching from buyer to investor", async () => {
+    const user = userEvent.setup();
+    renderGuard("/buyer");
 
     await user.click(screen.getByRole("button", { name: "Investor setup" }));
 

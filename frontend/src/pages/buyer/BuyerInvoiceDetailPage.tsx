@@ -7,16 +7,17 @@ import { LoadingState } from "../../components/LoadingState";
 import { useBuyerConfirm } from "../../hooks/useBuyerConfirm";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useLanguage } from "../../i18n/LanguageContext";
+import type { DocumentType } from "../../types/documents";
 import type { Invoice, InvoiceStatus } from "../../types/invoice";
 
 type BuyerView = "verification" | "payment";
 type VerificationChoice = "match" | "mismatch";
 
 const documentTabs = [
-  { key: "Invoice", english: "Invoice", korean: "인보이스" },
-  { key: "Contract", english: "Contract", korean: "계약서" },
-  { key: "PO", english: "PO", korean: "발주서" },
-  { key: "Delivery proof", english: "Delivery proof", korean: "납품 증빙" },
+  { type: "INVOICE", english: "Invoice", korean: "인보이스" },
+  { type: "CONTRACT", english: "Contract", korean: "계약서" },
+  { type: "PURCHASE_ORDER", english: "PO", korean: "발주서" },
+  { type: "DELIVERY_PROOF", english: "Delivery proof", korean: "납품 증빙" },
 ] as const;
 const maturityStatuses: InvoiceStatus[] = ["FUNDED", "REPAYMENT_PENDING", "SETTLING"];
 const previewableVerificationStatuses: InvoiceStatus[] = [
@@ -39,6 +40,15 @@ function formatDate(date: string, locale: "en-US" | "ko-KR") {
     day: "2-digit",
     year: "numeric",
   }).format(new Date(`${date}T00:00:00`));
+}
+
+function formatRequestTime(value: string, locale: "en-US" | "ko-KR") {
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function VerificationChoiceButtons({
@@ -86,7 +96,7 @@ function BuyerVerificationSection({
   isConfirming: boolean;
 }) {
   const { language, t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<(typeof documentTabs)[number]["key"]>("Invoice");
+  const [activeTab, setActiveTab] = useState<DocumentType>("INVOICE");
   const [message, setMessage] = useState<string>();
   const [choices, setChoices] = useState<Record<string, VerificationChoice>>({
     transaction: "match",
@@ -105,6 +115,9 @@ function BuyerVerificationSection({
     { key: "delivery", label: t("Delivery completed", "납품 완료"), positive: t("Confirmed", "확인"), negative: t("Unconfirmed", "미확인") },
     { key: "dispute", label: t("Dispute or payment hold", "분쟁 또는 결제 보류"), positive: t("None", "없음"), negative: t("Exists", "있음") },
   ], [invoice.dueDate, invoice.invoiceAmountKrw, language, t]);
+  const activeDocument = invoice.documents.find((document) => document.type === activeTab);
+  const locale = language === "ko" ? "ko-KR" : "en-US";
+  const requestedAt = invoice.verificationRequestedAt;
 
   const submitConfirmation = async () => {
     setMessage(undefined);
@@ -128,7 +141,14 @@ function BuyerVerificationSection({
           <h1>{t(`Verify invoice ${invoice.id}`, `인보이스 ${invoice.id} 확인`)}</h1>
           <p>{t("Compare the supplier submission with your contract, PO, and inspection records.", "공급기업 제출 자료를 계약서, 발주서 및 검수 기록과 비교하세요.")}</p>
         </div>
-        <span className="request-date-chip">{t("Requested Jul 29", "7월 29일 요청")}</span>
+        <span className="request-date-chip">
+          {requestedAt
+            ? t(
+              `Requested ${formatRequestTime(requestedAt, locale)}`,
+              `${formatRequestTime(requestedAt, locale)} 요청`,
+            )
+            : t("Verification requested", "검증 요청됨")}
+        </span>
       </header>
 
       <div className="buyer-verification-grid">
@@ -136,19 +156,23 @@ function BuyerVerificationSection({
           <div className="document-tabs" role="tablist" aria-label={t("Submitted document types", "제출 문서 유형")}>
             {documentTabs.map((tab) => (
               <button
-                key={tab.key}
+                key={tab.type}
                 type="button"
                 role="tab"
-                aria-selected={activeTab === tab.key}
-                className={activeTab === tab.key ? "is-active" : ""}
-                onClick={() => setActiveTab(tab.key)}
+                aria-selected={activeTab === tab.type}
+                className={activeTab === tab.type ? "is-active" : ""}
+                onClick={() => setActiveTab(tab.type)}
               >
                 {t(tab.english, tab.korean)}
               </button>
             ))}
           </div>
           <div className="document-preview">
-            <img src={invoicePreview} alt={t(`${activeTab} document preview`, `${activeTab} 문서 미리보기`)} />
+            {activeDocument?.storageUrl ? (
+              <iframe title={activeDocument.fileName} src={activeDocument.storageUrl} />
+            ) : (
+              <img src={invoicePreview} alt={t(`${activeTab} document preview`, `${activeTab} 문서 미리보기`)} />
+            )}
           </div>
         </section>
 

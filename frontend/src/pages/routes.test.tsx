@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, test } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { scenarioAdapter } from "../api/client";
+import { getDemoSession } from "../auth/demoAccounts";
 import { App } from "../App";
 
 beforeEach(async () => {
@@ -164,6 +165,7 @@ test("switches demo roles from the topbar dropdown", async () => {
 
   expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
   expect(roleSwitcher).toHaveValue("BUYER");
+  expect(getDemoSession()?.role).toBe("Buyer");
 });
 
 test("renders the investor Figma navigation and agent decision route", async () => {
@@ -189,8 +191,8 @@ test("renders the investor Figma navigation and agent decision route", async () 
 
   await user.click(screen.getByRole("link", { name: "Agent Activity" }));
 
-  expect(await screen.findByRole("heading", { name: "Treasury Agent decision" })).toBeInTheDocument();
-  expect(screen.getByText("6 / 6 PASSED")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Treasury Agent evaluation pending" })).toBeInTheDocument();
+  expect(screen.getByText("0 / 1 PASSED")).toBeInTheDocument();
 });
 
 test("returns from buyer verification to the buyer dashboard", async () => {

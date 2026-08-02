@@ -39,24 +39,20 @@ def test_complete_frontend_contract_workflow(
     verification_invoice = verification_response.json()["invoice"]
     assert verification_invoice["status"] == "BUYER_REVIEW"
     verification_id = verification_invoice["verificationId"]
+    requested_at = verification_invoice["verificationRequestedAt"]
+    assert isinstance(requested_at, str)
 
     duplicate_request = client.post(f"/api/v1/invoices/{invoice_id}/verification-request")
     assert duplicate_request.json()["invoice"]["verificationId"] == verification_id
-    assert client.get("/api/v1/verifications").json() == {
-        "items": [
-            {
-                "id": verification_id,
-                "invoiceId": invoice_id,
-                "status": "PENDING",
-            }
-        ]
+    listed_verification = client.get("/api/v1/verifications").json()["items"][0]
+    assert listed_verification == {
+        "id": verification_id,
+        "invoiceId": invoice_id,
+        "status": "PENDING",
+        "createdAt": requested_at,
     }
     assert client.get(f"/api/v1/verifications/{verification_id}").json() == {
-        "verification": {
-            "id": verification_id,
-            "invoiceId": invoice_id,
-            "status": "PENDING",
-        }
+        "verification": listed_verification
     }
 
     confirmed = client.post(f"/api/v1/verifications/{verification_id}/confirm")
@@ -335,3 +331,22 @@ def test_fixed_demo_accounts_cannot_cross_role_boundaries(tmp_path: Path) -> Non
         assert authenticated_client.get(
             "/api/v1/investor/dashboard", headers=supplier_headers
         ).status_code == 403
+
+        buyer_login = authenticated_client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Buyer",
+                "email": "buyer@company.com",
+                "password": "buyer",
+            },
+        )
+        buyer_headers = {"Authorization": f"Bearer {buyer_login.json()['accessToken']}"}
+        assert (
+            authenticated_client.get("/api/v1/invoices", headers=buyer_headers).status_code == 200
+        )
+        assert (
+            authenticated_client.get(
+                "/api/v1/invoices", headers=investor_headers
+            ).status_code
+            == 200
+        )

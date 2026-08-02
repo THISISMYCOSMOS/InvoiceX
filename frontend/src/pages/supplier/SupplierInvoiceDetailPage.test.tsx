@@ -20,9 +20,24 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
 
   expect(screen.getByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "1 USDC" })).toBeInTheDocument();
+  expect(screen.getByText("0.06 USDC")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Risk Passport" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Decline offer" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
+});
+
+test("shows the RWA issuance request state and error instead of silently failing", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "OFFER_READY", riskPassport: DEMO_RISK_PASSPORT }}
+      onAccept={() => undefined}
+      isAccepting
+      acceptError="RWA 발행 요청을 처리하지 못했습니다. 다시 시도해 주세요."
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: "Requesting RWA issuance…" })).toBeDisabled();
+  expect(screen.getByRole("alert")).toHaveTextContent("RWA 발행 요청을 처리하지 못했습니다.");
 });
 
 test("shows the transaction receipt for a funded invoice", () => {

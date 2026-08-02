@@ -7,6 +7,16 @@ import { useLanguage } from "../../i18n/LanguageContext";
 
 const usdc = new Intl.NumberFormat("en-US");
 
+function activityResult(invoice: { agentDecision?: { status: string } }) {
+  switch (invoice.agentDecision?.status) {
+    case "EXECUTED": return { english: "Invested", korean: "투자 완료", className: "investor-result--invested" };
+    case "REJECTED": return { english: "Not approved", korean: "미승인", className: "investor-result--excluded" };
+    case "FAILED": return { english: "Execution failed", korean: "실행 실패", className: "investor-result--excluded" };
+    case "APPROVED": return { english: "Executing", korean: "실행 중", className: "investor-result--invested" };
+    default: return { english: "Awaiting mandate", korean: "Mandate 대기", className: "investor-result--excluded" };
+  }
+}
+
 export function InvestorDashboardPage() {
   const dashboard = useInvestorDashboard();
   const invoices = useInvoices();
@@ -25,7 +35,10 @@ export function InvestorDashboardPage() {
   }
 
   const data = dashboard.data;
-  const fundedInvoices = invoices.data?.filter((invoice) => invoice.status === "FUNDED" || invoice.status === "SETTLED") ?? [];
+  const activityInvoices = invoices.data?.filter((invoice) => (
+    Boolean(invoice.agentDecision || invoice.rwaAsset)
+  )) ?? [];
+  const firstActivityInvoice = activityInvoices[0];
   const stats = [
     {
       label: t("Available to invest", "투자 가능 금액"),
@@ -89,7 +102,7 @@ export function InvestorDashboardPage() {
       <section className="investor-activity-card">
         <header>
           <h2>{t("Recent Treasury Agent activity", "최근 Treasury Agent 활동")}</h2>
-          <Link className="investor-secondary-button" to="/investor/activities/INV-2026-001">
+          <Link className="investor-secondary-button" to={firstActivityInvoice ? `/investor/activities/${firstActivityInvoice.id}` : "/investor"}>
             {t("View all", "전체 보기")}
           </Link>
         </header>
@@ -105,8 +118,12 @@ export function InvestorDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {fundedInvoices.length > 0 ? fundedInvoices.map((invoice) => (
-                <tr key={invoice.id}>
+              {activityInvoices.length > 0 ? activityInvoices.map((invoice) => {
+                const result = activityResult(invoice);
+                const amount = invoice.fundingTransaction?.amountUsdc ?? invoice.agentDecision?.amountUsdc ?? 0;
+                const activityTime = invoice.fundingTransaction?.createdAt ?? invoice.agentDecision?.createdAt;
+                return (
+                  <tr key={invoice.id}>
                   <td>
                     <Link to={`/investor/activities/${invoice.id}`}>
                       {invoice.id}
@@ -114,12 +131,13 @@ export function InvestorDashboardPage() {
                   </td>
                   <td>{invoice.buyer.name}</td>
                   <td>
-                    <span className="investor-result investor-result--invested">{t("Invested", "투자 완료")}</span>
+                    <span className={`investor-result ${result.className}`}>{t(result.english, result.korean)}</span>
                   </td>
-                  <td className="is-strong">{usdc.format(invoice.fundingTransaction?.amountUsdc ?? 0)} USDC</td>
-                  <td>{t("Completed", "완료")}</td>
+                  <td className="is-strong">{usdc.format(amount)} USDC</td>
+                  <td>{activityTime ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(activityTime)) : "—"}</td>
                 </tr>
-              )) : (
+                );
+              }) : (
                 <tr><td colSpan={5} className="investor-activity-empty">{t("No investment has been executed yet.", "아직 실행된 투자가 없습니다.")}</td></tr>
               )}
             </tbody>

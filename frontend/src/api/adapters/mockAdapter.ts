@@ -1,11 +1,13 @@
 import {
   DEMO_AGENT_TRACES,
+  DEMO_AGENT_DECISION,
   DEMO_ANALYSIS,
   DEMO_DOCUMENTS,
   DEMO_FUNDING_TRANSACTION,
   DEMO_INVOICE,
   DEMO_INVESTOR_DASHBOARD,
   DEMO_RISK_PASSPORT,
+  DEMO_RWA_ASSET,
   DEMO_SETTLEMENT,
   DEMO_SETTLEMENT_TRANSACTION,
 } from "../../mocks/demoScenario";
@@ -28,6 +30,29 @@ export function createMockAdapter(): ScenarioAdapter {
     ...current,
     agentTraces: clone(DEMO_AGENT_TRACES),
     fundingTransaction: clone(DEMO_FUNDING_TRANSACTION),
+    agentDecision: {
+      ...clone(DEMO_AGENT_DECISION),
+      status: "EXECUTED",
+      checks: {
+        policyActive: true,
+        riskEligible: true,
+        minimumRiskScore: true,
+        buyerAllowlist: true,
+        maximumRemainingTerm: true,
+        perInvoiceLimit: true,
+        totalInvestmentLimit: true,
+        vaultAvailableBalance: true,
+      },
+      createdAt: DEMO_FUNDING_TRANSACTION.createdAt,
+    },
+    rwaAsset: current.rwaAsset
+      ? {
+        ...current.rwaAsset,
+        status: "SOLD",
+        purchaseTransaction: clone(DEMO_FUNDING_TRANSACTION),
+        ownerVaultAddress: "DEMO_AGENT_VAULT",
+      }
+      : undefined,
     status: "FUNDED",
   });
 
@@ -80,8 +105,14 @@ export function createMockAdapter(): ScenarioAdapter {
         return invalidTransition(current, "검증 요청");
       }
 
-      verification = { id: "VER-2026-001", invoiceId, status: "PENDING" };
-      invoice = { ...current, verificationId: verification.id, status: "BUYER_REVIEW" };
+      const requestedAt = new Date().toISOString();
+      verification = { id: "VER-2026-001", invoiceId, status: "PENDING", createdAt: requestedAt };
+      invoice = {
+        ...current,
+        verificationId: verification.id,
+        verificationRequestedAt: requestedAt,
+        status: "BUYER_REVIEW",
+      };
       return clone(invoice);
     },
     async getVerifications() {
@@ -112,7 +143,14 @@ export function createMockAdapter(): ScenarioAdapter {
         return invalidTransition(current, "조건 응답");
       }
 
-      invoice = { ...current, status: response === "ACCEPT" ? "RWA_ISSUED" : "BLOCKED" };
+      invoice = response === "ACCEPT"
+        ? {
+          ...current,
+          status: "RWA_ISSUED",
+          rwaAsset: clone(DEMO_RWA_ASSET),
+          agentDecision: clone(DEMO_AGENT_DECISION),
+        }
+        : { ...current, status: "BLOCKED" };
       return clone(invoice);
     },
     async runFunding(invoiceId) {
