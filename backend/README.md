@@ -31,6 +31,15 @@ USDC, Issuer / Escrow mints and holds the RWA, and Sponsor pays Devnet SOL
 fees. External supplier and investor wallets remain browser wallets; neither
 their private keys nor Privy secrets are sent to the frontend.
 
+`PRIVY_SPONSOR=false` is intentional for this design. It disables Privy's
+separate managed gas-sponsorship product; the configured Sponsor wallet is the
+actual Solana fee payer for the transaction.
+
+For the local Devnet flow, set `PRIVY_BROADCAST_MODE=rpc`. Privy signs using
+the configured service-wallet keys, then the same `SOLANA_RPC_URL` that
+provided the recent blockhash broadcasts the fully signed transaction. This
+does not export a wallet private key from Privy.
+
 1. Copy `.env.example` to `backend/.env` and set the Privy App ID / Secret,
    Treasury, Issuer, and Sponsor wallet values. Keep the App Secret in Secret
    Manager for Cloud Run; do not share it through Git or the frontend.

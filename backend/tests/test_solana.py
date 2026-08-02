@@ -302,6 +302,7 @@ async def test_privy_gateway_funds_development_wallet_with_sponsor(
     signature = str(Signature.from_bytes(bytes(range(64))))
     methods: list[tuple[str, str]] = []
     submitted: list[tuple[str, str]] = []
+    rpc_methods: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content) if request.content else {}
@@ -323,8 +324,11 @@ async def test_privy_gateway_funds_development_wallet_with_sponsor(
                     },
                 )
             return httpx.Response(200, json={"data": {"hash": signature}})
+        rpc_methods.append(payload["method"])
         if payload["method"] == "getLatestBlockhash":
             result: object = {"value": {"blockhash": str(Hash.default())}}
+        elif payload["method"] == "sendTransaction":
+            result = signature
         elif payload["method"] == "getSignatureStatuses":
             result = {"value": [{"err": None, "confirmationStatus": "confirmed"}]}
         else:
@@ -346,6 +350,7 @@ async def test_privy_gateway_funds_development_wallet_with_sponsor(
         PRIVY_SPONSOR_WALLET_ID="sponsor",
         PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
         PRIVY_API_BASE_URL="https://privy.test",
+        PRIVY_BROADCAST_MODE="rpc",
         SOLANA_RPC_URL="https://rpc.test",
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -361,7 +366,12 @@ async def test_privy_gateway_funds_development_wallet_with_sponsor(
     assert result.from_address == treasury
     assert methods == [
         ("/v1/wallets/treasury/rpc", "signTransaction"),
-        ("/v1/wallets/sponsor/rpc", "signAndSendTransaction"),
+        ("/v1/wallets/sponsor/rpc", "signTransaction"),
+    ]
+    assert rpc_methods == [
+        "getLatestBlockhash",
+        "sendTransaction",
+        "getSignatureStatuses",
     ]
     sponsor_transaction = VersionedTransaction.from_bytes(
         base64.b64decode(submitted[-1][1])

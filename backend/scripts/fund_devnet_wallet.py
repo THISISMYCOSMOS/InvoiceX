@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import secrets
 
 from solders.pubkey import Pubkey
 
@@ -19,7 +20,9 @@ from invoicex_backend.solana import PrivySolanaGateway
 
 def _reference_id(wallet_address: str, amount_usdc: int) -> str:
     digest = hashlib.sha256(wallet_address.encode("utf-8")).hexdigest()[:16]
-    return f"devnet-fund-{digest}-{amount_usdc}"
+    # Privy caches failed requests by reference ID. A fresh ID makes a later
+    # explicit retry independent while still identifying this one CLI run.
+    return f"devnet-fund-{digest}-{amount_usdc}-{secrets.token_hex(6)}"
 
 
 async def run(args: argparse.Namespace) -> None:

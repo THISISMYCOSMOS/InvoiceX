@@ -998,6 +998,15 @@ class PrivySolanaGateway:
         if len(reference_id) > 64:
             raise IntegrationError("Privy reference_id must not exceed 64 characters")
         sender = from_address or await self._wallet_address(wallet_id)
+        if self._settings.privy_broadcast_mode == "rpc":
+            signed_transaction = await self._sign_transaction(
+                wallet_id=wallet_id,
+                transaction=transaction,
+            )
+            return await self._broadcast_signed_transaction(
+                transaction=signed_transaction,
+                from_address=sender,
+            )
         response = await self._client.post(
             f"{self._settings.privy_api_base_url}/v1/wallets/{wallet_id}/rpc",
             json={
@@ -1027,6 +1036,42 @@ class PrivySolanaGateway:
             signature=signature,
             status=status,
             from_address=sender,
+            provider="PRIVY",
+            sandbox=False,
+        )
+
+    async def _broadcast_signed_transaction(
+        self,
+        *,
+        transaction: bytes,
+        from_address: str,
+    ) -> ChainTransferResult:
+        """Send a Privy-signed Devnet transaction through the configured RPC.
+
+        The transaction has already been signed by every required service
+        wallet via Privy.  Broadcasting it through the same RPC that supplied
+        the recent blockhash prevents a separate provider from rejecting a
+        valid Devnet transaction with a stale or unknown blockhash.
+        """
+
+        signature = await self._rpc(
+            "sendTransaction",
+            [
+                base64.b64encode(transaction).decode("ascii"),
+                {
+                    "encoding": "base64",
+                    "preflightCommitment": "confirmed",
+                    "maxRetries": 3,
+                },
+            ],
+        )
+        if not isinstance(signature, str) or not signature:
+            raise IntegrationError("Solana RPC did not return a transaction signature")
+        status = await self._confirmation_status(signature)
+        return ChainTransferResult(
+            signature=signature,
+            status=status,
+            from_address=from_address,
             provider="PRIVY",
             sandbox=False,
         )
@@ -1282,7 +1327,23 @@ class PrivySolanaGateway:
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            raise IntegrationError(f"{operation} failed with HTTP {response.status_code}") from exc
+            detail: str | None = None
+            try:
+                payload = response.json()
+                if isinstance(payload, dict):
+                    raw_detail = payload.get("message") or payload.get("error")
+                    if isinstance(raw_detail, str):
+                        detail = raw_detail
+                    elif isinstance(raw_detail, dict):
+                        nested_message = raw_detail.get("message") or raw_detail.get("code")
+                        if isinstance(nested_message, str):
+                            detail = nested_message
+            except (ValueError, TypeError):
+                pass
+            suffix = f": {detail}" if detail else ""
+            raise IntegrationError(
+                f"{operation} failed with HTTP {response.status_code}{suffix}"
+            ) from exc
 
 
 def create_solana_gateway(settings: BackendSettings) -> SolanaGateway:

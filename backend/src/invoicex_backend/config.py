@@ -84,7 +84,11 @@ class BackendSettings(BaseSettings):
         default=None,
         validation_alias="PRIVY_SETTLEMENT_WALLET_ID",
     )
-    privy_sponsor: bool = Field(default=True, validation_alias="PRIVY_SPONSOR")
+    # This controls Privy's managed gas-sponsorship product, not the separate
+    # Privy Sponsor wallet used by InvoiceX as the actual Solana fee payer.
+    # Keep it opt-in: our dedicated Sponsor wallet does not require the Privy
+    # product to be enabled.
+    privy_sponsor: bool = Field(default=False, validation_alias="PRIVY_SPONSOR")
     gasless_enabled: bool = Field(default=False, validation_alias="GASLESS_ENABLED")
     privy_sponsor_wallet_id: str | None = Field(
         default=None,
@@ -102,6 +106,13 @@ class BackendSettings(BaseSettings):
     privy_api_base_url: str = Field(
         default="https://api.privy.io",
         validation_alias="PRIVY_API_BASE_URL",
+    )
+    # Privy's transaction broadcaster may be separate from the configured RPC.
+    # The rpc option keeps a Devnet transaction's recent blockhash and broadcast
+    # on the same RPC while Privy still holds every service-wallet private key.
+    privy_broadcast_mode: Literal["privy", "rpc"] = Field(
+        default="privy",
+        validation_alias="PRIVY_BROADCAST_MODE",
     )
 
     solana_cluster: Literal["devnet"] = Field(
