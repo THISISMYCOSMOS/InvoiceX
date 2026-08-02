@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any, Protocol
 
 import httpx
+from solders.compute_budget import ID as COMPUTE_BUDGET_PROGRAM_ID
 from solders.hash import Hash
 from solders.keypair import Keypair
 from solders.message import MessageV0, to_bytes_versioned
@@ -818,13 +819,13 @@ class PrivySolanaGateway:
                 "승인된 Agent Vault 예치 내용과 서명 트랜잭션이 일치하지 않습니다."
             )
         sponsor = await self._sponsor_address()
-        if str(submitted.message.account_keys[0]) != sponsor:
+        if not submitted.message.account_keys or str(submitted.message.account_keys[0]) != sponsor:
             raise IntegrationError("가스리스 수수료 지갑이 올바르지 않습니다.")
         owner = Pubkey.from_string(owner_wallet_address)
         try:
             owner_index = list(submitted.message.account_keys).index(owner)
             owner_signature = submitted.signatures[owner_index]
-        except ValueError as exc:
+        except (ValueError, IndexError) as exc:
             raise IntegrationError("투자자 지갑 서명이 예치 트랜잭션에 없습니다.") from exc
         signature_is_valid = owner_signature.verify(owner, to_bytes_versioned(submitted.message))
         if owner_signature == Signature.default() or not signature_is_valid:
@@ -843,24 +844,77 @@ class PrivySolanaGateway:
         expected: VersionedTransaction,
         submitted: VersionedTransaction,
     ) -> bool:
-        """Compare every spend-affecting part of a sponsored deposit message.
+        """Compare the resolved on-chain effects of a sponsored deposit message.
 
         Browser wallets are allowed to refresh a recent blockhash while signing
-        a versioned transaction.  A blockhash is only a validity window, not a
-        transfer instruction, so it must not invalidate an otherwise identical
-        investor-signed deposit.  All account keys, signer metadata, compiled
-        instructions, and address lookups remain exact matches.
+        a versioned transaction and may recompile the static account-key order or
+        add bounded Compute Budget instructions.  Those changes do not alter the
+        approved token transfer, so compare instructions after resolving their
+        account indexes to public keys instead of comparing compiled indexes.
+
+        Address lookup tables remain forbidden for this small deposit transaction.
+        Optional priority-fee instructions are accepted only within a conservative
+        sponsor cost cap.
         """
 
         expected_message = expected.message
         submitted_message = submitted.message
-        return (
-            expected_message.header == submitted_message.header
-            and expected_message.account_keys == submitted_message.account_keys
-            and expected_message.instructions == submitted_message.instructions
-            and expected_message.address_table_lookups
-            == submitted_message.address_table_lookups
+        if expected_message.address_table_lookups or submitted_message.address_table_lookups:
+            return False
+
+        expected_effect = PrivySolanaGateway._resolved_instruction_effects(
+            expected_message,
+            allow_compute_budget=False,
         )
+        submitted_effect = PrivySolanaGateway._resolved_instruction_effects(
+            submitted_message,
+            allow_compute_budget=True,
+        )
+        return expected_effect is not None and expected_effect == submitted_effect
+
+    @staticmethod
+    def _resolved_instruction_effects(
+        message: MessageV0,
+        *,
+        allow_compute_budget: bool,
+    ) -> tuple[tuple[str, tuple[str, ...], bytes], ...] | None:
+        """Resolve compiled instruction indexes and reject unsafe wallet additions."""
+
+        account_keys = list(message.account_keys)
+        effects: list[tuple[str, tuple[str, ...], bytes]] = []
+        compute_unit_limit = 200_000
+        compute_unit_price = 0
+        try:
+            for instruction in message.instructions:
+                program_id = account_keys[instruction.program_id_index]
+                data = bytes(instruction.data)
+                if program_id == COMPUTE_BUDGET_PROGRAM_ID:
+                    if not allow_compute_budget:
+                        return None
+                    if len(data) == 5 and data[0] == 2:
+                        compute_unit_limit = int.from_bytes(data[1:], "little")
+                        if not 1 <= compute_unit_limit <= 400_000:
+                            return None
+                        continue
+                    if len(data) == 9 and data[0] == 3:
+                        compute_unit_price = int.from_bytes(data[1:], "little")
+                        continue
+                    return None
+                resolved_accounts = tuple(
+                    str(account_keys[account_index]) for account_index in instruction.accounts
+                )
+                effects.append((str(program_id), resolved_accounts, data))
+        except (IndexError, ValueError):
+            return None
+
+        # micro-lamports per compute unit -> lamports, rounded up.  The wallet may
+        # request priority processing, but it cannot charge the Sponsor over 0.0002 SOL.
+        priority_fee_lamports = (
+            compute_unit_limit * compute_unit_price + 1_000_000 - 1
+        ) // 1_000_000
+        if priority_fee_lamports > 200_000:
+            return None
+        return tuple(effects)
 
     async def verify_vault_deposit(
         self, *, signature: str, owner_wallet_address: str, amount_usdc: int

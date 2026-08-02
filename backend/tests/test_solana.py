@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 from solders.hash import Hash
 from solders.keypair import Keypair
 from solders.message import MessageV0, to_bytes_versioned
@@ -235,6 +236,76 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
         list(unsigned.signatures),
     )
     assert gateway._has_same_vault_deposit_effect(unsigned, refreshed_transaction)
+
+    wallet_adjusted_message = MessageV0.try_compile(
+        payer=Pubkey.from_string(sponsor),
+        instructions=[
+            set_compute_unit_limit(200_000),
+            set_compute_unit_price(400_000),
+            create_idempotent_associated_token_account(
+                payer=Pubkey.from_string(sponsor),
+                owner=Pubkey.from_string(treasury),
+                mint=Pubkey.from_string(settings.solana_usdc_mint),
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=get_associated_token_address(
+                        investor.pubkey(), Pubkey.from_string(settings.solana_usdc_mint)
+                    ),
+                    mint=Pubkey.from_string(settings.solana_usdc_mint),
+                    dest=get_associated_token_address(
+                        Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
+                    ),
+                    owner=investor.pubkey(),
+                    amount=1_000_000,
+                    decimals=6,
+                )
+            ),
+        ],
+        address_lookup_table_accounts=[],
+        recent_blockhash=Hash.new_unique(),
+    )
+    wallet_adjusted_transaction = VersionedTransaction.populate(
+        wallet_adjusted_message,
+        list(unsigned.signatures),
+    )
+    assert gateway._has_same_vault_deposit_effect(unsigned, wallet_adjusted_transaction)
+
+    excessive_fee_message = MessageV0.try_compile(
+        payer=Pubkey.from_string(sponsor),
+        instructions=[
+            set_compute_unit_limit(400_000),
+            set_compute_unit_price(1_000_000),
+            create_idempotent_associated_token_account(
+                payer=Pubkey.from_string(sponsor),
+                owner=Pubkey.from_string(treasury),
+                mint=Pubkey.from_string(settings.solana_usdc_mint),
+            ),
+            transfer_checked(
+                TransferCheckedParams(
+                    program_id=TOKEN_PROGRAM_ID,
+                    source=get_associated_token_address(
+                        investor.pubkey(), Pubkey.from_string(settings.solana_usdc_mint)
+                    ),
+                    mint=Pubkey.from_string(settings.solana_usdc_mint),
+                    dest=get_associated_token_address(
+                        Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
+                    ),
+                    owner=investor.pubkey(),
+                    amount=1_000_000,
+                    decimals=6,
+                )
+            ),
+        ],
+        address_lookup_table_accounts=[],
+        recent_blockhash=Hash.new_unique(),
+    )
+    excessive_fee_transaction = VersionedTransaction.populate(
+        excessive_fee_message,
+        list(unsigned.signatures),
+    )
+    assert not gateway._has_same_vault_deposit_effect(unsigned, excessive_fee_transaction)
 
 
 @pytest.mark.asyncio
