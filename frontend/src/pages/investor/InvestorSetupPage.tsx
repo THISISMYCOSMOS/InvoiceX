@@ -2,9 +2,10 @@ import { CaretDown, CheckCircle, CircleNotch, Info, MagnifyingGlass, ShieldCheck
 import bs58 from "bs58";
 import { VersionedTransaction } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { rwaApi, type MandatePolicyInput } from "../../api/rwa.api";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
+import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const mockBuyerCompanies = [
@@ -57,6 +58,8 @@ export function InvestorSetupPage() {
   const { t } = useLanguage();
   const { connection } = useConnection();
   const { connected, publicKey, signMessage, signTransaction, sendTransaction } = useWallet();
+  const walletUsdcBalance = useDevnetUsdcBalance();
+  const connectedWalletAddress = publicKey?.toBase58() ?? null;
   const [policy, setPolicy] = useState(defaultPolicy);
   const [depositAmount, setDepositAmount] = useState("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,6 +74,38 @@ export function InvestorSetupPage() {
   const [vaultDepositPhase, setVaultDepositPhase] = useState<VaultDepositPhase>("IDLE");
   const [vaultDepositSignature, setVaultDepositSignature] = useState<string | null>(null);
   const [vaultAddress, setVaultAddress] = useState<string | null>(null);
+  const [isVaultBalanceLoading, setIsVaultBalanceLoading] = useState(false);
+  const [vaultBalanceLoadFailed, setVaultBalanceLoadFailed] = useState(false);
+
+  useEffect(() => {
+    if (!connectedWalletAddress) {
+      setVaultBalance(null);
+      setVaultAddress(null);
+      setIsVaultBalanceLoading(false);
+      setVaultBalanceLoadFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsVaultBalanceLoading(true);
+    setVaultBalanceLoadFailed(false);
+    void rwaApi.getVault(connectedWalletAddress)
+      .then((vault) => {
+        if (cancelled) return;
+        setVaultBalance(vault.availableUsdc);
+        setVaultAddress(vault.vaultAddress);
+      })
+      .catch(() => {
+        if (!cancelled) setVaultBalanceLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setIsVaultBalanceLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectedWalletAddress]);
 
   const updatePolicy = <Key extends keyof InvestmentPolicyDraft>(key: Key, value: InvestmentPolicyDraft[Key]) => {
     setPolicy((current) => ({ ...current, [key]: value }));
@@ -153,6 +188,7 @@ export function InvestorSetupPage() {
         ? await sponsorVaultDeposit(transaction, prepared.sponsorDepositId, ownerWalletAddress)
         : await submitStandardVaultDeposit(transaction, amountUsdc, ownerWalletAddress);
       setVaultBalance(vault.availableUsdc);
+      void walletUsdcBalance.refresh();
       if (vault.signature) setVaultDepositSignature(vault.signature);
       setVaultDepositPhase("CONFIRMED");
       setSuccess(prepared.sponsored
@@ -361,14 +397,35 @@ export function InvestorSetupPage() {
               <h2>{t("Agent Vault deposit", "Agent Vault 예치")}</h2>
               <p>{t("Deposit the platform demo stablecoin. The agent can spend only this recorded vault balance.", "플랫폼 테스트 스테이블코인을 예치하세요. Agent는 이 Vault 잔액 안에서만 매수합니다.")}</p>
             </div>
-            {vaultBalance !== null && <span className="investor-setup-draft">{vaultBalance.toLocaleString()} USDC</span>}
           </header>
           <div className="investor-vault-deposit-card__body">
-            <label htmlFor="vaultDeposit"><span>{t("Deposit amount", "예치 금액")}</span><div><input id="vaultDeposit" inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /><small>USDC</small></div></label>
-            <button className="investor-primary-button" type="button" disabled={!connected || isDepositing} onClick={() => void depositToVault()}>
-              <Vault size={15} weight="fill" aria-hidden="true" />
-              {isDepositing ? vaultPhaseLabel[vaultDepositPhase] : t("Sign Vault deposit", "Vault 예치 서명")}
-            </button>
+            <dl className="investor-vault-balance-summary">
+              <div>
+                <dt>{t("Institution wallet balance", "기관 지갑 잔액")}</dt>
+                <dd>{walletUsdcBalance.isLoading
+                  ? t("Loading", "조회 중")
+                  : walletUsdcBalance.isError
+                    ? t("Unavailable", "조회 실패")
+                    : `${(walletUsdcBalance.balanceUsdc ?? 0).toLocaleString()} USDC`}</dd>
+                <small>{t("Available to deposit from the connected wallet", "연결된 지갑에서 예치 가능한 금액")}</small>
+              </div>
+              <div>
+                <dt>{t("My Agent Vault balance", "내 Agent Vault 예치 잔액")}</dt>
+                <dd>{isVaultBalanceLoading
+                  ? t("Loading", "조회 중")
+                  : vaultBalanceLoadFailed
+                    ? t("Unavailable", "조회 실패")
+                    : `${(vaultBalance ?? 0).toLocaleString()} USDC`}</dd>
+                <small>{t("Available for Treasury Agent purchases", "Treasury Agent 자동 매수에 사용 가능한 금액")}</small>
+              </div>
+            </dl>
+            <div className="investor-vault-deposit-form">
+              <label htmlFor="vaultDeposit"><span>{t("Deposit amount", "예치 금액")}</span><div><input id="vaultDeposit" inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /><small>USDC</small></div></label>
+              <button className="investor-primary-button" type="button" disabled={!connected || isDepositing} onClick={() => void depositToVault()}>
+                <Vault size={15} weight="fill" aria-hidden="true" />
+                {isDepositing ? vaultPhaseLabel[vaultDepositPhase] : t("Sign Vault deposit", "Vault 예치 서명")}
+              </button>
+            </div>
           </div>
           <div className="investor-vault-progress" role="status" aria-live="polite">
             <div className="investor-vault-progress__status">

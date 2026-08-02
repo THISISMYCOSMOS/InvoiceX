@@ -43,5 +43,6 @@ export function useDevnetUsdcBalance() {
     balanceUsdc: query.data ?? null,
     isLoading: query.isLoading,
     isError: query.isError,
+    refresh: query.refetch,
   };
 }

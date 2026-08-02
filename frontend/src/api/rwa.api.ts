@@ -26,7 +26,7 @@ interface VaultDepositPreparation {
   sponsorWalletAddress: string | null;
 }
 
-interface VaultBalance {
+export interface VaultBalance {
   ownerWalletAddress: string;
   vaultAddress: string;
   availableUsdc: number;
@@ -81,6 +81,13 @@ export const rwaApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ownerWalletAddress, amountUsdc }),
     });
+  },
+
+  async getVault(ownerWalletAddress: string): Promise<VaultBalance> {
+    return request<VaultBalance>(
+      `/investor/vault?ownerWalletAddress=${encodeURIComponent(ownerWalletAddress)}`,
+      { method: "GET" },
+    );
   },
 
   async confirmVaultDeposit(

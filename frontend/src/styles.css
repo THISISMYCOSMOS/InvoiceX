@@ -1415,18 +1415,59 @@ a {
 }
 
 .investor-vault-deposit-card__body {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  gap: 14px;
   padding: 17px;
 }
 
-.investor-vault-deposit-card__body label {
+.investor-vault-balance-summary {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.investor-vault-balance-summary > div {
+  min-width: 0;
+  border: 1px solid #e5e9f0;
+  border-radius: 9px;
+  padding: 12px 13px;
+  background: #f8f7ff;
+}
+
+.investor-vault-balance-summary dt {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.investor-vault-balance-summary dd {
+  margin: 6px 0 3px;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.25px;
+}
+
+.investor-vault-balance-summary small {
+  display: block;
+  overflow: hidden;
+  color: #7c8495;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.investor-vault-deposit-form {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+}
+
+.investor-vault-deposit-form label {
   flex: 1;
 }
 
-.investor-vault-deposit-card__body label > span {
+.investor-vault-deposit-form label > span {
   display: block;
   margin-bottom: 6px;
   color: #475569;
@@ -1434,7 +1475,7 @@ a {
   font-weight: 600;
 }
 
-.investor-vault-deposit-card__body label > div {
+.investor-vault-deposit-form label > div {
   display: flex;
   min-height: 37px;
   align-items: center;
@@ -2621,6 +2662,15 @@ a {
 
   .investor-policy-form .investor-primary-button,
   .investor-authorization-card__body footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .investor-vault-balance-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .investor-vault-deposit-form {
     align-items: stretch;
     flex-direction: column;
   }
