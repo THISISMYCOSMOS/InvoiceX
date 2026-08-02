@@ -83,6 +83,13 @@ def create_app(
     )
     app.state.invoice_service = service
     app.state.settings = resolved_settings
+
+    @app.get("/healthz", include_in_schema=False)
+    async def healthz() -> dict[str, str]:
+        """Unauthenticated liveness endpoint for Cloud Run and deployment checks."""
+
+        return {"status": "ok"}
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[resolved_settings.frontend_origin],

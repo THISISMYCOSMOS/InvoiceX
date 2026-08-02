@@ -7,6 +7,9 @@
 **/node_modules
 **/dist
 **/*.pyc
+**/.env
+**/.env.*
+!**/.env.example
 backend/uploads
 backend/*.sqlite3
 frontend/.env.local

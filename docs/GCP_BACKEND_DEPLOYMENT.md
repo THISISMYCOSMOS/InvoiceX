@@ -55,6 +55,17 @@ verifications, and Investor can manage mandates, vault deposits, the dashboard,
 and Investment Criteria. Local mock mode intentionally leaves those endpoints
 open so the existing browser-only flow remains usable.
 
+## Production settlement values
+
+The Cloud Run deployment needs these two public, non-secret environment values:
+
+- `PRIVY_TREASURY_WALLET_ADDRESS`: Agent Vault public address
+- `PLATFORM_FEE_WALLET_ADDRESS`: platform-fee recipient public address
+
+It also requires the `privy-settlement-wallet-id` Secret Manager secret for
+the Privy wallet that sends the repayment. Do not use a private key, seed
+phrase, or a `DEMO_` address in any of these settings.
+
 ## Build and deploy
 
 1. Create the Artifact Registry repository, GCS bucket, Cloud SQL instance,
@@ -67,7 +78,7 @@ open so the existing browser-only flow remains usable.
 
    ```bash
    gcloud builds submit --config=cloudbuild.yaml \
-     --substitutions=_FRONTEND_ORIGIN=https://your-frontend.example
+     --substitutions=_FRONTEND_ORIGIN=https://your-frontend.example,_IMAGE_TAG=$(git rev-parse --short HEAD),_PRIVY_TREASURY_WALLET_ADDRESS=your-public-treasury-address,_PLATFORM_FEE_WALLET_ADDRESS=your-public-platform-fee-address
    ```
 
    The frontend must also be built with
@@ -77,6 +88,11 @@ open so the existing browser-only flow remains usable.
 4. The Cloud Build configuration builds
    `backend/Dockerfile`, deploys Cloud Run with the GCP-only backend settings,
    and injects the sensitive settings from Secret Manager.
+
+The service is public at the Cloud Run layer so a browser frontend can call the
+fixed-account login endpoint. Every application API endpoint still requires an
+InvoiceX bearer token, except `/healthz`. Cloud Run has `min-instances=0`,
+`max-instances=1`, and `concurrency=1` for this phase.
 
 `DEPLOYMENT_TARGET=gcp` fails startup unless both `PERSISTENCE_BACKEND=cloud_sql`
 and `DOCUMENT_STORAGE_BACKEND=gcs` are selected and all required values exist.

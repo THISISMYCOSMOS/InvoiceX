@@ -278,6 +278,20 @@ class BackendSettings(BaseSettings):
                 raise ValueError("DEPLOYMENT_TARGET=gcp requires DOCUMENT_STORAGE_BACKEND=gcs")
             if not self.api_auth_required:
                 raise ValueError("DEPLOYMENT_TARGET=gcp requires API_AUTH_REQUIRED=true")
+            if self.solana_mode == "privy":
+                settlement_values = {
+                    "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
+                    "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
+                }
+                absent = [
+                    name
+                    for name, value in settlement_values.items()
+                    if not self._non_blank(value) or str(value).startswith("DEMO_")
+                ]
+                if absent:
+                    raise ValueError(
+                        "GCP Privy settlement requires configuration: " + ", ".join(absent)
+                    )
         if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
             raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")
         if self.solana_mode == "privy":

@@ -244,6 +244,12 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
     assert set(multipart["required"]) == set(multipart["properties"])
 
 
+def test_healthz_is_available_without_api_authentication(client: TestClient) -> None:
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_fixed_demo_accounts_issue_tokens_and_protect_gcp_api(tmp_path: Path) -> None:
     settings = mock_settings(
         tmp_path / "uploads",
