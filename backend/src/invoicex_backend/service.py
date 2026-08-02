@@ -8,7 +8,7 @@ import json
 import logging
 import re
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
@@ -120,6 +120,54 @@ class InvoiceService:
         self._trace_sequence = 0
         self._sponsored_deposit_intents: dict[str, PendingSponsoredDeposit] = {}
         self._sponsored_deposit_lock = asyncio.Lock()
+        self._restore_persisted_state()
+
+    def _restore_persisted_state(self) -> None:
+        """Rehydrate invoices, analyses, and verifications from the repository
+        so a process restart does not orphan RWA/decision rows or reset the
+        id sequences (which would collide with previously issued ids)."""
+
+        for invoice in self._repository.list_invoices():
+            self._invoices[invoice.id] = invoice
+        for verification in self._repository.list_verifications():
+            self._verifications[verification.id] = verification
+        self._agent_analyses = self._repository.list_analyses()
+
+        self._invoice_sequence = self._max_id_suffix(self._invoices.keys(), "INV-")
+        self._verification_sequence = self._max_id_suffix(self._verifications.keys(), "VER-")
+        document_ids = [
+            document.id for invoice in self._invoices.values() for document in invoice.documents
+        ]
+        self._document_sequence = self._max_id_suffix(document_ids, "DOC-")
+        trace_ids = [
+            trace.id for invoice in self._invoices.values() for trace in invoice.agent_traces
+        ]
+        self._trace_sequence = self._max_id_suffix(trace_ids, "TRACE-")
+
+    @staticmethod
+    def _max_id_suffix(ids: Iterable[str], prefix: str) -> int:
+        """Return the largest trailing integer among ids starting with prefix.
+
+        Ids that don't match the expected shape are skipped rather than
+        raising, since a corrupt or unexpected row should not block startup.
+        """
+
+        max_value = 0
+        for value in ids:
+            if not value.startswith(prefix):
+                continue
+            match = re.search(r"(\d+)$", value)
+            if match is None:
+                continue
+            try:
+                number = int(match.group(1))
+            except ValueError:
+                continue
+            max_value = max(max_value, number)
+        return max_value
+
+    def _save_invoice(self, invoice: Invoice) -> None:
+        self._repository.save_invoice(invoice)
 
     async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
         self._validate_uploads(uploads)
@@ -190,6 +238,7 @@ class InvoiceService:
             raise IntegrationError("업로드 문서를 저장하지 못했습니다.") from exc
 
         self._agent_analyses[invoice_id] = agent_result
+        self._repository.save_analysis(invoice_id, agent_result)
         invoice.analysis = self._to_frontend_analysis(
             invoice_id,
             agent_result,
@@ -204,6 +253,7 @@ class InvoiceService:
             status="COMPLETED",
             summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
         )
+        self._save_invoice(invoice)
         return self._copy_invoice(invoice)
 
     def list_invoices(self) -> list[Invoice]:
@@ -374,6 +424,8 @@ class InvoiceService:
             self._verifications[verification_id] = verification
             invoice.verification_id = verification_id
             invoice.status = InvoiceStatus.BUYER_REVIEW
+            self._repository.save_verification(verification)
+            self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
     def list_verifications(self) -> list[Verification]:
@@ -454,6 +506,8 @@ class InvoiceService:
                 status="COMPLETED",
                 summary=risk_result.risk_passport.summary,
             )
+            self._repository.save_verification(verification)
+            self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
     async def respond_to_offer(
@@ -479,6 +533,7 @@ class InvoiceService:
                 )
             if response is OfferResponse.DECLINE:
                 invoice.status = InvoiceStatus.BLOCKED
+                self._save_invoice(invoice)
                 return self._copy_invoice(invoice), False
 
             supplier_wallet = (
@@ -513,6 +568,7 @@ class InvoiceService:
                 status="COMPLETED",
                 summary="인보이스별 RWA 1개를 Devnet 에스크로에 발행했습니다.",
             )
+            self._save_invoice(invoice)
             return self._copy_invoice(invoice), True
 
     async def execute_mandated_investment(self, invoice_id: str) -> None:
@@ -538,6 +594,7 @@ class InvoiceService:
                 )
                 self._repository.save_decision(decision)
                 invoice.agent_decision = decision
+                self._save_invoice(invoice)
                 self._repository.finish_execution(invoice_id, "WAITING")
                 return
 
@@ -551,6 +608,7 @@ class InvoiceService:
                     approved = (mandate, vault, decision)
                     break
             if approved is None:
+                self._save_invoice(invoice)
                 self._repository.finish_execution(invoice_id, "WAITING")
                 return
 
@@ -601,6 +659,7 @@ class InvoiceService:
                 )
                 self._repository.save_decision(failed)
                 invoice.agent_decision = failed
+                self._save_invoice(invoice)
                 self._repository.finish_execution(invoice_id, "FAILED")
                 logger.error("RWA automatic purchase failed for %s: %s", invoice.id, exc)
                 return
@@ -639,8 +698,10 @@ class InvoiceService:
                         "Agent Vault가 RWA를 자동 매수하고 공급기업 지갑에 USDC를 지급했습니다."
                     ),
                 )
+                self._save_invoice(invoice)
                 self._repository.finish_execution(invoice_id, "COMPLETED")
             else:
+                self._save_invoice(invoice)
                 self._repository.finish_execution(invoice_id, "WAITING")
 
     async def execute_pending_investments(self) -> None:
@@ -669,11 +730,13 @@ class InvoiceService:
                     status="FAILED",
                     summary=f"AP2 Mandate 차단: {rejection}",
                 )
+                self._save_invoice(invoice)
                 return
 
             passport = invoice.risk_passport
             if passport is None or passport.suggested_advance_amount_usdc is None:
                 invoice.status = InvoiceStatus.BLOCKED
+                self._save_invoice(invoice)
                 return
             amount = passport.suggested_advance_amount_usdc
             try:
@@ -696,6 +759,7 @@ class InvoiceService:
                     status="FAILED",
                     summary="Solana 조기정산금 전송에 실패했습니다.",
                 )
+                self._save_invoice(invoice)
                 logger.error("Funding failed for %s: %s", invoice.id, exc)
                 return
 
@@ -713,6 +777,7 @@ class InvoiceService:
                     status="COMPLETED",
                     summary="AP2 Mandate 검증과 Solana Devnet USDC 전송을 완료했습니다.",
                 )
+            self._save_invoice(invoice)
 
     async def settle_mock_payment(self, invoice_id: str) -> Invoice:
         async with self._invoice_lock(invoice_id):
@@ -769,6 +834,7 @@ class InvoiceService:
                         "KRW 입금 확인과 USDC 정산 분배를 완료했습니다."
                     ),
                 )
+            self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
     def investor_dashboard(self) -> InvestorDashboard:
