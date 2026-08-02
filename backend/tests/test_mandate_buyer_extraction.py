@@ -10,16 +10,14 @@ that will never exact-match an English allowlist entry.
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-from solders.keypair import Keypair
-
 from invoicex_agents.models.document import DocumentAnalysisResult
+from solders.keypair import Keypair
 
 from invoicex_backend.agents import AgentDocument, MockAgentGateway
 from invoicex_backend.app import create_app
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import create_solana_gateway
 from invoicex_backend.storage import LocalDocumentStorage
-
 from tests.conftest import mock_settings
 
 

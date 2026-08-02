@@ -22,7 +22,6 @@ from solders.keypair import Keypair
 
 from invoicex_backend.app import create_app
 from invoicex_backend.config import BackendSettings
-
 from tests.conftest import mock_settings
 
 
