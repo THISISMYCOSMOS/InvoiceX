@@ -416,6 +416,7 @@ class InvestorDashboard(ApiModel):
     available_vault_usdc: int
     outstanding_principal_usdc: int
     due_within_30_days_usdc: int
+    attention_required_count: int
     recent_agent_traces: list[AgentTrace]
     wallet_address: str | None = None
     vault_address: str | None = None

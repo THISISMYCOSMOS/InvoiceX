@@ -132,6 +132,7 @@ export interface InvestorDashboard {
   availableVaultUsdc: number;
   outstandingPrincipalUsdc: number;
   dueWithin30DaysUsdc: number;
+  attentionRequiredCount: number;
   recentAgentTraces: AgentTrace[];
   walletAddress?: string;
   vaultAddress?: string;

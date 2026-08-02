@@ -28,6 +28,9 @@ test("renders the treasury overview from the investor dashboard design", async (
   expect(screen.getByText("312,400")).toBeInTheDocument();
   expect(screen.getByText("187,600")).toBeInTheDocument();
   expect(screen.getByText("72,840")).toBeInTheDocument();
+  expect(screen.getByText("Needs attention")).toBeInTheDocument();
+  expect(screen.getByText("2")).toBeInTheDocument();
+  expect(screen.getByText("Auto-invest active · Mandate active")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Manage mandate" })).toHaveAttribute(
     "href",
     "/investor/setup",

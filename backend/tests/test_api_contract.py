@@ -66,7 +66,7 @@ def test_complete_frontend_contract_workflow(
     assert offered["riskPassport"]["eligibility"] == "ELIGIBLE"
     assert offered["riskPassport"]["riskScore"] == 86
     assert offered["riskPassport"]["suggestedAdvanceRateBps"] == 9_400
-    assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 1
+    assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 2
 
     duplicate_confirm = client.post(f"/api/v1/verifications/{verification_id}/confirm")
     assert duplicate_confirm.json()["invoice"]["status"] == "OFFER_READY"
@@ -109,7 +109,7 @@ def test_complete_frontend_contract_workflow(
 
     prepared_deposit = client.post(
         "/api/v1/investor/vault/deposits/prepare",
-        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": 1},
+        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": 2},
     )
     assert prepared_deposit.status_code == 200
     assert prepared_deposit.json()["vaultAddress"] == "DEMO_AGENT_VAULT"
@@ -117,7 +117,7 @@ def test_complete_frontend_contract_workflow(
         "/api/v1/investor/vault/deposits/confirm",
         json={
             "ownerWalletAddress": str(investor.pubkey()),
-            "amountUsdc": 1,
+            "amountUsdc": 2,
             "signature": "mock-deposit-signature-001",
         },
     )
@@ -126,7 +126,7 @@ def test_complete_frontend_contract_workflow(
     funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert funded["status"] == "FUNDED"
     assert funded["fundingTransaction"]["status"] == "CONFIRMED"
-    assert funded["fundingTransaction"]["amountUsdc"] == 1
+    assert funded["fundingTransaction"]["amountUsdc"] == 2
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
     assert funded["rwaAsset"]["status"] == "SOLD"
@@ -143,7 +143,7 @@ def test_complete_frontend_contract_workflow(
 
     dashboard = client.get("/api/v1/investor/dashboard")
     assert dashboard.status_code == 200
-    assert dashboard.json()["outstandingPrincipalUsdc"] == 1
+    assert dashboard.json()["outstandingPrincipalUsdc"] == 2
 
     settled_response = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
     assert settled_response.status_code == 200
@@ -219,6 +219,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/investor/dashboard",
         "/api/v1/investor/mandates/prepare",
         "/api/v1/investor/mandates",
+        "/api/v1/investor/mandates/active",
         "/api/v1/investor/vault",
         "/api/v1/investor/vault/deposits/prepare",
         "/api/v1/investor/vault/deposits/sponsor",

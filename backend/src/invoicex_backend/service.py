@@ -321,6 +321,13 @@ class InvoiceService:
             raise StateConflictError("만료된 날짜로 Mandate를 준비할 수 없습니다.")
         return self._canonical_mandate_message(owner_wallet_address, policy)
 
+    def active_mandate_for_wallet(self, owner_wallet_address: str) -> InvestorMandate | None:
+        self._validate_wallet_address(owner_wallet_address)
+        for mandate in self._repository.active_mandates():
+            if mandate.owner_wallet_address == owner_wallet_address:
+                return mandate
+        return None
+
     def get_vault(self, owner_wallet_address: str) -> VaultBalance:
         self._validate_wallet_address(owner_wallet_address)
         existing = self._repository.get_vault(owner_wallet_address)
@@ -800,6 +807,15 @@ class InvoiceService:
         )[:20]
         mandates = self._repository.active_mandates()
         vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
+        attention_required_statuses = {InvoiceStatus.ERROR, InvoiceStatus.BLOCKED}
+        attention_required_count = 0
+        for invoice in self._invoices.values():
+            if invoice.status in attention_required_statuses:
+                attention_required_count += 1
+                continue
+            decision = self._repository.get_decision(invoice.id)
+            if decision is not None and decision.status == "FAILED":
+                attention_required_count += 1
         return InvestorDashboard(
             investor_name="Nova Capital",
             automated_investment_active=bool(mandates),
@@ -807,6 +823,7 @@ class InvoiceService:
             available_vault_usdc=vault.available_usdc if vault else 0,
             outstanding_principal_usdc=outstanding,
             due_within_30_days_usdc=due_within_30_days,
+            attention_required_count=attention_required_count,
             recent_agent_traces=[trace.model_copy(deep=True) for trace in traces],
         )
 

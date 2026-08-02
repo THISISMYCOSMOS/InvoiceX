@@ -30,16 +30,30 @@ export function InvestorDashboardPage() {
     {
       label: t("Available to invest", "투자 가능 금액"),
       value: data.availableVaultUsdc,
+      unit: "USDC",
     },
     {
       label: t("Outstanding principal", "미상환 투자 원금"),
       value: data.outstandingPrincipalUsdc,
+      unit: "USDC",
     },
     {
       label: t("Due within 30 days", "30일 이내 만기"),
       value: data.dueWithin30DaysUsdc,
+      unit: "USDC",
+    },
+    {
+      label: t("Needs attention", "확인 필요 건"),
+      value: data.attentionRequiredCount,
+      unit: t("cases", "건"),
     },
   ];
+  const automatedInvestmentLabel = data.automatedInvestmentActive
+    ? t("Auto-invest active", "자동투자 활성")
+    : t("Auto-invest inactive", "자동투자 비활성");
+  const mandateStatusLabel = data.mandateStatus === "ACTIVE"
+    ? t("Mandate active", "Mandate 활성")
+    : t("Mandate draft", "Mandate 초안");
 
   return (
     <section className="investor-dashboard">
@@ -52,6 +66,9 @@ export function InvestorDashboardPage() {
               "투자 가능 자금, 미상환 포지션과 조치가 필요한 예외 항목을 확인하세요.",
             )}
           </p>
+          <span className={`investor-setup-draft ${data.automatedInvestmentActive ? "is-active" : ""}`}>
+            {automatedInvestmentLabel} · {mandateStatusLabel}
+          </span>
         </div>
         <Link className="investor-primary-button" to="/investor/setup">
           {t("Manage mandate", "투자 위임 관리")}
@@ -63,7 +80,7 @@ export function InvestorDashboardPage() {
           <article key={stat.label}>
             <span>{stat.label}</span>
             <strong>
-              {usdc.format(stat.value)} <small>USDC</small>
+              {usdc.format(stat.value)} <small>{stat.unit}</small>
             </strong>
           </article>
         ))}

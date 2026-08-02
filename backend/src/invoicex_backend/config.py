@@ -126,7 +126,7 @@ class BackendSettings(BaseSettings):
         ge=1,
     )
     demo_krw_per_usdc: int = Field(
-        default=1_500,
+        default=1_000,
         validation_alias="DEMO_KRW_PER_USDC",
         ge=1,
     )
