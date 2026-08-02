@@ -20,3 +20,4 @@ backend/*.sqlite3
 firebase-debug.log*
 .DS_Store
 /output/
+/docs/
