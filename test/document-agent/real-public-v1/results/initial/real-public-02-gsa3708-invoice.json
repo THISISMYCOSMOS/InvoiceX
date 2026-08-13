@@ -1,0 +1,153 @@
+{
+  "setId": "real-public-02-gsa3708-invoice",
+  "passed": true,
+  "documentsExact": 1,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 1,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 12,
+  "populatedFieldsTotal": 12,
+  "nullFieldsCorrect": 2,
+  "nullFieldsTotal": 2,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "GSA-INV-260802",
+          "supplierName": "General Services Administration",
+          "buyerName": "Aurora Research Office",
+          "purchaseOrderNumber": null,
+          "contractNumber": "CTR-GSA-2608",
+          "currency": "USD",
+          "totalAmount": "6240",
+          "issueDate": "2026-08-16",
+          "dueDate": "2026-09-15",
+          "itemName": "Network Storage Appliance",
+          "quantity": "8",
+          "unitPrice": "780",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "purchaseOrderNumber",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "GSA-INV-260802"
+          },
+          {
+            "evidenceId": "ev-2",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "General Services Administration"
+          },
+          {
+            "evidenceId": "ev-3",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aurora Research Office"
+          },
+          {
+            "evidenceId": "ev-4",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CTR-GSA-2608"
+          },
+          {
+            "evidenceId": "ev-5",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-6",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "USD 6,240.00"
+          },
+          {
+            "evidenceId": "ev-7",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-16"
+          },
+          {
+            "evidenceId": "ev-8",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "Due 2026-09-15"
+          },
+          {
+            "evidenceId": "ev-9",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Network Storage Appliance"
+          },
+          {
+            "evidenceId": "ev-10",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "8"
+          },
+          {
+            "evidenceId": "ev-11",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "USD 780.00"
+          },
+          {
+            "evidenceId": "ev-12",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Net 30"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T23:45:29.463320+00:00",
+  "finishedAt": "2026-08-12T23:45:51.726676+00:00",
+  "durationSeconds": 22.263
+}

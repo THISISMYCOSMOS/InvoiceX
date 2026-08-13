@@ -1,0 +1,149 @@
+{
+  "setId": "real-public-06-sf1449-contract",
+  "passed": false,
+  "documentsExact": 0,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 0,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 11,
+  "populatedFieldsTotal": 11,
+  "nullFieldsCorrect": 3,
+  "nullFieldsTotal": 3,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": false,
+      "typeCorrect": false,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [
+    "document-1.documentType='PURCHASE_ORDER', expected='CONTRACT'"
+  ],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Frostline Components Corp",
+          "buyerName": "Aurora Acquisition Bureau",
+          "purchaseOrderNumber": "ORD-SF1449-06",
+          "contractNumber": "CTR-SF1449-260806",
+          "currency": "USD",
+          "totalAmount": "23750",
+          "issueDate": "2026-08-18",
+          "dueDate": null,
+          "itemName": "Precision Cooling Module",
+          "quantity": "25",
+          "unitPrice": "950",
+          "paymentTerms": "Net 45",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Frostline Components Corp"
+          },
+          {
+            "evidenceId": "ev-2",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aurora Acquisition Bureau"
+          },
+          {
+            "evidenceId": "ev-3",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "ORD-SF1449-06"
+          },
+          {
+            "evidenceId": "ev-4",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CTR-SF1449-260806"
+          },
+          {
+            "evidenceId": "ev-5",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-6",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "23,750.00"
+          },
+          {
+            "evidenceId": "ev-7",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-18"
+          },
+          {
+            "evidenceId": "ev-8",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Precision Cooling Module"
+          },
+          {
+            "evidenceId": "ev-9",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "25"
+          },
+          {
+            "evidenceId": "ev-10",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "950.00"
+          },
+          {
+            "evidenceId": "ev-11",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Net 45"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T23:48:57.140311+00:00",
+  "finishedAt": "2026-08-12T23:50:46.352271+00:00",
+  "durationSeconds": 109.212
+}

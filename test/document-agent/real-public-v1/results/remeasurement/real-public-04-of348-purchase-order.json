@@ -1,0 +1,147 @@
+{
+  "setId": "real-public-04-of348-purchase-order",
+  "passed": true,
+  "documentsExact": 1,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 1,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 11,
+  "populatedFieldsTotal": 11,
+  "nullFieldsCorrect": 3,
+  "nullFieldsTotal": 3,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Delta Medical Supply Co",
+          "buyerName": "Aurora Clinical Center",
+          "purchaseOrderNumber": "PO-OF348-260804",
+          "contractNumber": "CTR-OF348-26",
+          "currency": "USD",
+          "totalAmount": "4200",
+          "issueDate": "2026-08-17",
+          "dueDate": null,
+          "itemName": "Sterile Examination Pack",
+          "quantity": "200",
+          "unitPrice": "21",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-supp-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Supplier: Delta Medical Supply Co"
+          },
+          {
+            "evidenceId": "ev-buyer-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Buyer: Aurora Clinical Center"
+          },
+          {
+            "evidenceId": "ev-po-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "PO-OF348-260804"
+          },
+          {
+            "evidenceId": "ev-ctr-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CTR-OF348-26"
+          },
+          {
+            "evidenceId": "ev-curr-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "currency",
+            "quote": "Currency: USD"
+          },
+          {
+            "evidenceId": "ev-tot-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "USD 4,200.00"
+          },
+          {
+            "evidenceId": "ev-date-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-17"
+          },
+          {
+            "evidenceId": "ev-item-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Sterile Examination Pack"
+          },
+          {
+            "evidenceId": "ev-qty-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "200"
+          },
+          {
+            "evidenceId": "ev-price-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "21.00"
+          },
+          {
+            "evidenceId": "ev-terms-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Terms: Net 30"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-13T00:30:53.960823+00:00",
+  "finishedAt": "2026-08-13T00:32:30.872142+00:00",
+  "durationSeconds": 96.911
+}

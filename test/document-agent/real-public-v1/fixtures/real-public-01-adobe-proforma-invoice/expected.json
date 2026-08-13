@@ -1,0 +1,33 @@
+{
+  "setId": "real-public-01-adobe-proforma-invoice",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "INV-AP-260801",
+        "supplierName": "Blue Harbor Systems LLC",
+        "buyerName": "Aurora Retail Group",
+        "purchaseOrderNumber": null,
+        "contractNumber": null,
+        "currency": "USD",
+        "totalAmount": "4875",
+        "issueDate": "2026-08-16",
+        "dueDate": "2026-09-15",
+        "itemName": "Industrial Sensor Kit",
+        "quantity": "15",
+        "unitPrice": "325",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "purchaseOrderNumber",
+        "contractNumber",
+        "deliveryCompleted"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

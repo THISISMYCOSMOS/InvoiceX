@@ -1,0 +1,36 @@
+{
+  "setId": "real-public-08-gsa1678-delivery",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Helios Packaging Solutions",
+        "buyerName": "Aurora Distribution Office",
+        "purchaseOrderNumber": "PO-G1678-260808",
+        "contractNumber": "CTR-G1678-26",
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-08-19",
+        "dueDate": null,
+        "itemName": "Reinforced Shipping Crate",
+        "quantity": "40",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

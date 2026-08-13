@@ -1,0 +1,147 @@
+{
+  "setId": "real-public-03-gsa300-purchase-order",
+  "passed": true,
+  "documentsExact": 1,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 1,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 11,
+  "populatedFieldsTotal": 11,
+  "nullFieldsCorrect": 3,
+  "nullFieldsTotal": 3,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Cobalt Office Products Inc",
+          "buyerName": "Aurora Federal Procurement",
+          "purchaseOrderNumber": "PO-G300-260803",
+          "contractNumber": "CTR-G300-26",
+          "currency": "USD",
+          "totalAmount": "2880",
+          "issueDate": "2026-08-17",
+          "dueDate": null,
+          "itemName": "Ergonomic Task Chair",
+          "quantity": "12",
+          "unitPrice": "240",
+          "paymentTerms": "USD Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-supplierName",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Cobalt Office Products Inc"
+          },
+          {
+            "evidenceId": "ev-buyerName",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aurora Federal Procurement"
+          },
+          {
+            "evidenceId": "ev-purchaseOrderNumber",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "PO-G300-260803"
+          },
+          {
+            "evidenceId": "ev-contractNumber",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CTR-G300-26"
+          },
+          {
+            "evidenceId": "ev-currency",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD 240.00"
+          },
+          {
+            "evidenceId": "ev-totalAmount",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "USD 2,880.00"
+          },
+          {
+            "evidenceId": "ev-issueDate",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-17"
+          },
+          {
+            "evidenceId": "ev-itemName",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Ergonomic Task Chair"
+          },
+          {
+            "evidenceId": "ev-quantity",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "12"
+          },
+          {
+            "evidenceId": "ev-unitPrice",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "USD 240.00"
+          },
+          {
+            "evidenceId": "ev-paymentTerms",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "USD Net 30"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T23:46:57.138330+00:00",
+  "finishedAt": "2026-08-12T23:47:18.377846+00:00",
+  "durationSeconds": 21.24
+}

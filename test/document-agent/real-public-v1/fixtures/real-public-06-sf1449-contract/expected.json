@@ -1,0 +1,33 @@
+{
+  "setId": "real-public-06-sf1449-contract",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Frostline Components Corp",
+        "buyerName": "Aurora Acquisition Bureau",
+        "purchaseOrderNumber": "ORD-SF1449-06",
+        "contractNumber": "CTR-SF1449-260806",
+        "currency": "USD",
+        "totalAmount": "23750",
+        "issueDate": "2026-08-18",
+        "dueDate": null,
+        "itemName": "Precision Cooling Module",
+        "quantity": "25",
+        "unitPrice": "950",
+        "paymentTerms": "Net 45",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

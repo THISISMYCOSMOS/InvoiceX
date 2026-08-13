@@ -1,0 +1,17 @@
+{
+  "setId": "real-public-07-gsa3025-delivery",
+  "passed": false,
+  "failures": [
+    "AI_RESPONSE_INVALID"
+  ],
+  "error": {
+    "code": "AI_RESPONSE_INVALID",
+    "message": "분석 결과를 안전하게 검증하지 못했습니다. 다시 시도해 주세요.",
+    "retryable": null,
+    "exceptionType": "GeminiResponseValidationError",
+    "statusCode": null
+  },
+  "startedAt": "2026-08-13T00:32:30.880011+00:00",
+  "finishedAt": "2026-08-13T00:33:09.205020+00:00",
+  "durationSeconds": 38.325
+}

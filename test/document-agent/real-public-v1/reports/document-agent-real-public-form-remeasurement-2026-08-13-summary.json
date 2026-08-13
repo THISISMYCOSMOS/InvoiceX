@@ -1,0 +1,737 @@
+{
+  "reportDate": "2026-08-13",
+  "sourceCommit": "9298e1feb3d1894a9e86808277b86c64c2d2e01f",
+  "model": "gemini-3.6-flash",
+  "policy": {
+    "automaticRetries": 0,
+    "minimumStartIntervalSeconds": 40
+  },
+  "initialRun": {
+    "suite": "document-agent-blind-company-formats-v1",
+    "model": "gemini-3.6-flash",
+    "configuredMaxAttempts": 1,
+    "configuredTimeoutSeconds": 120.0,
+    "minimumStartIntervalSeconds": 40.0,
+    "requestedSets": 8,
+    "stoppedOnQuota": false,
+    "stoppedOnError": true,
+    "aggregate": {
+      "setsAttempted": 8,
+      "setsCompleted": 6,
+      "setsExact": 5,
+      "documentsExact": 5,
+      "documentsTotal": 6,
+      "documentTypeCorrect": 5,
+      "documentTypeTotal": 6,
+      "populatedFieldsCorrect": 63,
+      "populatedFieldsTotal": 63,
+      "nullFieldsCorrect": 21,
+      "nullFieldsTotal": 21,
+      "missingMembershipCorrect": 84,
+      "missingMembershipTotal": 84,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchFieldRecall": 1.0,
+      "mismatchFieldPrecision": 1.0,
+      "mismatchMapsExact": 6,
+      "reviewRequiredCorrect": 6,
+      "apiErrors": 2
+    },
+    "sets": [
+      {
+        "setId": "real-public-01-adobe-proforma-invoice",
+        "passed": true,
+        "documentsExact": 1,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 1,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 11,
+        "populatedFieldsTotal": 11,
+        "nullFieldsCorrect": 3,
+        "nullFieldsTotal": 3,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": true,
+            "typeCorrect": true,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [],
+        "error": null,
+        "startedAt": "2026-08-12T23:44:49.463080+00:00",
+        "finishedAt": "2026-08-12T23:45:05.574224+00:00",
+        "durationSeconds": 16.111
+      },
+      {
+        "setId": "real-public-02-gsa3708-invoice",
+        "passed": true,
+        "documentsExact": 1,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 1,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 12,
+        "populatedFieldsTotal": 12,
+        "nullFieldsCorrect": 2,
+        "nullFieldsTotal": 2,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": true,
+            "typeCorrect": true,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [],
+        "error": null,
+        "startedAt": "2026-08-12T23:45:29.463320+00:00",
+        "finishedAt": "2026-08-12T23:45:51.726676+00:00",
+        "durationSeconds": 22.263
+      },
+      {
+        "setId": "real-public-03-gsa300-purchase-order",
+        "passed": true,
+        "documentsExact": 1,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 1,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 11,
+        "populatedFieldsTotal": 11,
+        "nullFieldsCorrect": 3,
+        "nullFieldsTotal": 3,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": true,
+            "typeCorrect": true,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [],
+        "error": null,
+        "startedAt": "2026-08-12T23:46:57.138330+00:00",
+        "finishedAt": "2026-08-12T23:47:18.377846+00:00",
+        "durationSeconds": 21.24
+      },
+      {
+        "setId": "real-public-04-of348-purchase-order",
+        "passed": false,
+        "failures": [
+          "AI_TEMPORARILY_UNAVAILABLE"
+        ],
+        "error": {
+          "code": "AI_TEMPORARILY_UNAVAILABLE",
+          "message": "분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.",
+          "retryable": true,
+          "exceptionType": "GeminiInvocationError",
+          "statusCode": 503
+        },
+        "startedAt": "2026-08-12T23:47:37.139084+00:00",
+        "finishedAt": "2026-08-12T23:47:55.786842+00:00",
+        "durationSeconds": 18.648
+      },
+      {
+        "setId": "real-public-05-sf26-contract",
+        "passed": true,
+        "documentsExact": 1,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 1,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 10,
+        "populatedFieldsTotal": 10,
+        "nullFieldsCorrect": 4,
+        "nullFieldsTotal": 4,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": true,
+            "typeCorrect": true,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [],
+        "error": null,
+        "startedAt": "2026-08-12T23:48:17.139812+00:00",
+        "finishedAt": "2026-08-12T23:48:34.870562+00:00",
+        "durationSeconds": 17.731
+      },
+      {
+        "setId": "real-public-06-sf1449-contract",
+        "passed": false,
+        "documentsExact": 0,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 0,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 11,
+        "populatedFieldsTotal": 11,
+        "nullFieldsCorrect": 3,
+        "nullFieldsTotal": 3,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": false,
+            "typeCorrect": false,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [
+          "document-1.documentType='PURCHASE_ORDER', expected='CONTRACT'"
+        ],
+        "error": null,
+        "startedAt": "2026-08-12T23:48:57.140311+00:00",
+        "finishedAt": "2026-08-12T23:50:46.352271+00:00",
+        "durationSeconds": 109.212
+      },
+      {
+        "setId": "real-public-07-gsa3025-delivery",
+        "passed": false,
+        "failures": [
+          "AI_RESPONSE_INVALID"
+        ],
+        "error": {
+          "code": "AI_RESPONSE_INVALID",
+          "message": "분석 결과를 안전하게 검증하지 못했습니다. 다시 시도해 주세요.",
+          "retryable": null,
+          "exceptionType": "GeminiResponseValidationError",
+          "statusCode": null
+        },
+        "startedAt": "2026-08-12T23:50:46.359773+00:00",
+        "finishedAt": "2026-08-12T23:51:06.518986+00:00",
+        "durationSeconds": 20.159
+      },
+      {
+        "setId": "real-public-08-gsa1678-delivery",
+        "passed": true,
+        "documentsExact": 1,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 1,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 8,
+        "populatedFieldsTotal": 8,
+        "nullFieldsCorrect": 6,
+        "nullFieldsTotal": 6,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": true,
+            "typeCorrect": true,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [],
+        "error": null,
+        "startedAt": "2026-08-12T23:51:26.360361+00:00",
+        "finishedAt": "2026-08-12T23:51:42.568963+00:00",
+        "durationSeconds": 16.209
+      }
+    ]
+  },
+  "remeasurement": {
+    "suite": "document-agent-blind-company-formats-v1",
+    "model": "gemini-3.6-flash",
+    "configuredMaxAttempts": 1,
+    "configuredTimeoutSeconds": 120.0,
+    "minimumStartIntervalSeconds": 40.0,
+    "requestedSets": 2,
+    "stoppedOnQuota": false,
+    "stoppedOnError": true,
+    "aggregate": {
+      "setsAttempted": 2,
+      "setsCompleted": 1,
+      "setsExact": 1,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 11,
+      "populatedFieldsTotal": 11,
+      "nullFieldsCorrect": 3,
+      "nullFieldsTotal": 3,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchFieldRecall": 1.0,
+      "mismatchFieldPrecision": 1.0,
+      "mismatchMapsExact": 1,
+      "reviewRequiredCorrect": 1,
+      "apiErrors": 1
+    },
+    "sets": [
+      {
+        "setId": "real-public-04-of348-purchase-order",
+        "passed": true,
+        "documentsExact": 1,
+        "documentsTotal": 1,
+        "documentTypeCorrect": 1,
+        "documentTypeTotal": 1,
+        "populatedFieldsCorrect": 11,
+        "populatedFieldsTotal": 11,
+        "nullFieldsCorrect": 3,
+        "nullFieldsTotal": 3,
+        "missingMembershipCorrect": 14,
+        "missingMembershipTotal": 14,
+        "mismatchTruePositiveFields": 0,
+        "mismatchExpectedFields": 0,
+        "mismatchActualFields": 0,
+        "mismatchMapExact": true,
+        "reviewRequiredCorrect": true,
+        "expectedMismatchFields": [],
+        "actualMismatchFields": [],
+        "documentResults": [
+          {
+            "documentId": "document-1",
+            "exact": true,
+            "typeCorrect": true,
+            "fieldErrors": [],
+            "missingFieldsExact": true
+          }
+        ],
+        "failures": [],
+        "error": null,
+        "startedAt": "2026-08-13T00:30:53.960823+00:00",
+        "finishedAt": "2026-08-13T00:32:30.872142+00:00",
+        "durationSeconds": 96.911
+      },
+      {
+        "setId": "real-public-07-gsa3025-delivery",
+        "passed": false,
+        "failures": [
+          "AI_RESPONSE_INVALID"
+        ],
+        "error": {
+          "code": "AI_RESPONSE_INVALID",
+          "message": "분석 결과를 안전하게 검증하지 못했습니다. 다시 시도해 주세요.",
+          "retryable": null,
+          "exceptionType": "GeminiResponseValidationError",
+          "statusCode": null
+        },
+        "startedAt": "2026-08-13T00:32:30.880011+00:00",
+        "finishedAt": "2026-08-13T00:33:09.205020+00:00",
+        "durationSeconds": 38.325
+      }
+    ]
+  },
+  "finalUniqueCaseAggregate": {
+    "uniqueCases": 8,
+    "validUniqueCases": 7,
+    "unmeasuredUniqueCases": 1,
+    "exactUniqueCases": 6,
+    "documentsExact": 6,
+    "documentsTotal": 7,
+    "documentTypeCorrect": 6,
+    "documentTypeTotal": 7,
+    "populatedCorrect": 74,
+    "populatedTotal": 74,
+    "nullCorrect": 24,
+    "nullTotal": 24,
+    "missingCorrect": 98,
+    "missingTotal": 98,
+    "initialCalls": 8,
+    "remeasurementCalls": 2,
+    "totalCalls": 10,
+    "usableCallResults": 7,
+    "fieldCorrect": 98,
+    "fieldTotal": 98
+  },
+  "finalUniqueCases": [
+    {
+      "setId": "real-public-01-adobe-proforma-invoice",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 11,
+      "populatedFieldsTotal": 11,
+      "nullFieldsCorrect": 3,
+      "nullFieldsTotal": 3,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-12T23:44:49.463080+00:00",
+      "finishedAt": "2026-08-12T23:45:05.574224+00:00",
+      "durationSeconds": 16.111
+    },
+    {
+      "setId": "real-public-02-gsa3708-invoice",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 12,
+      "populatedFieldsTotal": 12,
+      "nullFieldsCorrect": 2,
+      "nullFieldsTotal": 2,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-12T23:45:29.463320+00:00",
+      "finishedAt": "2026-08-12T23:45:51.726676+00:00",
+      "durationSeconds": 22.263
+    },
+    {
+      "setId": "real-public-03-gsa300-purchase-order",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 11,
+      "populatedFieldsTotal": 11,
+      "nullFieldsCorrect": 3,
+      "nullFieldsTotal": 3,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-12T23:46:57.138330+00:00",
+      "finishedAt": "2026-08-12T23:47:18.377846+00:00",
+      "durationSeconds": 21.24
+    },
+    {
+      "setId": "real-public-04-of348-purchase-order",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 11,
+      "populatedFieldsTotal": 11,
+      "nullFieldsCorrect": 3,
+      "nullFieldsTotal": 3,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-13T00:30:53.960823+00:00",
+      "finishedAt": "2026-08-13T00:32:30.872142+00:00",
+      "durationSeconds": 96.911
+    },
+    {
+      "setId": "real-public-05-sf26-contract",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 10,
+      "populatedFieldsTotal": 10,
+      "nullFieldsCorrect": 4,
+      "nullFieldsTotal": 4,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-12T23:48:17.139812+00:00",
+      "finishedAt": "2026-08-12T23:48:34.870562+00:00",
+      "durationSeconds": 17.731
+    },
+    {
+      "setId": "real-public-06-sf1449-contract",
+      "passed": false,
+      "documentsExact": 0,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 0,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 11,
+      "populatedFieldsTotal": 11,
+      "nullFieldsCorrect": 3,
+      "nullFieldsTotal": 3,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": false,
+          "typeCorrect": false,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [
+        "document-1.documentType='PURCHASE_ORDER', expected='CONTRACT'"
+      ],
+      "error": null,
+      "startedAt": "2026-08-12T23:48:57.140311+00:00",
+      "finishedAt": "2026-08-12T23:50:46.352271+00:00",
+      "durationSeconds": 109.212
+    },
+    {
+      "setId": "real-public-07-gsa3025-delivery",
+      "passed": false,
+      "failures": [
+        "AI_RESPONSE_INVALID"
+      ],
+      "error": {
+        "code": "AI_RESPONSE_INVALID",
+        "message": "분석 결과를 안전하게 검증하지 못했습니다. 다시 시도해 주세요.",
+        "retryable": null,
+        "exceptionType": "GeminiResponseValidationError",
+        "statusCode": null
+      },
+      "startedAt": "2026-08-13T00:32:30.880011+00:00",
+      "finishedAt": "2026-08-13T00:33:09.205020+00:00",
+      "durationSeconds": 38.325
+    },
+    {
+      "setId": "real-public-08-gsa1678-delivery",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 8,
+      "populatedFieldsTotal": 8,
+      "nullFieldsCorrect": 6,
+      "nullFieldsTotal": 6,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-12T23:51:26.360361+00:00",
+      "finishedAt": "2026-08-12T23:51:42.568963+00:00",
+      "durationSeconds": 16.209
+    }
+  ],
+  "sourceManifest": "../fixtures/source-manifest.json",
+  "fixtureValidation": {
+    "passed": true,
+    "setCount": 8,
+    "documentCount": 8,
+    "totalPages": 10,
+    "failures": [],
+    "documents": [
+      {
+        "setId": "real-public-01-adobe-proforma-invoice",
+        "documentType": "INVOICE",
+        "pages": 1,
+        "bytes": 466429,
+        "textCharacters": 418
+      },
+      {
+        "setId": "real-public-02-gsa3708-invoice",
+        "documentType": "INVOICE",
+        "pages": 1,
+        "bytes": 1006340,
+        "textCharacters": 632
+      },
+      {
+        "setId": "real-public-03-gsa300-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "pages": 1,
+        "bytes": 1409636,
+        "textCharacters": 2609
+      },
+      {
+        "setId": "real-public-04-of348-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "pages": 1,
+        "bytes": 656959,
+        "textCharacters": 633
+      },
+      {
+        "setId": "real-public-05-sf26-contract",
+        "documentType": "CONTRACT",
+        "pages": 1,
+        "bytes": 805255,
+        "textCharacters": 3690
+      },
+      {
+        "setId": "real-public-06-sf1449-contract",
+        "documentType": "CONTRACT",
+        "pages": 2,
+        "bytes": 881617,
+        "textCharacters": 4156
+      },
+      {
+        "setId": "real-public-07-gsa3025-delivery",
+        "documentType": "DELIVERY_EVIDENCE",
+        "pages": 1,
+        "bytes": 350185,
+        "textCharacters": 1689
+      },
+      {
+        "setId": "real-public-08-gsa1678-delivery",
+        "documentType": "DELIVERY_EVIDENCE",
+        "pages": 2,
+        "bytes": 783767,
+        "textCharacters": 4292
+      }
+    ]
+  },
+  "interpretation": {
+    "accuracyDenominator": "Only unique cases that returned a valid structured result.",
+    "unmeasuredCase": "GSA 3025 returned AI_RESPONSE_INVALID twice and is not counted as a semantic error.",
+    "authenticityBoundary": "Visible-content extraction and type classification only; fabricated or manipulated facts are outside scope.",
+    "mismatchBoundary": "This single-document public-form suite does not measure cross-document mismatch detection."
+  }
+}

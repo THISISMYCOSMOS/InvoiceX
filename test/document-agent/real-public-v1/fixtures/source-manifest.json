@@ -1,0 +1,85 @@
+{
+  "suite": "document-agent-real-public-v1",
+  "cases": [
+    {
+      "setId": "real-public-01-adobe-proforma-invoice",
+      "documentType": "INVOICE",
+      "sourceName": "Adobe Proforma Invoice Template",
+      "sourceUrl": "https://www.adobe.com/dc-shared/assets/pdf/acrobat/business/resources/proforma-invoice-template.pdf",
+      "sourceFilename": "adobe-proforma-invoice.pdf",
+      "sourceSha256": "6fbb52abf5b15c0cf80b43c06e0e7fd41685f560050ec441fe4a4833a0d98001",
+      "filledPdfSha256": "43afadf2c22674bd96ecd5f9ab5e39a46f6d63875872f5063dfdf5045c6037f0",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-02-gsa3708-invoice",
+      "documentType": "INVOICE",
+      "sourceName": "GSA Form 3708 Invoice",
+      "sourceUrl": "https://www.gsa.gov/cdnstatic/GSA3708-14.pdf",
+      "sourceFilename": "gsa3708-invoice.pdf",
+      "sourceSha256": "172f940f97c1586e6b63d0f50d40b0757918818fe119735297cd97bbd71bd4eb",
+      "filledPdfSha256": "4e9d0c6bec9aad21aecc90885f724a4e4f085d2f2115c346b3f2b1e20dabd0e3",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-03-gsa300-purchase-order",
+      "documentType": "PURCHASE_ORDER",
+      "sourceName": "GSA Form 300 Order for Supplies and Services",
+      "sourceUrl": "https://www.gsa.gov/system/files/GSA300-21.pdf",
+      "sourceFilename": "gsa300-purchase-order.pdf",
+      "sourceSha256": "78e2a0c1a469386660e060056b42ccb592ad228ed92c8643f3f8b12b6d23fc29",
+      "filledPdfSha256": "6fb64e6c9a1e5324e62e5b9f70c9ffbdf4dddae11e993917518fb68fb2512f58",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-04-of348-purchase-order",
+      "documentType": "PURCHASE_ORDER",
+      "sourceName": "Optional Form 348 Order Schedule Continuation",
+      "sourceUrl": "https://www.gsa.gov/cdnstatic/OF348-06.pdf",
+      "sourceFilename": "of348-purchase-order.pdf",
+      "sourceSha256": "a4f64953b851f459e55679a859b58a703e389e3359d8c1c17b4b63763502a088",
+      "filledPdfSha256": "b1bb3996d9a58c6452aae741bdd83280ed20a533917e457be9109290c0ee4e52",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-05-sf26-contract",
+      "documentType": "CONTRACT",
+      "sourceName": "Standard Form 26 Award Contract",
+      "sourceUrl": "https://www.gsa.gov/system/files/SF26-22.pdf",
+      "sourceFilename": "sf26-contract.pdf",
+      "sourceSha256": "03d34af8070b970ade43d5d1a60d25be8d2343fcc0d9b269474a1bd22f714675",
+      "filledPdfSha256": "2241943a6750e0d6e8e81166d6c4d3bdcf550a5b8f456b1e4965c2b2354e9cef",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-06-sf1449-contract",
+      "documentType": "CONTRACT",
+      "sourceName": "Standard Form 1449 Solicitation Contract Order",
+      "sourceUrl": "https://www.gsa.gov/system/files/SF1449-21.pdf",
+      "sourceFilename": "sf1449-contract.pdf",
+      "sourceSha256": "2d725178981fb221c19b25a254e660d94231e7fb78934ea726fa7bbaf0247c7d",
+      "filledPdfSha256": "c7bd32d178aa29e3ff6aba80f402e95ef2534586a07d9fd792a5aedd1d075177",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-07-gsa3025-delivery",
+      "documentType": "DELIVERY_EVIDENCE",
+      "sourceName": "GSA Form 3025 Receiving Report",
+      "sourceUrl": "https://www.gsa.gov/system/files/GSA3025-05.pdf",
+      "sourceFilename": "gsa3025-delivery.pdf",
+      "sourceSha256": "f994992ea488f28ba4c0416b9799d12ef81fb9afdd88711fdb40887894a570fc",
+      "filledPdfSha256": "9ca1777eeec59ce8b0a90c4e8612c8a28ddee27cdbd028b2a2794f8c59262d93",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    },
+    {
+      "setId": "real-public-08-gsa1678-delivery",
+      "documentType": "DELIVERY_EVIDENCE",
+      "sourceName": "GSA Form 1678 Status Report of Orders and Shipments",
+      "sourceUrl": "https://www.gsa.gov/system/files/2025-04/GSA1678-15e.pdf",
+      "sourceFilename": "gsa1678-delivery.pdf",
+      "sourceSha256": "e038306d7621bed0df01b182745773aac030e6c10ef2321b4098a613fa02d230",
+      "filledPdfSha256": "779abf520700ebbb275ee5a7ec9bb0462e50c5cda530ffabb5163a72e39d5f8c",
+      "dataPolicy": "Synthetic evaluation values placed into a public original form layout."
+    }
+  ]
+}

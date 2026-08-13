@@ -1,0 +1,33 @@
+{
+  "setId": "real-public-04-of348-purchase-order",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Delta Medical Supply Co",
+        "buyerName": "Aurora Clinical Center",
+        "purchaseOrderNumber": "PO-OF348-260804",
+        "contractNumber": "CTR-OF348-26",
+        "currency": "USD",
+        "totalAmount": "4200",
+        "issueDate": "2026-08-17",
+        "dueDate": null,
+        "itemName": "Sterile Examination Pack",
+        "quantity": "200",
+        "unitPrice": "21",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

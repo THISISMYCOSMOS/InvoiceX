@@ -1,0 +1,34 @@
+{
+  "setId": "real-public-05-sf26-contract",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Evergreen Data Services Ltd",
+        "buyerName": "Aurora Contracting Office",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-SF26-260805",
+        "currency": "USD",
+        "totalAmount": "14400",
+        "issueDate": "2026-08-18",
+        "dueDate": null,
+        "itemName": "Secure Archive Service",
+        "quantity": "12",
+        "unitPrice": "1200",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

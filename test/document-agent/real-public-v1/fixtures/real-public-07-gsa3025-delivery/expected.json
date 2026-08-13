@@ -1,0 +1,37 @@
+{
+  "setId": "real-public-07-gsa3025-delivery",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Granite Industrial Works",
+        "buyerName": "Aurora Logistics Center",
+        "purchaseOrderNumber": "PO-G3025-260807",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-08-19",
+        "dueDate": null,
+        "itemName": "Hydraulic Pump Assembly",
+        "quantity": "6",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

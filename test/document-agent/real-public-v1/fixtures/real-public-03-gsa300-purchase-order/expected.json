@@ -1,0 +1,33 @@
+{
+  "setId": "real-public-03-gsa300-purchase-order",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Cobalt Office Products Inc",
+        "buyerName": "Aurora Federal Procurement",
+        "purchaseOrderNumber": "PO-G300-260803",
+        "contractNumber": "CTR-G300-26",
+        "currency": "USD",
+        "totalAmount": "2880",
+        "issueDate": "2026-08-17",
+        "dueDate": null,
+        "itemName": "Ergonomic Task Chair",
+        "quantity": "12",
+        "unitPrice": "240",
+        "paymentTerms": "USD Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

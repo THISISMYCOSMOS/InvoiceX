@@ -1,0 +1,65 @@
+{
+  "passed": true,
+  "setCount": 8,
+  "documentCount": 8,
+  "totalPages": 10,
+  "failures": [],
+  "documents": [
+    {
+      "setId": "real-public-01-adobe-proforma-invoice",
+      "documentType": "INVOICE",
+      "pages": 1,
+      "bytes": 466429,
+      "textCharacters": 418
+    },
+    {
+      "setId": "real-public-02-gsa3708-invoice",
+      "documentType": "INVOICE",
+      "pages": 1,
+      "bytes": 1006340,
+      "textCharacters": 632
+    },
+    {
+      "setId": "real-public-03-gsa300-purchase-order",
+      "documentType": "PURCHASE_ORDER",
+      "pages": 1,
+      "bytes": 1409636,
+      "textCharacters": 2609
+    },
+    {
+      "setId": "real-public-04-of348-purchase-order",
+      "documentType": "PURCHASE_ORDER",
+      "pages": 1,
+      "bytes": 656959,
+      "textCharacters": 633
+    },
+    {
+      "setId": "real-public-05-sf26-contract",
+      "documentType": "CONTRACT",
+      "pages": 1,
+      "bytes": 805255,
+      "textCharacters": 3690
+    },
+    {
+      "setId": "real-public-06-sf1449-contract",
+      "documentType": "CONTRACT",
+      "pages": 2,
+      "bytes": 881617,
+      "textCharacters": 4156
+    },
+    {
+      "setId": "real-public-07-gsa3025-delivery",
+      "documentType": "DELIVERY_EVIDENCE",
+      "pages": 1,
+      "bytes": 350185,
+      "textCharacters": 1689
+    },
+    {
+      "setId": "real-public-08-gsa1678-delivery",
+      "documentType": "DELIVERY_EVIDENCE",
+      "pages": 2,
+      "bytes": 783767,
+      "textCharacters": 4292
+    }
+  ]
+}

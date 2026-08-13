@@ -1,0 +1,32 @@
+{
+  "setId": "real-public-02-gsa3708-invoice",
+  "documents": [
+    {
+      "documentId": "document-1",
+      "pdf": "document.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "GSA-INV-260802",
+        "supplierName": "General Services Administration",
+        "buyerName": "Aurora Research Office",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-GSA-2608",
+        "currency": "USD",
+        "totalAmount": "6240",
+        "issueDate": "2026-08-16",
+        "dueDate": "2026-09-15",
+        "itemName": "Network Storage Appliance",
+        "quantity": "8",
+        "unitPrice": "780",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "purchaseOrderNumber",
+        "deliveryCompleted"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false
+}

@@ -1,0 +1,147 @@
+{
+  "setId": "real-public-01-adobe-proforma-invoice",
+  "passed": true,
+  "documentsExact": 1,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 1,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 11,
+  "populatedFieldsTotal": 11,
+  "nullFieldsCorrect": 3,
+  "nullFieldsTotal": 3,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "INV-AP-260801",
+          "supplierName": "Blue Harbor Systems LLC",
+          "buyerName": "Aurora Retail Group",
+          "purchaseOrderNumber": null,
+          "contractNumber": null,
+          "currency": "USD",
+          "totalAmount": "4875",
+          "issueDate": "2026-08-16",
+          "dueDate": "2026-09-15",
+          "itemName": "Industrial Sensor Kit",
+          "quantity": "15",
+          "unitPrice": "325",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "purchaseOrderNumber",
+          "contractNumber",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-invoiceNumber-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "Invoice No: INV-AP-260801"
+          },
+          {
+            "evidenceId": "ev-supplierName-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Supplier: Blue Harbor Systems LLC"
+          },
+          {
+            "evidenceId": "ev-buyerName-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aurora Retail Group"
+          },
+          {
+            "evidenceId": "ev-currency-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD 4,875.00"
+          },
+          {
+            "evidenceId": "ev-totalAmount-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "USD 4,875.00"
+          },
+          {
+            "evidenceId": "ev-issueDate-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-16"
+          },
+          {
+            "evidenceId": "ev-dueDate-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "Due date: 2026-09-15"
+          },
+          {
+            "evidenceId": "ev-itemName-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Industrial Sensor Kit"
+          },
+          {
+            "evidenceId": "ev-quantity-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "15"
+          },
+          {
+            "evidenceId": "ev-unitPrice-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "USD 325.00"
+          },
+          {
+            "evidenceId": "ev-paymentTerms-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment terms: Net 30"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T23:44:49.463080+00:00",
+  "finishedAt": "2026-08-12T23:45:05.574224+00:00",
+  "durationSeconds": 16.111
+}

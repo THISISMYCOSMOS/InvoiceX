@@ -1,0 +1,17 @@
+{
+  "setId": "real-public-04-of348-purchase-order",
+  "passed": false,
+  "failures": [
+    "AI_TEMPORARILY_UNAVAILABLE"
+  ],
+  "error": {
+    "code": "AI_TEMPORARILY_UNAVAILABLE",
+    "message": "분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.",
+    "retryable": true,
+    "exceptionType": "GeminiInvocationError",
+    "statusCode": 503
+  },
+  "startedAt": "2026-08-12T23:47:37.139084+00:00",
+  "finishedAt": "2026-08-12T23:47:55.786842+00:00",
+  "durationSeconds": 18.648
+}

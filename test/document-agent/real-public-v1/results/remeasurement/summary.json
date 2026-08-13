@@ -1,0 +1,87 @@
+{
+  "suite": "document-agent-blind-company-formats-v1",
+  "model": "gemini-3.6-flash",
+  "configuredMaxAttempts": 1,
+  "configuredTimeoutSeconds": 120.0,
+  "minimumStartIntervalSeconds": 40.0,
+  "requestedSets": 2,
+  "stoppedOnQuota": false,
+  "stoppedOnError": true,
+  "aggregate": {
+    "setsAttempted": 2,
+    "setsCompleted": 1,
+    "setsExact": 1,
+    "documentsExact": 1,
+    "documentsTotal": 1,
+    "documentTypeCorrect": 1,
+    "documentTypeTotal": 1,
+    "populatedFieldsCorrect": 11,
+    "populatedFieldsTotal": 11,
+    "nullFieldsCorrect": 3,
+    "nullFieldsTotal": 3,
+    "missingMembershipCorrect": 14,
+    "missingMembershipTotal": 14,
+    "mismatchTruePositiveFields": 0,
+    "mismatchExpectedFields": 0,
+    "mismatchActualFields": 0,
+    "mismatchFieldRecall": 1.0,
+    "mismatchFieldPrecision": 1.0,
+    "mismatchMapsExact": 1,
+    "reviewRequiredCorrect": 1,
+    "apiErrors": 1
+  },
+  "sets": [
+    {
+      "setId": "real-public-04-of348-purchase-order",
+      "passed": true,
+      "documentsExact": 1,
+      "documentsTotal": 1,
+      "documentTypeCorrect": 1,
+      "documentTypeTotal": 1,
+      "populatedFieldsCorrect": 11,
+      "populatedFieldsTotal": 11,
+      "nullFieldsCorrect": 3,
+      "nullFieldsTotal": 3,
+      "missingMembershipCorrect": 14,
+      "missingMembershipTotal": 14,
+      "mismatchTruePositiveFields": 0,
+      "mismatchExpectedFields": 0,
+      "mismatchActualFields": 0,
+      "mismatchMapExact": true,
+      "reviewRequiredCorrect": true,
+      "expectedMismatchFields": [],
+      "actualMismatchFields": [],
+      "documentResults": [
+        {
+          "documentId": "document-1",
+          "exact": true,
+          "typeCorrect": true,
+          "fieldErrors": [],
+          "missingFieldsExact": true
+        }
+      ],
+      "failures": [],
+      "error": null,
+      "startedAt": "2026-08-13T00:30:53.960823+00:00",
+      "finishedAt": "2026-08-13T00:32:30.872142+00:00",
+      "durationSeconds": 96.911
+    },
+    {
+      "setId": "real-public-07-gsa3025-delivery",
+      "passed": false,
+      "failures": [
+        "AI_RESPONSE_INVALID"
+      ],
+      "error": {
+        "code": "AI_RESPONSE_INVALID",
+        "message": "분석 결과를 안전하게 검증하지 못했습니다. 다시 시도해 주세요.",
+        "retryable": null,
+        "exceptionType": "GeminiResponseValidationError",
+        "statusCode": null
+      },
+      "startedAt": "2026-08-13T00:32:30.880011+00:00",
+      "finishedAt": "2026-08-13T00:33:09.205020+00:00",
+      "durationSeconds": 38.325
+    }
+  ]
+}

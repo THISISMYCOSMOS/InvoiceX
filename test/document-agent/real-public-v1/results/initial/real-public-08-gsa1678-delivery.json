@@ -1,0 +1,129 @@
+{
+  "setId": "real-public-08-gsa1678-delivery",
+  "passed": true,
+  "documentsExact": 1,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 1,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 8,
+  "populatedFieldsTotal": 8,
+  "nullFieldsCorrect": 6,
+  "nullFieldsTotal": 6,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Helios Packaging Solutions",
+          "buyerName": "Aurora Distribution Office",
+          "purchaseOrderNumber": "PO-G1678-260808",
+          "contractNumber": "CTR-G1678-26",
+          "currency": null,
+          "totalAmount": null,
+          "issueDate": "2026-08-19",
+          "dueDate": null,
+          "itemName": "Reinforced Shipping Crate",
+          "quantity": "40",
+          "unitPrice": null,
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "currency",
+          "totalAmount",
+          "dueDate",
+          "unitPrice",
+          "paymentTerms"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-1",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Helios Packaging Solutions"
+          },
+          {
+            "evidenceId": "ev-2",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aurora Distribution Office"
+          },
+          {
+            "evidenceId": "ev-3",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "PO-G1678-260808"
+          },
+          {
+            "evidenceId": "ev-4",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CTR-G1678-26"
+          },
+          {
+            "evidenceId": "ev-5",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-19"
+          },
+          {
+            "evidenceId": "ev-6",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Reinforced Shipping Crate"
+          },
+          {
+            "evidenceId": "ev-7",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "40 EA"
+          },
+          {
+            "evidenceId": "ev-8",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "Delivery completed: YES"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T23:51:26.360361+00:00",
+  "finishedAt": "2026-08-12T23:51:42.568963+00:00",
+  "durationSeconds": 16.209
+}

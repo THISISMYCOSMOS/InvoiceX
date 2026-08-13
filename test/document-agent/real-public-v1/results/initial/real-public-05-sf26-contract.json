@@ -1,0 +1,141 @@
+{
+  "setId": "real-public-05-sf26-contract",
+  "passed": true,
+  "documentsExact": 1,
+  "documentsTotal": 1,
+  "documentTypeCorrect": 1,
+  "documentTypeTotal": 1,
+  "populatedFieldsCorrect": 10,
+  "populatedFieldsTotal": 10,
+  "nullFieldsCorrect": 4,
+  "nullFieldsTotal": 4,
+  "missingMembershipCorrect": 14,
+  "missingMembershipTotal": 14,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "document-1",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "document-1",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Evergreen Data Services Ltd",
+          "buyerName": "Aurora Contracting Office",
+          "purchaseOrderNumber": null,
+          "contractNumber": "CTR-SF26-260805",
+          "currency": "USD",
+          "totalAmount": "14400",
+          "issueDate": "2026-08-18",
+          "dueDate": null,
+          "itemName": "Secure Archive Service",
+          "quantity": "12",
+          "unitPrice": "1200",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-doc1-contractNumber",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CTR-SF26-260805"
+          },
+          {
+            "evidenceId": "ev-doc1-issueDate",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-08-18"
+          },
+          {
+            "evidenceId": "ev-doc1-buyerName",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aurora Contracting Office"
+          },
+          {
+            "evidenceId": "ev-doc1-supplierName",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Evergreen Data Services Ltd"
+          },
+          {
+            "evidenceId": "ev-doc1-paymentTerms",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Net 30"
+          },
+          {
+            "evidenceId": "ev-doc1-itemName",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Secure Archive Service"
+          },
+          {
+            "evidenceId": "ev-doc1-quantity",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "quantity",
+            "quote": "12"
+          },
+          {
+            "evidenceId": "ev-doc1-unitPrice",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "1,200.00"
+          },
+          {
+            "evidenceId": "ev-doc1-currency",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-doc1-totalAmount",
+            "documentId": "document-1",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "14,400.00"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T23:48:17.139812+00:00",
+  "finishedAt": "2026-08-12T23:48:34.870562+00:00",
+  "durationSeconds": 17.731
+}
