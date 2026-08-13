@@ -1,0 +1,68 @@
+{
+  "sourceCommit": "9298e1feb3d1894a9e86808277b86c64c2d2e01f",
+  "model": "gemini-3.6-flash",
+  "deterministicValidation": {
+    "pytestPassed": 52,
+    "pytestFailed": 0,
+    "ruffPassed": true
+  },
+  "scenarioCoverage": {
+    "designedSets": 19,
+    "measuredSets": 11,
+    "unmeasuredSets": 8,
+    "measuredDocuments": 44,
+    "measuredFieldCells": 616,
+    "measuredPopulatedFields": 451,
+    "measuredExpectedNullFields": 165
+  },
+  "conditionalAccuracy": {
+    "exactSetPasses": 11,
+    "exactSetTotal": 11,
+    "documentTypeCorrect": 44,
+    "documentTypeTotal": 44,
+    "fieldCellsCorrect": 616,
+    "fieldCellsTotal": 616,
+    "populatedFieldsCorrect": 451,
+    "populatedFieldsTotal": 451,
+    "mismatchTruePositiveFields": 11,
+    "mismatchFalsePositiveFields": 0,
+    "mismatchFalseNegativeFields": 0,
+    "reviewDecisionCorrect": 11,
+    "reviewDecisionTotal": 11,
+    "normalSets": 3,
+    "normalSetFalsePositives": 0
+  },
+  "measuredSets": [
+    "set-a-happy-path",
+    "set-b-amount-mismatch",
+    "n03-number-format",
+    "n04-date-format",
+    "m01-total-amount",
+    "m02-unit-price",
+    "m03-quantity",
+    "m06-supplier-name",
+    "m07-buyer-name",
+    "m08-purchase-order",
+    "c02-three-fields"
+  ],
+  "unmeasuredSets": [
+    "n06-identifier-spacing",
+    "m04-currency",
+    "m05-item-name",
+    "m09-contract-number",
+    "m10-delivery-status",
+    "c01-linked-amount-unit",
+    "c04-four-values",
+    "c05-errors-across-docs"
+  ],
+  "unmeasuredReason": {
+    "code": "AI_TEMPORARILY_UNAVAILABLE",
+    "statusCode": 429,
+    "classification": "free API quota; no structured analysis returned"
+  },
+  "repeatability": {
+    "targetRunsPerSet": 10,
+    "completedRunsPerMeasuredSet": 1,
+    "status": "not yet measured because the free API quota was exhausted"
+  }
+}

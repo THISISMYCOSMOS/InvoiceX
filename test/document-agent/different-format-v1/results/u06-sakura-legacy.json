@@ -1,0 +1,518 @@
+{
+  "setId": "u06-sakura-legacy",
+  "passed": true,
+  "documentsExact": 4,
+  "documentsTotal": 4,
+  "documentTypeCorrect": 4,
+  "documentTypeTotal": 4,
+  "populatedFieldsCorrect": 43,
+  "populatedFieldsTotal": 43,
+  "nullFieldsCorrect": 13,
+  "nullFieldsTotal": 13,
+  "missingMembershipCorrect": 56,
+  "missingMembershipTotal": 56,
+  "mismatchTruePositiveFields": 1,
+  "mismatchExpectedFields": 1,
+  "mismatchActualFields": 1,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [
+    "quantity"
+  ],
+  "actualMismatchFields": [
+    "quantity"
+  ],
+  "documentResults": [
+    {
+      "documentId": "u06-invoice",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u06-contract",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u06-purchase-order",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u06-delivery-receipt",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "u06-invoice",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "SMK-260331-77",
+          "supplierName": "Sakura Mechatronics KK",
+          "buyerName": "Aozora Industrial Trading Co.",
+          "purchaseOrderNumber": "AIT-PO-88310",
+          "contractNumber": "AIT-SMK-26-3",
+          "currency": "JPY",
+          "totalAmount": "390000",
+          "issueDate": "2026-03-31",
+          "dueDate": "2026-04-30",
+          "itemName": "Linear Guide Block LG-40",
+          "quantity": "50",
+          "unitPrice": "7800",
+          "paymentTerms": "Payment due 30 days after invoice",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "quantity"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-inv-1",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "SMK-260331-77"
+          },
+          {
+            "evidenceId": "ev-inv-2",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Sakura Mechatronics KK"
+          },
+          {
+            "evidenceId": "ev-inv-3",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aozora Industrial Trading Co."
+          },
+          {
+            "evidenceId": "ev-inv-4",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "AIT-PO-88310"
+          },
+          {
+            "evidenceId": "ev-inv-5",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "AIT-SMK-26-3"
+          },
+          {
+            "evidenceId": "ev-inv-6",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "currency",
+            "quote": "JPY"
+          },
+          {
+            "evidenceId": "ev-inv-7",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "390,000"
+          },
+          {
+            "evidenceId": "ev-inv-8",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-03-31"
+          },
+          {
+            "evidenceId": "ev-inv-9",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "2026-04-30"
+          },
+          {
+            "evidenceId": "ev-inv-10",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Linear Guide Block LG-40"
+          },
+          {
+            "evidenceId": "ev-inv-11",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "quantity",
+            "quote": "50"
+          },
+          {
+            "evidenceId": "ev-inv-12",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "7,800"
+          },
+          {
+            "evidenceId": "ev-inv-13",
+            "documentId": "u06-invoice",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment due 30 days after invoice"
+          }
+        ]
+      },
+      {
+        "documentId": "u06-contract",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Sakura Mechatronics KK",
+          "buyerName": "Aozora Industrial Trading Co.",
+          "purchaseOrderNumber": null,
+          "contractNumber": "AIT-SMK-26-3",
+          "currency": "JPY",
+          "totalAmount": "390000",
+          "issueDate": null,
+          "dueDate": null,
+          "itemName": "Linear Guide Block LG-40",
+          "quantity": "50",
+          "unitPrice": "7800",
+          "paymentTerms": "Payment due 30 days after invoice",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "issueDate",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "quantity"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-con-1",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "AIT-SMK-26-3"
+          },
+          {
+            "evidenceId": "ev-con-2",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Sakura Mechatronics KK"
+          },
+          {
+            "evidenceId": "ev-con-3",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aozora Industrial Trading Co."
+          },
+          {
+            "evidenceId": "ev-con-4",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "currency",
+            "quote": "JPY"
+          },
+          {
+            "evidenceId": "ev-con-5",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Linear Guide Block LG-40"
+          },
+          {
+            "evidenceId": "ev-con-6",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "quantity",
+            "quote": "50"
+          },
+          {
+            "evidenceId": "ev-con-7",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "7,800"
+          },
+          {
+            "evidenceId": "ev-con-8",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "390,000"
+          },
+          {
+            "evidenceId": "ev-con-9",
+            "documentId": "u06-contract",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment due 30 days after invoice"
+          }
+        ]
+      },
+      {
+        "documentId": "u06-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Sakura Mechatronics KK",
+          "buyerName": "Aozora Industrial Trading Co.",
+          "purchaseOrderNumber": "AIT-PO-88310",
+          "contractNumber": "AIT-SMK-26-3",
+          "currency": "JPY",
+          "totalAmount": "390000",
+          "issueDate": "2026-03-03",
+          "dueDate": null,
+          "itemName": "Linear Guide Block LG-40",
+          "quantity": "50",
+          "unitPrice": "7800",
+          "paymentTerms": "Payment due 30 days after invoice",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "quantity"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-po-1",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "AIT-PO-88310"
+          },
+          {
+            "evidenceId": "ev-po-2",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "AIT-SMK-26-3"
+          },
+          {
+            "evidenceId": "ev-po-3",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-03-03"
+          },
+          {
+            "evidenceId": "ev-po-4",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Sakura Mechatronics KK"
+          },
+          {
+            "evidenceId": "ev-po-5",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aozora Industrial Trading Co."
+          },
+          {
+            "evidenceId": "ev-po-6",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "currency",
+            "quote": "JPY"
+          },
+          {
+            "evidenceId": "ev-po-7",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Linear Guide Block LG-40"
+          },
+          {
+            "evidenceId": "ev-po-8",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "quantity",
+            "quote": "50"
+          },
+          {
+            "evidenceId": "ev-po-9",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "7,800"
+          },
+          {
+            "evidenceId": "ev-po-10",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "390,000"
+          },
+          {
+            "evidenceId": "ev-po-11",
+            "documentId": "u06-purchase-order",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment due 30 days after invoice"
+          }
+        ]
+      },
+      {
+        "documentId": "u06-delivery-receipt",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Sakura Mechatronics KK",
+          "buyerName": "Aozora Industrial Trading Co.",
+          "purchaseOrderNumber": "AIT-PO-88310",
+          "contractNumber": null,
+          "currency": "JPY",
+          "totalAmount": "390000",
+          "issueDate": "2026-03-28",
+          "dueDate": null,
+          "itemName": "Linear Guide Block LG-40",
+          "quantity": "48",
+          "unitPrice": "7800",
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "contractNumber",
+          "dueDate",
+          "paymentTerms"
+        ],
+        "reviewFields": [
+          "quantity"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-del-1",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "AIT-PO-88310"
+          },
+          {
+            "evidenceId": "ev-del-2",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-03-28"
+          },
+          {
+            "evidenceId": "ev-del-3",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Sakura Mechatronics KK"
+          },
+          {
+            "evidenceId": "ev-del-4",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Aozora Industrial Trading Co."
+          },
+          {
+            "evidenceId": "ev-del-5",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "currency",
+            "quote": "JPY"
+          },
+          {
+            "evidenceId": "ev-del-6",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Linear Guide Block LG-40"
+          },
+          {
+            "evidenceId": "ev-del-7",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "quantity",
+            "quote": "48"
+          },
+          {
+            "evidenceId": "ev-del-8",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "7,800"
+          },
+          {
+            "evidenceId": "ev-del-9",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "390,000"
+          },
+          {
+            "evidenceId": "ev-del-10",
+            "documentId": "u06-delivery-receipt",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "COMPLETED - received in full"
+          }
+        ]
+      }
+    ],
+    "mismatches": [
+      {
+        "field": "quantity",
+        "values": [
+          {
+            "documentId": "u06-invoice",
+            "value": "50"
+          },
+          {
+            "documentId": "u06-contract",
+            "value": "50"
+          },
+          {
+            "documentId": "u06-purchase-order",
+            "value": "50"
+          },
+          {
+            "documentId": "u06-delivery-receipt",
+            "value": "48"
+          }
+        ],
+        "description": "Normalized quantity values differ across 4 documents.",
+        "sourceEvidenceIds": [
+          "ev-inv-11",
+          "ev-con-6",
+          "ev-po-8",
+          "ev-del-7"
+        ]
+      }
+    ],
+    "reviewRequired": true
+  },
+  "error": null,
+  "startedAt": "2026-08-12T09:22:26.888249+00:00",
+  "finishedAt": "2026-08-12T09:23:02.109896+00:00",
+  "durationSeconds": 35.222
+}

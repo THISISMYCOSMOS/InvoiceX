@@ -1,0 +1,235 @@
+{
+  "passed": true,
+  "setCount": 8,
+  "pdfCount": 32,
+  "vectorPdfCount": 28,
+  "rasterOnlyPdfCount": 4,
+  "totalPages": 33,
+  "failures": [],
+  "pdfs": [
+    {
+      "setId": "u01-hanseong-erp",
+      "pdf": "u01-invoice.pdf",
+      "pages": 1,
+      "bytes": 2507,
+      "textCharacters": 462
+    },
+    {
+      "setId": "u01-hanseong-erp",
+      "pdf": "u01-contract.pdf",
+      "pages": 1,
+      "bytes": 2321,
+      "textCharacters": 363
+    },
+    {
+      "setId": "u01-hanseong-erp",
+      "pdf": "u01-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 2418,
+      "textCharacters": 415
+    },
+    {
+      "setId": "u01-hanseong-erp",
+      "pdf": "u01-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2381,
+      "textCharacters": 391
+    },
+    {
+      "setId": "u02-atlas-export",
+      "pdf": "u02-invoice.pdf",
+      "pages": 1,
+      "bytes": 2367,
+      "textCharacters": 426
+    },
+    {
+      "setId": "u02-atlas-export",
+      "pdf": "u02-contract.pdf",
+      "pages": 1,
+      "bytes": 2234,
+      "textCharacters": 335
+    },
+    {
+      "setId": "u02-atlas-export",
+      "pdf": "u02-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 2313,
+      "textCharacters": 383
+    },
+    {
+      "setId": "u02-atlas-export",
+      "pdf": "u02-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2284,
+      "textCharacters": 360
+    },
+    {
+      "setId": "u03-nordhafen-logistics",
+      "pdf": "u03-invoice.pdf",
+      "pages": 1,
+      "bytes": 2404,
+      "textCharacters": 632
+    },
+    {
+      "setId": "u03-nordhafen-logistics",
+      "pdf": "u03-contract.pdf",
+      "pages": 1,
+      "bytes": 2294,
+      "textCharacters": 486
+    },
+    {
+      "setId": "u03-nordhafen-logistics",
+      "pdf": "u03-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 2357,
+      "textCharacters": 563
+    },
+    {
+      "setId": "u03-nordhafen-logistics",
+      "pdf": "u03-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2337,
+      "textCharacters": 527
+    },
+    {
+      "setId": "u04-crown-legal",
+      "pdf": "u04-invoice.pdf",
+      "pages": 1,
+      "bytes": 2507,
+      "textCharacters": 548
+    },
+    {
+      "setId": "u04-crown-legal",
+      "pdf": "u04-contract.pdf",
+      "pages": 2,
+      "bytes": 3475,
+      "textCharacters": 912
+    },
+    {
+      "setId": "u04-crown-legal",
+      "pdf": "u04-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 2473,
+      "textCharacters": 494
+    },
+    {
+      "setId": "u04-crown-legal",
+      "pdf": "u04-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2454,
+      "textCharacters": 460
+    },
+    {
+      "setId": "u05-northstar-cards",
+      "pdf": "u05-invoice.pdf",
+      "pages": 1,
+      "bytes": 3244,
+      "textCharacters": 414
+    },
+    {
+      "setId": "u05-northstar-cards",
+      "pdf": "u05-contract.pdf",
+      "pages": 1,
+      "bytes": 2877,
+      "textCharacters": 318
+    },
+    {
+      "setId": "u05-northstar-cards",
+      "pdf": "u05-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 3068,
+      "textCharacters": 368
+    },
+    {
+      "setId": "u05-northstar-cards",
+      "pdf": "u05-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2977,
+      "textCharacters": 345
+    },
+    {
+      "setId": "u06-sakura-legacy",
+      "pdf": "u06-invoice.pdf",
+      "pages": 1,
+      "bytes": 2746,
+      "textCharacters": 1899
+    },
+    {
+      "setId": "u06-sakura-legacy",
+      "pdf": "u06-contract.pdf",
+      "pages": 1,
+      "bytes": 2624,
+      "textCharacters": 1372
+    },
+    {
+      "setId": "u06-sakura-legacy",
+      "pdf": "u06-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 2701,
+      "textCharacters": 1638
+    },
+    {
+      "setId": "u06-sakura-legacy",
+      "pdf": "u06-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2680,
+      "textCharacters": 1506
+    },
+    {
+      "setId": "u07-vertex-procurement",
+      "pdf": "u07-invoice.pdf",
+      "pages": 1,
+      "bytes": 2308,
+      "textCharacters": 420
+    },
+    {
+      "setId": "u07-vertex-procurement",
+      "pdf": "u07-contract.pdf",
+      "pages": 1,
+      "bytes": 2176,
+      "textCharacters": 321
+    },
+    {
+      "setId": "u07-vertex-procurement",
+      "pdf": "u07-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 2249,
+      "textCharacters": 373
+    },
+    {
+      "setId": "u07-vertex-procurement",
+      "pdf": "u07-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 2244,
+      "textCharacters": 371
+    },
+    {
+      "setId": "u08-daehan-scan",
+      "pdf": "u08-invoice.pdf",
+      "pages": 1,
+      "bytes": 122547,
+      "textCharacters": 0
+    },
+    {
+      "setId": "u08-daehan-scan",
+      "pdf": "u08-contract.pdf",
+      "pages": 1,
+      "bytes": 107045,
+      "textCharacters": 0
+    },
+    {
+      "setId": "u08-daehan-scan",
+      "pdf": "u08-purchase-order.pdf",
+      "pages": 1,
+      "bytes": 115230,
+      "textCharacters": 0
+    },
+    {
+      "setId": "u08-daehan-scan",
+      "pdf": "u08-delivery-receipt.pdf",
+      "pages": 1,
+      "bytes": 111118,
+      "textCharacters": 0
+    }
+  ]
+}

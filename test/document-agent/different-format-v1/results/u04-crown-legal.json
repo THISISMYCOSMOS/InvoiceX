@@ -1,0 +1,518 @@
+{
+  "setId": "u04-crown-legal",
+  "passed": true,
+  "documentsExact": 4,
+  "documentsTotal": 4,
+  "documentTypeCorrect": 4,
+  "documentTypeTotal": 4,
+  "populatedFieldsCorrect": 43,
+  "populatedFieldsTotal": 43,
+  "nullFieldsCorrect": 13,
+  "nullFieldsTotal": 13,
+  "missingMembershipCorrect": 56,
+  "missingMembershipTotal": 56,
+  "mismatchTruePositiveFields": 1,
+  "mismatchExpectedFields": 1,
+  "mismatchActualFields": 1,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [
+    "totalAmount"
+  ],
+  "actualMismatchFields": [
+    "totalAmount"
+  ],
+  "documentResults": [
+    {
+      "documentId": "u04-invoice",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u04-contract",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u04-purchase-order",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u04-delivery-receipt",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "u04-invoice",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "CBI/INV/6402",
+          "supplierName": "Crownbridge Instrumentation Ltd.",
+          "buyerName": "Harbor Fieldworks PLC",
+          "purchaseOrderNumber": "HF-PO-11984",
+          "contractNumber": "HF-CBI-2026-08",
+          "currency": "GBP",
+          "totalAmount": "1548",
+          "issueDate": "2026-04-08",
+          "dueDate": "2026-05-08",
+          "itemName": "Pressure Relay PR-9",
+          "quantity": "12",
+          "unitPrice": "129",
+          "paymentTerms": "Net 30 days following invoice date",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "u04-invoice-invoiceNumber",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "1. Invoice No. CBI/INV/6402"
+          },
+          {
+            "evidenceId": "u04-invoice-supplierName",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "6. Supplier Crownbridge Instrumentation Ltd."
+          },
+          {
+            "evidenceId": "u04-invoice-buyerName",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "7. Buyer Harbor Fieldworks PLC"
+          },
+          {
+            "evidenceId": "u04-invoice-purchaseOrderNumber",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "2. Purchase Order No. HF-PO-11984"
+          },
+          {
+            "evidenceId": "u04-invoice-contractNumber",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "3. Contract No. HF-CBI-2026-08"
+          },
+          {
+            "evidenceId": "u04-invoice-currency",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "currency",
+            "quote": "8. Currency GBP"
+          },
+          {
+            "evidenceId": "u04-invoice-totalAmount",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "12. Total Amount 1,548"
+          },
+          {
+            "evidenceId": "u04-invoice-issueDate",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "4. Issue Date 2026-04-08"
+          },
+          {
+            "evidenceId": "u04-invoice-dueDate",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "5. Payment Due Date 2026-05-08"
+          },
+          {
+            "evidenceId": "u04-invoice-itemName",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "itemName",
+            "quote": "9. Item Description Pressure Relay PR-9"
+          },
+          {
+            "evidenceId": "u04-invoice-quantity",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "quantity",
+            "quote": "10. Quantity 12"
+          },
+          {
+            "evidenceId": "u04-invoice-unitPrice",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "11. Unit Price 129"
+          },
+          {
+            "evidenceId": "u04-invoice-paymentTerms",
+            "documentId": "u04-invoice",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "13. Payment Terms Net 30 days following invoice date"
+          }
+        ]
+      },
+      {
+        "documentId": "u04-contract",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Crownbridge Instrumentation Ltd.",
+          "buyerName": "Harbor Fieldworks PLC",
+          "purchaseOrderNumber": null,
+          "contractNumber": "HF-CBI-2026-08",
+          "currency": "GBP",
+          "totalAmount": "1548",
+          "issueDate": null,
+          "dueDate": null,
+          "itemName": "Pressure Relay PR-9",
+          "quantity": "12",
+          "unitPrice": "129",
+          "paymentTerms": "Net 30 days following invoice date",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "issueDate",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "u04-contract-supplierName",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "2. Supplier Crownbridge Instrumentation Ltd."
+          },
+          {
+            "evidenceId": "u04-contract-buyerName",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "3. Buyer Harbor Fieldworks PLC"
+          },
+          {
+            "evidenceId": "u04-contract-contractNumber",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "1. Contract No. HF-CBI-2026-08"
+          },
+          {
+            "evidenceId": "u04-contract-currency",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "currency",
+            "quote": "4. Currency GBP"
+          },
+          {
+            "evidenceId": "u04-contract-totalAmount",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "8. Total Amount 1,548"
+          },
+          {
+            "evidenceId": "u04-contract-itemName",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "itemName",
+            "quote": "5. Item Description Pressure Relay PR-9"
+          },
+          {
+            "evidenceId": "u04-contract-quantity",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "quantity",
+            "quote": "6. Quantity 12"
+          },
+          {
+            "evidenceId": "u04-contract-unitPrice",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "7. Unit Price 129"
+          },
+          {
+            "evidenceId": "u04-contract-paymentTerms",
+            "documentId": "u04-contract",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "9. Payment Terms Net 30 days following invoice date"
+          }
+        ]
+      },
+      {
+        "documentId": "u04-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Crownbridge Instrumentation Ltd.",
+          "buyerName": "Harbor Fieldworks PLC",
+          "purchaseOrderNumber": "HF-PO-11984",
+          "contractNumber": "HF-CBI-2026-08",
+          "currency": "GBP",
+          "totalAmount": "1600",
+          "issueDate": "2026-03-12",
+          "dueDate": null,
+          "itemName": "Pressure Relay PR-9",
+          "quantity": "12",
+          "unitPrice": "129",
+          "paymentTerms": "Net 30 days following invoice date",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "u04-purchase-order-purchaseOrderNumber",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "1. Purchase Order No. HF-PO-11984"
+          },
+          {
+            "evidenceId": "u04-purchase-order-contractNumber",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "2. Contract No. HF-CBI-2026-08"
+          },
+          {
+            "evidenceId": "u04-purchase-order-issueDate",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "3. Issue Date 2026-03-12"
+          },
+          {
+            "evidenceId": "u04-purchase-order-supplierName",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "4. Supplier Crownbridge Instrumentation Ltd."
+          },
+          {
+            "evidenceId": "u04-purchase-order-buyerName",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "5. Buyer Harbor Fieldworks PLC"
+          },
+          {
+            "evidenceId": "u04-purchase-order-currency",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "currency",
+            "quote": "6. Currency GBP"
+          },
+          {
+            "evidenceId": "u04-purchase-order-itemName",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "itemName",
+            "quote": "7. Item Description Pressure Relay PR-9"
+          },
+          {
+            "evidenceId": "u04-purchase-order-quantity",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "quantity",
+            "quote": "8. Quantity 12"
+          },
+          {
+            "evidenceId": "u04-purchase-order-unitPrice",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "9. Unit Price 129"
+          },
+          {
+            "evidenceId": "u04-purchase-order-totalAmount",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "10. Total Amount 1,600"
+          },
+          {
+            "evidenceId": "u04-purchase-order-paymentTerms",
+            "documentId": "u04-purchase-order",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "11. Payment Terms Net 30 days following invoice date"
+          }
+        ]
+      },
+      {
+        "documentId": "u04-delivery-receipt",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Crownbridge Instrumentation Ltd.",
+          "buyerName": "Harbor Fieldworks PLC",
+          "purchaseOrderNumber": "HF-PO-11984",
+          "contractNumber": null,
+          "currency": "GBP",
+          "totalAmount": "1548",
+          "issueDate": "2026-04-05",
+          "dueDate": null,
+          "itemName": "Pressure Relay PR-9",
+          "quantity": "12",
+          "unitPrice": "129",
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "contractNumber",
+          "dueDate",
+          "paymentTerms"
+        ],
+        "reviewFields": [
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "u04-delivery-receipt-purchaseOrderNumber",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "1. Purchase Order No. HF-PO-11984"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-issueDate",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2. Issue Date 2026-04-05"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-supplierName",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "3. Supplier Crownbridge Instrumentation Ltd."
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-buyerName",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "4. Buyer Harbor Fieldworks PLC"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-currency",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "currency",
+            "quote": "5. Currency GBP"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-itemName",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "itemName",
+            "quote": "6. Item Description Pressure Relay PR-9"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-quantity",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "quantity",
+            "quote": "7. Quantity 12"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-unitPrice",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "8. Unit Price 129"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-totalAmount",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "9. Total Amount 1,548"
+          },
+          {
+            "evidenceId": "u04-delivery-receipt-deliveryCompleted",
+            "documentId": "u04-delivery-receipt",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "10. Delivery Status COMPLETED - received in full"
+          }
+        ]
+      }
+    ],
+    "mismatches": [
+      {
+        "field": "totalAmount",
+        "values": [
+          {
+            "documentId": "u04-invoice",
+            "value": "1548"
+          },
+          {
+            "documentId": "u04-contract",
+            "value": "1548"
+          },
+          {
+            "documentId": "u04-purchase-order",
+            "value": "1600"
+          },
+          {
+            "documentId": "u04-delivery-receipt",
+            "value": "1548"
+          }
+        ],
+        "description": "Normalized totalAmount values differ across 4 documents.",
+        "sourceEvidenceIds": [
+          "u04-invoice-totalAmount",
+          "u04-contract-totalAmount",
+          "u04-purchase-order-totalAmount",
+          "u04-delivery-receipt-totalAmount"
+        ]
+      }
+    ],
+    "reviewRequired": true
+  },
+  "error": null,
+  "startedAt": "2026-08-12T09:20:12.017398+00:00",
+  "finishedAt": "2026-08-12T09:21:28.185030+00:00",
+  "durationSeconds": 76.168
+}

@@ -1,0 +1,518 @@
+{
+  "setId": "u05-northstar-cards",
+  "passed": true,
+  "documentsExact": 4,
+  "documentsTotal": 4,
+  "documentTypeCorrect": 4,
+  "documentTypeTotal": 4,
+  "populatedFieldsCorrect": 43,
+  "populatedFieldsTotal": 43,
+  "nullFieldsCorrect": 13,
+  "nullFieldsTotal": 13,
+  "missingMembershipCorrect": 56,
+  "missingMembershipTotal": 56,
+  "mismatchTruePositiveFields": 1,
+  "mismatchExpectedFields": 1,
+  "mismatchActualFields": 1,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [
+    "supplierName"
+  ],
+  "actualMismatchFields": [
+    "supplierName"
+  ],
+  "documentResults": [
+    {
+      "documentId": "u05-invoice",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u05-contract",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u05-purchase-order",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u05-delivery-receipt",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "u05-invoice",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "NS-2607-0091",
+          "supplierName": "Northstar Components Inc.",
+          "buyerName": "Kiteworks Mobility Corp.",
+          "purchaseOrderNumber": "KW-PO-6107",
+          "contractNumber": "KWNS-SA-26",
+          "currency": "USD",
+          "totalAmount": "3300",
+          "issueDate": "2026-07-07",
+          "dueDate": "2026-08-06",
+          "itemName": "Battery Control Board BCB-2",
+          "quantity": "15",
+          "unitPrice": "220",
+          "paymentTerms": "Due 30 days from invoice issue",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "supplierName"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-inv-001",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "NS-2607-0091"
+          },
+          {
+            "evidenceId": "ev-inv-002",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "KW-PO-6107"
+          },
+          {
+            "evidenceId": "ev-inv-003",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "KWNS-SA-26"
+          },
+          {
+            "evidenceId": "ev-inv-004",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-07-07"
+          },
+          {
+            "evidenceId": "ev-inv-005",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "2026-08-06"
+          },
+          {
+            "evidenceId": "ev-inv-006",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Northstar Components Inc."
+          },
+          {
+            "evidenceId": "ev-inv-007",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Kiteworks Mobility Corp."
+          },
+          {
+            "evidenceId": "ev-inv-008",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-inv-009",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Battery Control Board BCB-2"
+          },
+          {
+            "evidenceId": "ev-inv-010",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "quantity",
+            "quote": "15"
+          },
+          {
+            "evidenceId": "ev-inv-011",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "220"
+          },
+          {
+            "evidenceId": "ev-inv-012",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,300"
+          },
+          {
+            "evidenceId": "ev-inv-013",
+            "documentId": "u05-invoice",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Due 30 days from invoice issue"
+          }
+        ]
+      },
+      {
+        "documentId": "u05-contract",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Northstar Components Inc.",
+          "buyerName": "Kiteworks Mobility Corp.",
+          "purchaseOrderNumber": null,
+          "contractNumber": "KWNS-SA-26",
+          "currency": "USD",
+          "totalAmount": "3300",
+          "issueDate": null,
+          "dueDate": null,
+          "itemName": "Battery Control Board BCB-2",
+          "quantity": "15",
+          "unitPrice": "220",
+          "paymentTerms": "Due 30 days from invoice issue",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "issueDate",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "supplierName"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-ctr-001",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "KWNS-SA-26"
+          },
+          {
+            "evidenceId": "ev-ctr-002",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Northstar Components Inc."
+          },
+          {
+            "evidenceId": "ev-ctr-003",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Kiteworks Mobility Corp."
+          },
+          {
+            "evidenceId": "ev-ctr-004",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-ctr-005",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Battery Control Board BCB-2"
+          },
+          {
+            "evidenceId": "ev-ctr-006",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "quantity",
+            "quote": "15"
+          },
+          {
+            "evidenceId": "ev-ctr-007",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "220"
+          },
+          {
+            "evidenceId": "ev-ctr-008",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,300"
+          },
+          {
+            "evidenceId": "ev-ctr-009",
+            "documentId": "u05-contract",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Due 30 days from invoice issue"
+          }
+        ]
+      },
+      {
+        "documentId": "u05-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Northstar Components Inc.",
+          "buyerName": "Kiteworks Mobility Corp.",
+          "purchaseOrderNumber": "KW-PO-6107",
+          "contractNumber": "KWNS-SA-26",
+          "currency": "USD",
+          "totalAmount": "3300",
+          "issueDate": "2026-06-21",
+          "dueDate": null,
+          "itemName": "Battery Control Board BCB-2",
+          "quantity": "15",
+          "unitPrice": "220",
+          "paymentTerms": "Due 30 days from invoice issue",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "supplierName"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-po-001",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "KW-PO-6107"
+          },
+          {
+            "evidenceId": "ev-po-002",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "KWNS-SA-26"
+          },
+          {
+            "evidenceId": "ev-po-003",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-06-21"
+          },
+          {
+            "evidenceId": "ev-po-004",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Northstar Components Inc."
+          },
+          {
+            "evidenceId": "ev-po-005",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Kiteworks Mobility Corp."
+          },
+          {
+            "evidenceId": "ev-po-006",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-po-007",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Battery Control Board BCB-2"
+          },
+          {
+            "evidenceId": "ev-po-008",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "quantity",
+            "quote": "15"
+          },
+          {
+            "evidenceId": "ev-po-009",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "220"
+          },
+          {
+            "evidenceId": "ev-po-010",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,300"
+          },
+          {
+            "evidenceId": "ev-po-011",
+            "documentId": "u05-purchase-order",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Due 30 days from invoice issue"
+          }
+        ]
+      },
+      {
+        "documentId": "u05-delivery-receipt",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Northstar Component Inc.",
+          "buyerName": "Kiteworks Mobility Corp.",
+          "purchaseOrderNumber": "KW-PO-6107",
+          "contractNumber": null,
+          "currency": "USD",
+          "totalAmount": "3300",
+          "issueDate": "2026-07-05",
+          "dueDate": null,
+          "itemName": "Battery Control Board BCB-2",
+          "quantity": "15",
+          "unitPrice": "220",
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "contractNumber",
+          "dueDate",
+          "paymentTerms"
+        ],
+        "reviewFields": [
+          "supplierName"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-del-001",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "KW-PO-6107"
+          },
+          {
+            "evidenceId": "ev-del-002",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-07-05"
+          },
+          {
+            "evidenceId": "ev-del-003",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Northstar Component Inc."
+          },
+          {
+            "evidenceId": "ev-del-004",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Kiteworks Mobility Corp."
+          },
+          {
+            "evidenceId": "ev-del-005",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-del-006",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Battery Control Board BCB-2"
+          },
+          {
+            "evidenceId": "ev-del-007",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "quantity",
+            "quote": "15"
+          },
+          {
+            "evidenceId": "ev-del-008",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "220"
+          },
+          {
+            "evidenceId": "ev-del-009",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,300"
+          },
+          {
+            "evidenceId": "ev-del-010",
+            "documentId": "u05-delivery-receipt",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "COMPLETED - received in full"
+          }
+        ]
+      }
+    ],
+    "mismatches": [
+      {
+        "field": "supplierName",
+        "values": [
+          {
+            "documentId": "u05-invoice",
+            "value": "Northstar Components Inc."
+          },
+          {
+            "documentId": "u05-contract",
+            "value": "Northstar Components Inc."
+          },
+          {
+            "documentId": "u05-purchase-order",
+            "value": "Northstar Components Inc."
+          },
+          {
+            "documentId": "u05-delivery-receipt",
+            "value": "Northstar Component Inc."
+          }
+        ],
+        "description": "Normalized supplierName values differ across 4 documents.",
+        "sourceEvidenceIds": [
+          "ev-inv-006",
+          "ev-ctr-002",
+          "ev-po-004",
+          "ev-del-003"
+        ]
+      }
+    ],
+    "reviewRequired": true
+  },
+  "error": null,
+  "startedAt": "2026-08-12T10:11:11.525060+00:00",
+  "finishedAt": "2026-08-12T10:11:51.697679+00:00",
+  "durationSeconds": 40.173
+}

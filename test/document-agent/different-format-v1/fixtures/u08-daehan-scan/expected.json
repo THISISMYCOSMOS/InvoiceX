@@ -1,0 +1,156 @@
+{
+  "setId": "u08-daehan-scan",
+  "title": "Raster-only scanned warehouse forms",
+  "scenario": "complex mismatch: delivery purchaseOrderNumber and itemName differ",
+  "documents": [
+    {
+      "documentId": "u08-invoice",
+      "pdf": "u08-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "DM-INV-2026-081",
+        "supplierName": "Daehan Motion Co., Ltd.",
+        "buyerName": "Seorin Automation Co., Ltd.",
+        "purchaseOrderNumber": "SA-PO-2026-221",
+        "contractNumber": "SA-DM-2026-15",
+        "currency": "KRW",
+        "totalAmount": "1600000",
+        "issueDate": "2026-08-01",
+        "dueDate": "2026-08-31",
+        "itemName": "Optical Encoder OE-64",
+        "quantity": "25",
+        "unitPrice": "64000",
+        "paymentTerms": "Invoice date plus 30 days",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u08-contract",
+      "pdf": "u08-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Daehan Motion Co., Ltd.",
+        "buyerName": "Seorin Automation Co., Ltd.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "SA-DM-2026-15",
+        "currency": "KRW",
+        "totalAmount": "1600000",
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Optical Encoder OE-64",
+        "quantity": "25",
+        "unitPrice": "64000",
+        "paymentTerms": "Invoice date plus 30 days",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "issueDate",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u08-purchase-order",
+      "pdf": "u08-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Daehan Motion Co., Ltd.",
+        "buyerName": "Seorin Automation Co., Ltd.",
+        "purchaseOrderNumber": "SA-PO-2026-221",
+        "contractNumber": "SA-DM-2026-15",
+        "currency": "KRW",
+        "totalAmount": "1600000",
+        "issueDate": "2026-07-10",
+        "dueDate": null,
+        "itemName": "Optical Encoder OE-64",
+        "quantity": "25",
+        "unitPrice": "64000",
+        "paymentTerms": "Invoice date plus 30 days",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u08-delivery-receipt",
+      "pdf": "u08-delivery-receipt.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Daehan Motion Co., Ltd.",
+        "buyerName": "Seorin Automation Co., Ltd.",
+        "purchaseOrderNumber": "SA-PO-2026-229",
+        "contractNumber": null,
+        "currency": "KRW",
+        "totalAmount": "1600000",
+        "issueDate": "2026-07-29",
+        "dueDate": null,
+        "itemName": "Optical Encoder OE-46",
+        "quantity": "25",
+        "unitPrice": "64000",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "purchaseOrderNumber",
+      "values": [
+        {
+          "documentId": "u08-invoice",
+          "value": "SA-PO-2026-221"
+        },
+        {
+          "documentId": "u08-purchase-order",
+          "value": "SA-PO-2026-221"
+        },
+        {
+          "documentId": "u08-delivery-receipt",
+          "value": "SA-PO-2026-229"
+        }
+      ],
+      "description": "Golden mismatch for purchaseOrderNumber."
+    },
+    {
+      "field": "itemName",
+      "values": [
+        {
+          "documentId": "u08-invoice",
+          "value": "Optical Encoder OE-64"
+        },
+        {
+          "documentId": "u08-contract",
+          "value": "Optical Encoder OE-64"
+        },
+        {
+          "documentId": "u08-purchase-order",
+          "value": "Optical Encoder OE-64"
+        },
+        {
+          "documentId": "u08-delivery-receipt",
+          "value": "Optical Encoder OE-46"
+        }
+      ],
+      "description": "Golden mismatch for itemName."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "provenance": "Programmatically generated synthetic documents; golden values verified from the same immutable scenario specification."
+}

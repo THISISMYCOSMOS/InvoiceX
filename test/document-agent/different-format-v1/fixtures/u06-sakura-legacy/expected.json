@@ -1,0 +1,138 @@
+{
+  "setId": "u06-sakura-legacy",
+  "title": "Legacy monochrome fixed-width form",
+  "scenario": "single mismatch: delivery quantity is 48",
+  "documents": [
+    {
+      "documentId": "u06-invoice",
+      "pdf": "u06-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "SMK-260331-77",
+        "supplierName": "Sakura Mechatronics KK",
+        "buyerName": "Aozora Industrial Trading Co.",
+        "purchaseOrderNumber": "AIT-PO-88310",
+        "contractNumber": "AIT-SMK-26-3",
+        "currency": "JPY",
+        "totalAmount": "390000",
+        "issueDate": "2026-03-31",
+        "dueDate": "2026-04-30",
+        "itemName": "Linear Guide Block LG-40",
+        "quantity": "50",
+        "unitPrice": "7800",
+        "paymentTerms": "Payment due 30 days after invoice",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u06-contract",
+      "pdf": "u06-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Sakura Mechatronics KK",
+        "buyerName": "Aozora Industrial Trading Co.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "AIT-SMK-26-3",
+        "currency": "JPY",
+        "totalAmount": "390000",
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Linear Guide Block LG-40",
+        "quantity": "50",
+        "unitPrice": "7800",
+        "paymentTerms": "Payment due 30 days after invoice",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "issueDate",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u06-purchase-order",
+      "pdf": "u06-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Sakura Mechatronics KK",
+        "buyerName": "Aozora Industrial Trading Co.",
+        "purchaseOrderNumber": "AIT-PO-88310",
+        "contractNumber": "AIT-SMK-26-3",
+        "currency": "JPY",
+        "totalAmount": "390000",
+        "issueDate": "2026-03-03",
+        "dueDate": null,
+        "itemName": "Linear Guide Block LG-40",
+        "quantity": "50",
+        "unitPrice": "7800",
+        "paymentTerms": "Payment due 30 days after invoice",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u06-delivery-receipt",
+      "pdf": "u06-delivery-receipt.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Sakura Mechatronics KK",
+        "buyerName": "Aozora Industrial Trading Co.",
+        "purchaseOrderNumber": "AIT-PO-88310",
+        "contractNumber": null,
+        "currency": "JPY",
+        "totalAmount": "390000",
+        "issueDate": "2026-03-28",
+        "dueDate": null,
+        "itemName": "Linear Guide Block LG-40",
+        "quantity": "48",
+        "unitPrice": "7800",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "quantity",
+      "values": [
+        {
+          "documentId": "u06-invoice",
+          "value": "50"
+        },
+        {
+          "documentId": "u06-contract",
+          "value": "50"
+        },
+        {
+          "documentId": "u06-purchase-order",
+          "value": "50"
+        },
+        {
+          "documentId": "u06-delivery-receipt",
+          "value": "48"
+        }
+      ],
+      "description": "Golden mismatch for quantity."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "provenance": "Programmatically generated synthetic documents; golden values verified from the same immutable scenario specification."
+}

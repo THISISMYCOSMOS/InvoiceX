@@ -1,0 +1,115 @@
+{
+  "setId": "u02-atlas-export",
+  "title": "English exporter commercial form",
+  "scenario": "normal",
+  "documents": [
+    {
+      "documentId": "u02-invoice",
+      "pdf": "u02-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "AME-88431",
+        "supplierName": "Atlas Meridian Export LLC",
+        "buyerName": "Redwood Assembly Inc.",
+        "purchaseOrderNumber": "RA-77502",
+        "contractNumber": "AME-RA-26-11",
+        "currency": "USD",
+        "totalAmount": "3420",
+        "issueDate": "2026-06-18",
+        "dueDate": "2026-07-18",
+        "itemName": "Stainless Coupling SC-12",
+        "quantity": "40",
+        "unitPrice": "85.5",
+        "paymentTerms": "Net 30 after invoice issuance",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u02-contract",
+      "pdf": "u02-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Atlas Meridian Export LLC",
+        "buyerName": "Redwood Assembly Inc.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "AME-RA-26-11",
+        "currency": "USD",
+        "totalAmount": "3420",
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Stainless Coupling SC-12",
+        "quantity": "40",
+        "unitPrice": "85.5",
+        "paymentTerms": "Net 30 after invoice issuance",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "issueDate",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u02-purchase-order",
+      "pdf": "u02-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Atlas Meridian Export LLC",
+        "buyerName": "Redwood Assembly Inc.",
+        "purchaseOrderNumber": "RA-77502",
+        "contractNumber": "AME-RA-26-11",
+        "currency": "USD",
+        "totalAmount": "3420",
+        "issueDate": "2026-05-29",
+        "dueDate": null,
+        "itemName": "Stainless Coupling SC-12",
+        "quantity": "40",
+        "unitPrice": "85.5",
+        "paymentTerms": "Net 30 after invoice issuance",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u02-delivery-receipt",
+      "pdf": "u02-delivery-receipt.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Atlas Meridian Export LLC",
+        "buyerName": "Redwood Assembly Inc.",
+        "purchaseOrderNumber": "RA-77502",
+        "contractNumber": null,
+        "currency": "USD",
+        "totalAmount": "3420",
+        "issueDate": "2026-06-15",
+        "dueDate": null,
+        "itemName": "Stainless Coupling SC-12",
+        "quantity": "40",
+        "unitPrice": "85.5",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "provenance": "Programmatically generated synthetic documents; golden values verified from the same immutable scenario specification."
+}

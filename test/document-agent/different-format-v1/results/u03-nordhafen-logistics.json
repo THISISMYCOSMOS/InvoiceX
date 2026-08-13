@@ -1,0 +1,477 @@
+{
+  "setId": "u03-nordhafen-logistics",
+  "passed": true,
+  "documentsExact": 4,
+  "documentsTotal": 4,
+  "documentTypeCorrect": 4,
+  "documentTypeTotal": 4,
+  "populatedFieldsCorrect": 43,
+  "populatedFieldsTotal": 43,
+  "nullFieldsCorrect": 13,
+  "nullFieldsTotal": 13,
+  "missingMembershipCorrect": 56,
+  "missingMembershipTotal": 56,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "u03-invoice",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u03-contract",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u03-purchase-order",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u03-delivery-receipt",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "u03-invoice",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "NH-2026-418",
+          "supplierName": "Nordhafen Systems GmbH",
+          "buyerName": "Lumiere Transit SAS",
+          "purchaseOrderNumber": "LT/PO/2605-93",
+          "contractNumber": "LT-NH-C-092",
+          "currency": "EUR",
+          "totalAmount": "3780",
+          "issueDate": "2026-05-22",
+          "dueDate": "2026-06-21",
+          "itemName": "Cold-chain Sensor Module C4",
+          "quantity": "80",
+          "unitPrice": "47.25",
+          "paymentTerms": "Payment within 30 calendar days",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "se-inv-1",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "NH-2026-418"
+          },
+          {
+            "evidenceId": "se-inv-2",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Nordhafen Systems GmbH"
+          },
+          {
+            "evidenceId": "se-inv-3",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Lumiere Transit SAS"
+          },
+          {
+            "evidenceId": "se-inv-4",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "LT/PO/2605-93"
+          },
+          {
+            "evidenceId": "se-inv-5",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "LT-NH-C-092"
+          },
+          {
+            "evidenceId": "se-inv-6",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "currency",
+            "quote": "EUR"
+          },
+          {
+            "evidenceId": "se-inv-7",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,780"
+          },
+          {
+            "evidenceId": "se-inv-8",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-05-22"
+          },
+          {
+            "evidenceId": "se-inv-9",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "2026-06-21"
+          },
+          {
+            "evidenceId": "se-inv-10",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Cold-chain Sensor Module C4"
+          },
+          {
+            "evidenceId": "se-inv-11",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "quantity",
+            "quote": "80"
+          },
+          {
+            "evidenceId": "se-inv-12",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "47.25"
+          },
+          {
+            "evidenceId": "se-inv-13",
+            "documentId": "u03-invoice",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment within 30 calendar days"
+          }
+        ]
+      },
+      {
+        "documentId": "u03-contract",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Nordhafen Systems GmbH",
+          "buyerName": "Lumiere Transit SAS",
+          "purchaseOrderNumber": null,
+          "contractNumber": "LT-NH-C-092",
+          "currency": "EUR",
+          "totalAmount": "3780",
+          "issueDate": null,
+          "dueDate": null,
+          "itemName": "Cold-chain Sensor Module C4",
+          "quantity": "80",
+          "unitPrice": "47.25",
+          "paymentTerms": "Payment within 30 calendar days",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "issueDate",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "se-ctr-1",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Nordhafen Systems GmbH"
+          },
+          {
+            "evidenceId": "se-ctr-2",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Lumiere Transit SAS"
+          },
+          {
+            "evidenceId": "se-ctr-3",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "LT-NH-C-092"
+          },
+          {
+            "evidenceId": "se-ctr-4",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "currency",
+            "quote": "EUR"
+          },
+          {
+            "evidenceId": "se-ctr-5",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,780"
+          },
+          {
+            "evidenceId": "se-ctr-6",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Cold-chain Sensor Module C4"
+          },
+          {
+            "evidenceId": "se-ctr-7",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "quantity",
+            "quote": "80"
+          },
+          {
+            "evidenceId": "se-ctr-8",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "47.25"
+          },
+          {
+            "evidenceId": "se-ctr-9",
+            "documentId": "u03-contract",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment within 30 calendar days"
+          }
+        ]
+      },
+      {
+        "documentId": "u03-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Nordhafen Systems GmbH",
+          "buyerName": "Lumiere Transit SAS",
+          "purchaseOrderNumber": "LT/PO/2605-93",
+          "contractNumber": "LT-NH-C-092",
+          "currency": "EUR",
+          "totalAmount": "3780",
+          "issueDate": "2026-05-02",
+          "dueDate": null,
+          "itemName": "Cold-chain Sensor Module C4",
+          "quantity": "80",
+          "unitPrice": "47.25",
+          "paymentTerms": "Payment within 30 calendar days",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "se-po-1",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Nordhafen Systems GmbH"
+          },
+          {
+            "evidenceId": "se-po-2",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Lumiere Transit SAS"
+          },
+          {
+            "evidenceId": "se-po-3",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "LT/PO/2605-93"
+          },
+          {
+            "evidenceId": "se-po-4",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "LT-NH-C-092"
+          },
+          {
+            "evidenceId": "se-po-5",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "currency",
+            "quote": "EUR"
+          },
+          {
+            "evidenceId": "se-po-6",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,780"
+          },
+          {
+            "evidenceId": "se-po-7",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-05-02"
+          },
+          {
+            "evidenceId": "se-po-8",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Cold-chain Sensor Module C4"
+          },
+          {
+            "evidenceId": "se-po-9",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "quantity",
+            "quote": "80"
+          },
+          {
+            "evidenceId": "se-po-10",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "47.25"
+          },
+          {
+            "evidenceId": "se-po-11",
+            "documentId": "u03-purchase-order",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Payment within 30 calendar days"
+          }
+        ]
+      },
+      {
+        "documentId": "u03-delivery-receipt",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Nordhafen Systems GmbH",
+          "buyerName": "Lumiere Transit SAS",
+          "purchaseOrderNumber": "LT/PO/2605-93",
+          "contractNumber": null,
+          "currency": "EUR",
+          "totalAmount": "3780",
+          "issueDate": "2026-05-20",
+          "dueDate": null,
+          "itemName": "Cold-chain Sensor Module C4",
+          "quantity": "80",
+          "unitPrice": "47.25",
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "contractNumber",
+          "dueDate",
+          "paymentTerms"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "se-del-1",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Nordhafen Systems GmbH"
+          },
+          {
+            "evidenceId": "se-del-2",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Lumiere Transit SAS"
+          },
+          {
+            "evidenceId": "se-del-3",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "LT/PO/2605-93"
+          },
+          {
+            "evidenceId": "se-del-4",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "currency",
+            "quote": "EUR"
+          },
+          {
+            "evidenceId": "se-del-5",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "3,780"
+          },
+          {
+            "evidenceId": "se-del-6",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-05-20"
+          },
+          {
+            "evidenceId": "se-del-7",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Cold-chain Sensor Module C4"
+          },
+          {
+            "evidenceId": "se-del-8",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "quantity",
+            "quote": "80"
+          },
+          {
+            "evidenceId": "se-del-9",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "47.25"
+          },
+          {
+            "evidenceId": "se-del-10",
+            "documentId": "u03-delivery-receipt",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "COMPLETED - received in full"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T09:42:02.052153+00:00",
+  "finishedAt": "2026-08-12T09:19:20.954825+00:00",
+  "durationSeconds": -1361.097
+}

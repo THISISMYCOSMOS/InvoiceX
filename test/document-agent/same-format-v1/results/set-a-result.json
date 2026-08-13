@@ -1,0 +1,14 @@
+{
+  "model": "gemini-3.6-flash",
+  "passed": true,
+  "sets": [
+    {
+      "setId": "set-a-happy-path",
+      "passed": true,
+      "documentCount": 4,
+      "mismatchFields": [],
+      "reviewRequired": false,
+      "failures": []
+    }
+  ]
+}

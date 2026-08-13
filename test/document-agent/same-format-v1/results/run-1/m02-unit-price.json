@@ -1,0 +1,14 @@
+{
+  "setId": "m02-unit-price",
+  "passed": true,
+  "documentCount": 4,
+  "mismatchFields": [
+    "unitPrice"
+  ],
+  "reviewRequired": true,
+  "failures": [],
+  "error": null,
+  "startedAt": "2026-08-12T08:17:53.923760+00:00",
+  "finishedAt": "2026-08-12T08:18:46.787920+00:00",
+  "durationSeconds": 52.864
+}

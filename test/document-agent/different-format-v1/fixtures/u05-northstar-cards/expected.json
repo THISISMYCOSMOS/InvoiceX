@@ -1,0 +1,138 @@
+{
+  "setId": "u05-northstar-cards",
+  "title": "Minimal startup card layout",
+  "scenario": "single mismatch: delivery supplierName differs",
+  "documents": [
+    {
+      "documentId": "u05-invoice",
+      "pdf": "u05-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "NS-2607-0091",
+        "supplierName": "Northstar Components Inc.",
+        "buyerName": "Kiteworks Mobility Corp.",
+        "purchaseOrderNumber": "KW-PO-6107",
+        "contractNumber": "KWNS-SA-26",
+        "currency": "USD",
+        "totalAmount": "3300",
+        "issueDate": "2026-07-07",
+        "dueDate": "2026-08-06",
+        "itemName": "Battery Control Board BCB-2",
+        "quantity": "15",
+        "unitPrice": "220",
+        "paymentTerms": "Due 30 days from invoice issue",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u05-contract",
+      "pdf": "u05-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Northstar Components Inc.",
+        "buyerName": "Kiteworks Mobility Corp.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "KWNS-SA-26",
+        "currency": "USD",
+        "totalAmount": "3300",
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Battery Control Board BCB-2",
+        "quantity": "15",
+        "unitPrice": "220",
+        "paymentTerms": "Due 30 days from invoice issue",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "issueDate",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u05-purchase-order",
+      "pdf": "u05-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Northstar Components Inc.",
+        "buyerName": "Kiteworks Mobility Corp.",
+        "purchaseOrderNumber": "KW-PO-6107",
+        "contractNumber": "KWNS-SA-26",
+        "currency": "USD",
+        "totalAmount": "3300",
+        "issueDate": "2026-06-21",
+        "dueDate": null,
+        "itemName": "Battery Control Board BCB-2",
+        "quantity": "15",
+        "unitPrice": "220",
+        "paymentTerms": "Due 30 days from invoice issue",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u05-delivery-receipt",
+      "pdf": "u05-delivery-receipt.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Northstar Component Inc.",
+        "buyerName": "Kiteworks Mobility Corp.",
+        "purchaseOrderNumber": "KW-PO-6107",
+        "contractNumber": null,
+        "currency": "USD",
+        "totalAmount": "3300",
+        "issueDate": "2026-07-05",
+        "dueDate": null,
+        "itemName": "Battery Control Board BCB-2",
+        "quantity": "15",
+        "unitPrice": "220",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "supplierName",
+      "values": [
+        {
+          "documentId": "u05-invoice",
+          "value": "Northstar Components Inc."
+        },
+        {
+          "documentId": "u05-contract",
+          "value": "Northstar Components Inc."
+        },
+        {
+          "documentId": "u05-purchase-order",
+          "value": "Northstar Components Inc."
+        },
+        {
+          "documentId": "u05-delivery-receipt",
+          "value": "Northstar Component Inc."
+        }
+      ],
+      "description": "Golden mismatch for supplierName."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "provenance": "Programmatically generated synthetic documents; golden values verified from the same immutable scenario specification."
+}

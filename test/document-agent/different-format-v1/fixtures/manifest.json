@@ -1,0 +1,83 @@
+{
+  "suite": "document-agent-blind-company-formats-v1",
+  "setCount": 8,
+  "pdfCount": 32,
+  "sets": [
+    {
+      "setId": "u01-hanseong-erp",
+      "companyStyle": "Korean manufacturing ERP grid",
+      "renderer": "dense",
+      "scenario": "normal",
+      "pdfCount": 4,
+      "expectedMismatchFields": []
+    },
+    {
+      "setId": "u02-atlas-export",
+      "companyStyle": "English exporter commercial form",
+      "renderer": "export",
+      "scenario": "normal",
+      "pdfCount": 4,
+      "expectedMismatchFields": []
+    },
+    {
+      "setId": "u03-nordhafen-logistics",
+      "companyStyle": "Bilingual logistics sidebar form",
+      "renderer": "bilingual",
+      "scenario": "normal",
+      "pdfCount": 4,
+      "expectedMismatchFields": []
+    },
+    {
+      "setId": "u04-crown-legal",
+      "companyStyle": "Two-page legal narrative pack",
+      "renderer": "legal",
+      "scenario": "single mismatch: purchase order totalAmount is 1600",
+      "pdfCount": 4,
+      "expectedMismatchFields": [
+        "totalAmount"
+      ]
+    },
+    {
+      "setId": "u05-northstar-cards",
+      "companyStyle": "Minimal startup card layout",
+      "renderer": "cards",
+      "scenario": "single mismatch: delivery supplierName differs",
+      "pdfCount": 4,
+      "expectedMismatchFields": [
+        "supplierName"
+      ]
+    },
+    {
+      "setId": "u06-sakura-legacy",
+      "companyStyle": "Legacy monochrome fixed-width form",
+      "renderer": "legacy",
+      "scenario": "single mismatch: delivery quantity is 48",
+      "pdfCount": 4,
+      "expectedMismatchFields": [
+        "quantity"
+      ]
+    },
+    {
+      "setId": "u07-vertex-procurement",
+      "companyStyle": "Landscape procurement portal export",
+      "renderer": "landscape",
+      "scenario": "complex mismatch: purchase order currency EUR and totalAmount 4350",
+      "pdfCount": 4,
+      "expectedMismatchFields": [
+        "currency",
+        "totalAmount"
+      ]
+    },
+    {
+      "setId": "u08-daehan-scan",
+      "companyStyle": "Raster-only scanned warehouse forms",
+      "renderer": "scan",
+      "scenario": "complex mismatch: delivery purchaseOrderNumber and itemName differ",
+      "pdfCount": 4,
+      "expectedMismatchFields": [
+        "purchaseOrderNumber",
+        "itemName"
+      ]
+    }
+  ]
+}

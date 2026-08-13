@@ -1,0 +1,12 @@
+{
+  "setId": "n03-number-format",
+  "passed": true,
+  "documentCount": 4,
+  "mismatchFields": [],
+  "reviewRequired": false,
+  "failures": [],
+  "error": null,
+  "startedAt": "2026-08-12T08:16:53.840808+00:00",
+  "finishedAt": "2026-08-12T08:17:21.900640+00:00",
+  "durationSeconds": 28.06
+}

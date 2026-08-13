@@ -1,0 +1,552 @@
+{
+  "setId": "u07-vertex-procurement",
+  "passed": true,
+  "documentsExact": 4,
+  "documentsTotal": 4,
+  "documentTypeCorrect": 4,
+  "documentTypeTotal": 4,
+  "populatedFieldsCorrect": 43,
+  "populatedFieldsTotal": 43,
+  "nullFieldsCorrect": 13,
+  "nullFieldsTotal": 13,
+  "missingMembershipCorrect": 56,
+  "missingMembershipTotal": 56,
+  "mismatchTruePositiveFields": 2,
+  "mismatchExpectedFields": 2,
+  "mismatchActualFields": 2,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [
+    "currency",
+    "totalAmount"
+  ],
+  "actualMismatchFields": [
+    "currency",
+    "totalAmount"
+  ],
+  "documentResults": [
+    {
+      "documentId": "u07-invoice",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u07-contract",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u07-purchase-order",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u07-delivery-receipt",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "u07-invoice",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "VIS-INV-90217",
+          "supplierName": "Vertex Industrial Supply LLC",
+          "buyerName": "Blue Canyon Energy Inc.",
+          "purchaseOrderNumber": "BCE-PO-44219",
+          "contractNumber": "BCE-VIS-MSA-17",
+          "currency": "USD",
+          "totalAmount": "4200",
+          "issueDate": "2026-02-14",
+          "dueDate": "2026-03-16",
+          "itemName": "Valve Actuator VA-56",
+          "quantity": "75",
+          "unitPrice": "56",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "currency",
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-inv-1",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "VIS-INV-90217"
+          },
+          {
+            "evidenceId": "ev-inv-2",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Vertex Industrial Supply LLC"
+          },
+          {
+            "evidenceId": "ev-inv-3",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Blue Canyon Energy Inc."
+          },
+          {
+            "evidenceId": "ev-inv-4",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "BCE-PO-44219"
+          },
+          {
+            "evidenceId": "ev-inv-5",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "BCE-VIS-MSA-17"
+          },
+          {
+            "evidenceId": "ev-inv-6",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-inv-7",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "4,200"
+          },
+          {
+            "evidenceId": "ev-inv-8",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-02-14"
+          },
+          {
+            "evidenceId": "ev-inv-9",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "2026-03-16"
+          },
+          {
+            "evidenceId": "ev-inv-10",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Valve Actuator VA-56"
+          },
+          {
+            "evidenceId": "ev-inv-11",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "quantity",
+            "quote": "75"
+          },
+          {
+            "evidenceId": "ev-inv-12",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "56"
+          },
+          {
+            "evidenceId": "ev-inv-13",
+            "documentId": "u07-invoice",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Net 30"
+          }
+        ]
+      },
+      {
+        "documentId": "u07-contract",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Vertex Industrial Supply LLC",
+          "buyerName": "Blue Canyon Energy Inc.",
+          "purchaseOrderNumber": null,
+          "contractNumber": "BCE-VIS-MSA-17",
+          "currency": "USD",
+          "totalAmount": "4200",
+          "issueDate": null,
+          "dueDate": null,
+          "itemName": "Valve Actuator VA-56",
+          "quantity": "75",
+          "unitPrice": "56",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "issueDate",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "currency",
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-ctr-1",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Vertex Industrial Supply LLC"
+          },
+          {
+            "evidenceId": "ev-ctr-2",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Blue Canyon Energy Inc."
+          },
+          {
+            "evidenceId": "ev-ctr-3",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "BCE-VIS-MSA-17"
+          },
+          {
+            "evidenceId": "ev-ctr-4",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-ctr-5",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "4,200"
+          },
+          {
+            "evidenceId": "ev-ctr-6",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Valve Actuator VA-56"
+          },
+          {
+            "evidenceId": "ev-ctr-7",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "quantity",
+            "quote": "75"
+          },
+          {
+            "evidenceId": "ev-ctr-8",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "56"
+          },
+          {
+            "evidenceId": "ev-ctr-9",
+            "documentId": "u07-contract",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Net 30"
+          }
+        ]
+      },
+      {
+        "documentId": "u07-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Vertex Industrial Supply LLC",
+          "buyerName": "Blue Canyon Energy Inc.",
+          "purchaseOrderNumber": "BCE-PO-44219",
+          "contractNumber": "BCE-VIS-MSA-17",
+          "currency": "EUR",
+          "totalAmount": "4350",
+          "issueDate": "2026-01-22",
+          "dueDate": null,
+          "itemName": "Valve Actuator VA-56",
+          "quantity": "75",
+          "unitPrice": "56",
+          "paymentTerms": "Net 30",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [
+          "currency",
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-po-1",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Vertex Industrial Supply LLC"
+          },
+          {
+            "evidenceId": "ev-po-2",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Blue Canyon Energy Inc."
+          },
+          {
+            "evidenceId": "ev-po-3",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "BCE-PO-44219"
+          },
+          {
+            "evidenceId": "ev-po-4",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "BCE-VIS-MSA-17"
+          },
+          {
+            "evidenceId": "ev-po-5",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "currency",
+            "quote": "EUR"
+          },
+          {
+            "evidenceId": "ev-po-6",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "4,350"
+          },
+          {
+            "evidenceId": "ev-po-7",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-01-22"
+          },
+          {
+            "evidenceId": "ev-po-8",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Valve Actuator VA-56"
+          },
+          {
+            "evidenceId": "ev-po-9",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "quantity",
+            "quote": "75"
+          },
+          {
+            "evidenceId": "ev-po-10",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "56"
+          },
+          {
+            "evidenceId": "ev-po-11",
+            "documentId": "u07-purchase-order",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "Net 30"
+          }
+        ]
+      },
+      {
+        "documentId": "u07-delivery-receipt",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Vertex Industrial Supply LLC",
+          "buyerName": "Blue Canyon Energy Inc.",
+          "purchaseOrderNumber": "BCE-PO-44219",
+          "contractNumber": null,
+          "currency": "USD",
+          "totalAmount": "4200",
+          "issueDate": "2026-02-11",
+          "dueDate": null,
+          "itemName": "Valve Actuator VA-56",
+          "quantity": "75",
+          "unitPrice": "56",
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "contractNumber",
+          "dueDate",
+          "paymentTerms"
+        ],
+        "reviewFields": [
+          "currency",
+          "totalAmount"
+        ],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-del-1",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "Vertex Industrial Supply LLC"
+          },
+          {
+            "evidenceId": "ev-del-2",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "Blue Canyon Energy Inc."
+          },
+          {
+            "evidenceId": "ev-del-3",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "BCE-PO-44219"
+          },
+          {
+            "evidenceId": "ev-del-4",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "currency",
+            "quote": "USD"
+          },
+          {
+            "evidenceId": "ev-del-5",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "4,200"
+          },
+          {
+            "evidenceId": "ev-del-6",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "2026-02-11"
+          },
+          {
+            "evidenceId": "ev-del-7",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "itemName",
+            "quote": "Valve Actuator VA-56"
+          },
+          {
+            "evidenceId": "ev-del-8",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "quantity",
+            "quote": "75"
+          },
+          {
+            "evidenceId": "ev-del-9",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "56"
+          },
+          {
+            "evidenceId": "ev-del-10",
+            "documentId": "u07-delivery-receipt",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "COMPLETED - received in full"
+          }
+        ]
+      }
+    ],
+    "mismatches": [
+      {
+        "field": "currency",
+        "values": [
+          {
+            "documentId": "u07-invoice",
+            "value": "USD"
+          },
+          {
+            "documentId": "u07-contract",
+            "value": "USD"
+          },
+          {
+            "documentId": "u07-purchase-order",
+            "value": "EUR"
+          },
+          {
+            "documentId": "u07-delivery-receipt",
+            "value": "USD"
+          }
+        ],
+        "description": "Normalized currency values differ across 4 documents.",
+        "sourceEvidenceIds": [
+          "ev-inv-6",
+          "ev-ctr-4",
+          "ev-po-5",
+          "ev-del-4"
+        ]
+      },
+      {
+        "field": "totalAmount",
+        "values": [
+          {
+            "documentId": "u07-invoice",
+            "value": "4200"
+          },
+          {
+            "documentId": "u07-contract",
+            "value": "4200"
+          },
+          {
+            "documentId": "u07-purchase-order",
+            "value": "4350"
+          },
+          {
+            "documentId": "u07-delivery-receipt",
+            "value": "4200"
+          }
+        ],
+        "description": "Normalized totalAmount values differ across 4 documents.",
+        "sourceEvidenceIds": [
+          "ev-inv-7",
+          "ev-ctr-5",
+          "ev-po-6",
+          "ev-del-5"
+        ]
+      }
+    ],
+    "reviewRequired": true
+  },
+  "error": null,
+  "startedAt": "2026-08-12T09:23:06.888863+00:00",
+  "finishedAt": "2026-08-12T09:23:33.200028+00:00",
+  "durationSeconds": 26.311
+}

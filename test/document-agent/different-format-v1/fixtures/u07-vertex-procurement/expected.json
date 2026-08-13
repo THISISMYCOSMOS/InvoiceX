@@ -1,0 +1,160 @@
+{
+  "setId": "u07-vertex-procurement",
+  "title": "Landscape procurement portal export",
+  "scenario": "complex mismatch: purchase order currency EUR and totalAmount 4350",
+  "documents": [
+    {
+      "documentId": "u07-invoice",
+      "pdf": "u07-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "VIS-INV-90217",
+        "supplierName": "Vertex Industrial Supply LLC",
+        "buyerName": "Blue Canyon Energy Inc.",
+        "purchaseOrderNumber": "BCE-PO-44219",
+        "contractNumber": "BCE-VIS-MSA-17",
+        "currency": "USD",
+        "totalAmount": "4200",
+        "issueDate": "2026-02-14",
+        "dueDate": "2026-03-16",
+        "itemName": "Valve Actuator VA-56",
+        "quantity": "75",
+        "unitPrice": "56",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u07-contract",
+      "pdf": "u07-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Vertex Industrial Supply LLC",
+        "buyerName": "Blue Canyon Energy Inc.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "BCE-VIS-MSA-17",
+        "currency": "USD",
+        "totalAmount": "4200",
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Valve Actuator VA-56",
+        "quantity": "75",
+        "unitPrice": "56",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "issueDate",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u07-purchase-order",
+      "pdf": "u07-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Vertex Industrial Supply LLC",
+        "buyerName": "Blue Canyon Energy Inc.",
+        "purchaseOrderNumber": "BCE-PO-44219",
+        "contractNumber": "BCE-VIS-MSA-17",
+        "currency": "EUR",
+        "totalAmount": "4350",
+        "issueDate": "2026-01-22",
+        "dueDate": null,
+        "itemName": "Valve Actuator VA-56",
+        "quantity": "75",
+        "unitPrice": "56",
+        "paymentTerms": "Net 30",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u07-delivery-receipt",
+      "pdf": "u07-delivery-receipt.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Vertex Industrial Supply LLC",
+        "buyerName": "Blue Canyon Energy Inc.",
+        "purchaseOrderNumber": "BCE-PO-44219",
+        "contractNumber": null,
+        "currency": "USD",
+        "totalAmount": "4200",
+        "issueDate": "2026-02-11",
+        "dueDate": null,
+        "itemName": "Valve Actuator VA-56",
+        "quantity": "75",
+        "unitPrice": "56",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "currency",
+      "values": [
+        {
+          "documentId": "u07-invoice",
+          "value": "USD"
+        },
+        {
+          "documentId": "u07-contract",
+          "value": "USD"
+        },
+        {
+          "documentId": "u07-purchase-order",
+          "value": "EUR"
+        },
+        {
+          "documentId": "u07-delivery-receipt",
+          "value": "USD"
+        }
+      ],
+      "description": "Golden mismatch for currency."
+    },
+    {
+      "field": "totalAmount",
+      "values": [
+        {
+          "documentId": "u07-invoice",
+          "value": "4200"
+        },
+        {
+          "documentId": "u07-contract",
+          "value": "4200"
+        },
+        {
+          "documentId": "u07-purchase-order",
+          "value": "4350"
+        },
+        {
+          "documentId": "u07-delivery-receipt",
+          "value": "4200"
+        }
+      ],
+      "description": "Golden mismatch for totalAmount."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "provenance": "Programmatically generated synthetic documents; golden values verified from the same immutable scenario specification."
+}

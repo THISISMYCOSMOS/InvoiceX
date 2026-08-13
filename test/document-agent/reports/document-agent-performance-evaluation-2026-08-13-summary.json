@@ -1,0 +1,144 @@
+{
+  "reportDate": "2026-08-13",
+  "sourceCommit": "9298e1feb3d1894a9e86808277b86c64c2d2e01f",
+  "model": "gemini-3.6-flash",
+  "measurementRule": "Semantic accuracy denominators include only unique cases that returned a valid structured result. API/quota failures are reported separately.",
+  "testGroups": {
+    "sameFormat": {
+      "designedCases": 19,
+      "measuredCases": 11,
+      "unmeasuredCases": 8,
+      "exactCases": 11,
+      "documentsExact": 44,
+      "documentsTotal": 44,
+      "fieldCorrect": 616,
+      "fieldTotal": 616,
+      "mismatchTP": 11,
+      "mismatchFP": 0,
+      "mismatchFN": 0,
+      "availabilityNote": "8 cases returned HTTP 429 before a structured result."
+    },
+    "differentFormat": {
+      "designedSets": 8,
+      "measuredSets": 7,
+      "unmeasuredSets": 1,
+      "exactSets": 7,
+      "documentsExact": 28,
+      "documentsTotal": 28,
+      "documentTypeCorrect": 28,
+      "documentTypeTotal": 28,
+      "populatedCorrect": 301,
+      "populatedTotal": 301,
+      "nullCorrect": 91,
+      "nullTotal": 91,
+      "fieldCorrect": 392,
+      "fieldTotal": 392,
+      "missingCorrect": 392,
+      "missingTotal": 392,
+      "mismatchTruePositiveFields": 5,
+      "mismatchExpectedFields": 5,
+      "mismatchActualFields": 5,
+      "mismatchFalsePositiveFields": 0,
+      "mismatchFalseNegativeFields": 0,
+      "reviewDecisionCorrect": 7,
+      "reviewDecisionTotal": 7,
+      "initialCalls": 8,
+      "retryCalls": 3,
+      "totalCalls": 11,
+      "usableCallResults": 7,
+      "measuredSetIds": [
+        "u01-hanseong-erp",
+        "u02-atlas-export",
+        "u03-nordhafen-logistics",
+        "u04-crown-legal",
+        "u05-northstar-cards",
+        "u06-sakura-legacy",
+        "u07-vertex-procurement"
+      ],
+      "unmeasuredSetIds": [
+        "u08-daehan-scan"
+      ],
+      "unmeasuredReason": "u08 raster-only scan returned HTTP 503 twice; no structured result.",
+      "timingMetricExcluded": "u03 raw result contains a clock anomaly, so per-case latency was not aggregated.",
+      "resultFiles": [
+        "results/u01-hanseong-erp.json",
+        "results/u02-atlas-export.json",
+        "results/u03-nordhafen-logistics.json",
+        "results/u04-crown-legal.json",
+        "results/u05-northstar-cards.json",
+        "results/u06-sakura-legacy.json",
+        "results/u07-vertex-procurement.json",
+        "results/u08-daehan-scan.json"
+      ]
+    },
+    "realPublicFormat": {
+      "designedCases": 8,
+      "measuredCases": 7,
+      "unmeasuredCases": 1,
+      "strictExactCases": 6,
+      "documentsExact": 6,
+      "documentsTotal": 7,
+      "documentTypeCorrect": 6,
+      "documentTypeTotal": 7,
+      "fieldCorrect": 98,
+      "fieldTotal": 98,
+      "totalCalls": 10,
+      "usableCallResults": 7,
+      "notes": [
+        "GSA 3025 returned AI_RESPONSE_INVALID twice and remains unmeasured.",
+        "SF 1449 extracted all 14 fields but was labelled PURCHASE_ORDER instead of the strict CONTRACT target."
+      ]
+    }
+  },
+  "aggregateConditionalResults": {
+    "designedCases": 35,
+    "measuredCases": 25,
+    "unmeasuredCases": 10,
+    "strictExactCases": 24,
+    "documentsExact": 78,
+    "documentsTotal": 79,
+    "documentTypeCorrect": 78,
+    "documentTypeTotal": 79,
+    "fieldCorrect": 1106,
+    "fieldTotal": 1106,
+    "populatedCorrect": 826,
+    "populatedTotal": 826,
+    "nullCorrect": 280,
+    "nullTotal": 280
+  },
+  "crossDocumentMismatchResults": {
+    "applicableMeasuredCases": 18,
+    "expectedMismatchFields": 16,
+    "truePositiveFields": 16,
+    "falsePositiveFields": 0,
+    "falseNegativeFields": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "reviewDecisionCorrect": 18,
+    "reviewDecisionTotal": 18,
+    "excludedSuite": "real-public-v1 uses one document per case, so cross-document mismatch is not applicable."
+  },
+  "availabilityCoverage": {
+    "measuredUniqueCases": 25,
+    "designedUniqueCases": 35,
+    "coverage": 0.7142857142857143
+  },
+  "limitations": [
+    "Each measured case has one successful run; repeatability and confidence intervals were not measured.",
+    "Public-form fixtures use public layouts with synthetic known values, not live company transactions.",
+    "Authenticity, fabrication, and document manipulation detection are outside the measured scope and require human or external verification.",
+    "API/quota errors are availability outcomes, not semantic extraction errors."
+  ],
+  "shortImprovementDirections": [
+    "Repeat each representative case 10 times and report mean and worst-case accuracy.",
+    "Capture GSA 3025 invalid raw response shape and add an explicit schema validation/repair path without hiding the error.",
+    "Define a multi-purpose form type rubric or multi-label policy for SF 1449 before retesting.",
+    "Rerun the eight quota-blocked cases and the raster-only scan under fixed quota and unchanged fixtures."
+  ],
+  "evidence": {
+    "sameFormat": "../same-format-v1/",
+    "differentFormat": "../different-format-v1/",
+    "realPublicFormat": "../real-public-v1/"
+  }
+}

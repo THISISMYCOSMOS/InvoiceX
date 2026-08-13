@@ -1,0 +1,53 @@
+{
+  "designedSets": 8,
+  "measuredSets": 7,
+  "unmeasuredSets": 1,
+  "exactSets": 7,
+  "documentsExact": 28,
+  "documentsTotal": 28,
+  "documentTypeCorrect": 28,
+  "documentTypeTotal": 28,
+  "populatedCorrect": 301,
+  "populatedTotal": 301,
+  "nullCorrect": 91,
+  "nullTotal": 91,
+  "fieldCorrect": 392,
+  "fieldTotal": 392,
+  "missingCorrect": 392,
+  "missingTotal": 392,
+  "mismatchTruePositiveFields": 5,
+  "mismatchExpectedFields": 5,
+  "mismatchActualFields": 5,
+  "mismatchFalsePositiveFields": 0,
+  "mismatchFalseNegativeFields": 0,
+  "reviewDecisionCorrect": 7,
+  "reviewDecisionTotal": 7,
+  "initialCalls": 8,
+  "retryCalls": 3,
+  "totalCalls": 11,
+  "usableCallResults": 7,
+  "measuredSetIds": [
+    "u01-hanseong-erp",
+    "u02-atlas-export",
+    "u03-nordhafen-logistics",
+    "u04-crown-legal",
+    "u05-northstar-cards",
+    "u06-sakura-legacy",
+    "u07-vertex-procurement"
+  ],
+  "unmeasuredSetIds": [
+    "u08-daehan-scan"
+  ],
+  "unmeasuredReason": "u08 raster-only scan returned HTTP 503 twice; no structured result.",
+  "timingMetricExcluded": "u03 raw result contains a clock anomaly, so per-case latency was not aggregated.",
+  "resultFiles": [
+    "results/u01-hanseong-erp.json",
+    "results/u02-atlas-export.json",
+    "results/u03-nordhafen-logistics.json",
+    "results/u04-crown-legal.json",
+    "results/u05-northstar-cards.json",
+    "results/u06-sakura-legacy.json",
+    "results/u07-vertex-procurement.json",
+    "results/u08-daehan-scan.json"
+  ]
+}

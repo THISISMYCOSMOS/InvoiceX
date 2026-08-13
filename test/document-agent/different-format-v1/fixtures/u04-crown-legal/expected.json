@@ -1,0 +1,138 @@
+{
+  "setId": "u04-crown-legal",
+  "title": "Two-page legal narrative pack",
+  "scenario": "single mismatch: purchase order totalAmount is 1600",
+  "documents": [
+    {
+      "documentId": "u04-invoice",
+      "pdf": "u04-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "CBI/INV/6402",
+        "supplierName": "Crownbridge Instrumentation Ltd.",
+        "buyerName": "Harbor Fieldworks PLC",
+        "purchaseOrderNumber": "HF-PO-11984",
+        "contractNumber": "HF-CBI-2026-08",
+        "currency": "GBP",
+        "totalAmount": "1548",
+        "issueDate": "2026-04-08",
+        "dueDate": "2026-05-08",
+        "itemName": "Pressure Relay PR-9",
+        "quantity": "12",
+        "unitPrice": "129",
+        "paymentTerms": "Net 30 days following invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u04-contract",
+      "pdf": "u04-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Crownbridge Instrumentation Ltd.",
+        "buyerName": "Harbor Fieldworks PLC",
+        "purchaseOrderNumber": null,
+        "contractNumber": "HF-CBI-2026-08",
+        "currency": "GBP",
+        "totalAmount": "1548",
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Pressure Relay PR-9",
+        "quantity": "12",
+        "unitPrice": "129",
+        "paymentTerms": "Net 30 days following invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "issueDate",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u04-purchase-order",
+      "pdf": "u04-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Crownbridge Instrumentation Ltd.",
+        "buyerName": "Harbor Fieldworks PLC",
+        "purchaseOrderNumber": "HF-PO-11984",
+        "contractNumber": "HF-CBI-2026-08",
+        "currency": "GBP",
+        "totalAmount": "1600",
+        "issueDate": "2026-03-12",
+        "dueDate": null,
+        "itemName": "Pressure Relay PR-9",
+        "quantity": "12",
+        "unitPrice": "129",
+        "paymentTerms": "Net 30 days following invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "deliveryCompleted"
+      ]
+    },
+    {
+      "documentId": "u04-delivery-receipt",
+      "pdf": "u04-delivery-receipt.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Crownbridge Instrumentation Ltd.",
+        "buyerName": "Harbor Fieldworks PLC",
+        "purchaseOrderNumber": "HF-PO-11984",
+        "contractNumber": null,
+        "currency": "GBP",
+        "totalAmount": "1548",
+        "issueDate": "2026-04-05",
+        "dueDate": null,
+        "itemName": "Pressure Relay PR-9",
+        "quantity": "12",
+        "unitPrice": "129",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ]
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "totalAmount",
+      "values": [
+        {
+          "documentId": "u04-invoice",
+          "value": "1548"
+        },
+        {
+          "documentId": "u04-contract",
+          "value": "1548"
+        },
+        {
+          "documentId": "u04-purchase-order",
+          "value": "1600"
+        },
+        {
+          "documentId": "u04-delivery-receipt",
+          "value": "1548"
+        }
+      ],
+      "description": "Golden mismatch for totalAmount."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "provenance": "Programmatically generated synthetic documents; golden values verified from the same immutable scenario specification."
+}

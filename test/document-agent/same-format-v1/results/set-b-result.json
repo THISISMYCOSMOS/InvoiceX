@@ -1,0 +1,17 @@
+{
+  "model": "gemini-3.6-flash",
+  "passed": true,
+  "sets": [
+    {
+      "setId": "set-b-amount-mismatch",
+      "passed": true,
+      "documentCount": 4,
+      "mismatchFields": [
+        "totalAmount",
+        "unitPrice"
+      ],
+      "reviewRequired": true,
+      "failures": []
+    }
+  ]
+}

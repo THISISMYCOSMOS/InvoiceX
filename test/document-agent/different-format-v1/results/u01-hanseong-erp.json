@@ -1,0 +1,477 @@
+{
+  "setId": "u01-hanseong-erp",
+  "passed": true,
+  "documentsExact": 4,
+  "documentsTotal": 4,
+  "documentTypeCorrect": 4,
+  "documentTypeTotal": 4,
+  "populatedFieldsCorrect": 43,
+  "populatedFieldsTotal": 43,
+  "nullFieldsCorrect": 13,
+  "nullFieldsTotal": 13,
+  "missingMembershipCorrect": 56,
+  "missingMembershipTotal": 56,
+  "mismatchTruePositiveFields": 0,
+  "mismatchExpectedFields": 0,
+  "mismatchActualFields": 0,
+  "mismatchMapExact": true,
+  "reviewRequiredCorrect": true,
+  "expectedMismatchFields": [],
+  "actualMismatchFields": [],
+  "documentResults": [
+    {
+      "documentId": "u01-invoice",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u01-contract",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u01-purchase-order",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    },
+    {
+      "documentId": "u01-delivery-receipt",
+      "exact": true,
+      "typeCorrect": true,
+      "fieldErrors": [],
+      "missingFieldsExact": true
+    }
+  ],
+  "failures": [],
+  "actual": {
+    "schemaVersion": "document-agent.v1",
+    "documents": [
+      {
+        "documentId": "u01-invoice",
+        "documentType": "INVOICE",
+        "extractedData": {
+          "invoiceNumber": "HS-INV-260812",
+          "supplierName": "Hanseong Precision Co., Ltd.",
+          "buyerName": "Mirae Robotics Co., Ltd.",
+          "purchaseOrderNumber": "MR-PO-260701",
+          "contractNumber": "MR-HS-2026-04",
+          "currency": "KRW",
+          "totalAmount": "3000000",
+          "issueDate": "2026-08-12",
+          "dueDate": "2026-09-11",
+          "itemName": "Servo Housing Type S7",
+          "quantity": "24",
+          "unitPrice": "125000",
+          "paymentTerms": "Net 30 days from invoice date",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-inv-1",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "invoiceNumber",
+            "quote": "INVOICE NO. HS-INV-260812"
+          },
+          {
+            "evidenceId": "ev-inv-2",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "PURCHASE ORDER NO. MR-PO-260701"
+          },
+          {
+            "evidenceId": "ev-inv-3",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CONTRACT NO. MR-HS-2026-04"
+          },
+          {
+            "evidenceId": "ev-inv-4",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "ISSUE DATE 2026-08-12"
+          },
+          {
+            "evidenceId": "ev-inv-5",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "dueDate",
+            "quote": "PAYMENT DUE DATE 2026-09-11"
+          },
+          {
+            "evidenceId": "ev-inv-6",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "SUPPLIER Hanseong Precision Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-inv-7",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "BUYER Mirae Robotics Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-inv-8",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "currency",
+            "quote": "CURRENCY KRW"
+          },
+          {
+            "evidenceId": "ev-inv-9",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "itemName",
+            "quote": "ITEM DESCRIPTION Servo Housing Type S7"
+          },
+          {
+            "evidenceId": "ev-inv-10",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "quantity",
+            "quote": "QUANTITY 24"
+          },
+          {
+            "evidenceId": "ev-inv-11",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "UNIT PRICE 125,000"
+          },
+          {
+            "evidenceId": "ev-inv-12",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "TOTAL AMOUNT 3,000,000"
+          },
+          {
+            "evidenceId": "ev-inv-13",
+            "documentId": "u01-invoice",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "PAYMENT TERMS Net 30 days from invoice date"
+          }
+        ]
+      },
+      {
+        "documentId": "u01-contract",
+        "documentType": "CONTRACT",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Hanseong Precision Co., Ltd.",
+          "buyerName": "Mirae Robotics Co., Ltd.",
+          "purchaseOrderNumber": null,
+          "contractNumber": "MR-HS-2026-04",
+          "currency": "KRW",
+          "totalAmount": "3000000",
+          "issueDate": null,
+          "dueDate": null,
+          "itemName": "Servo Housing Type S7",
+          "quantity": "24",
+          "unitPrice": "125000",
+          "paymentTerms": "Net 30 days from invoice date",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "purchaseOrderNumber",
+          "issueDate",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-ctr-1",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CONTRACT NO. MR-HS-2026-04"
+          },
+          {
+            "evidenceId": "ev-ctr-2",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "SUPPLIER Hanseong Precision Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-ctr-3",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "BUYER Mirae Robotics Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-ctr-4",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "currency",
+            "quote": "CURRENCY KRW"
+          },
+          {
+            "evidenceId": "ev-ctr-5",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "itemName",
+            "quote": "ITEM DESCRIPTION Servo Housing Type S7"
+          },
+          {
+            "evidenceId": "ev-ctr-6",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "quantity",
+            "quote": "QUANTITY 24"
+          },
+          {
+            "evidenceId": "ev-ctr-7",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "UNIT PRICE 125,000"
+          },
+          {
+            "evidenceId": "ev-ctr-8",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "TOTAL AMOUNT 3,000,000"
+          },
+          {
+            "evidenceId": "ev-ctr-9",
+            "documentId": "u01-contract",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "PAYMENT TERMS Net 30 days from invoice date"
+          }
+        ]
+      },
+      {
+        "documentId": "u01-purchase-order",
+        "documentType": "PURCHASE_ORDER",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Hanseong Precision Co., Ltd.",
+          "buyerName": "Mirae Robotics Co., Ltd.",
+          "purchaseOrderNumber": "MR-PO-260701",
+          "contractNumber": "MR-HS-2026-04",
+          "currency": "KRW",
+          "totalAmount": "3000000",
+          "issueDate": "2026-07-01",
+          "dueDate": null,
+          "itemName": "Servo Housing Type S7",
+          "quantity": "24",
+          "unitPrice": "125000",
+          "paymentTerms": "Net 30 days from invoice date",
+          "deliveryCompleted": null
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "dueDate",
+          "deliveryCompleted"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-po-1",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "PURCHASE ORDER NO. MR-PO-260701"
+          },
+          {
+            "evidenceId": "ev-po-2",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "contractNumber",
+            "quote": "CONTRACT NO. MR-HS-2026-04"
+          },
+          {
+            "evidenceId": "ev-po-3",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "ISSUE DATE 2026-07-01"
+          },
+          {
+            "evidenceId": "ev-po-4",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "SUPPLIER Hanseong Precision Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-po-5",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "BUYER Mirae Robotics Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-po-6",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "currency",
+            "quote": "CURRENCY KRW"
+          },
+          {
+            "evidenceId": "ev-po-7",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "itemName",
+            "quote": "ITEM DESCRIPTION Servo Housing Type S7"
+          },
+          {
+            "evidenceId": "ev-po-8",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "quantity",
+            "quote": "QUANTITY 24"
+          },
+          {
+            "evidenceId": "ev-po-9",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "UNIT PRICE 125,000"
+          },
+          {
+            "evidenceId": "ev-po-10",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "TOTAL AMOUNT 3,000,000"
+          },
+          {
+            "evidenceId": "ev-po-11",
+            "documentId": "u01-purchase-order",
+            "page": 1,
+            "field": "paymentTerms",
+            "quote": "PAYMENT TERMS Net 30 days from invoice date"
+          }
+        ]
+      },
+      {
+        "documentId": "u01-delivery-receipt",
+        "documentType": "DELIVERY_EVIDENCE",
+        "extractedData": {
+          "invoiceNumber": null,
+          "supplierName": "Hanseong Precision Co., Ltd.",
+          "buyerName": "Mirae Robotics Co., Ltd.",
+          "purchaseOrderNumber": "MR-PO-260701",
+          "contractNumber": null,
+          "currency": "KRW",
+          "totalAmount": "3000000",
+          "issueDate": "2026-08-09",
+          "dueDate": null,
+          "itemName": "Servo Housing Type S7",
+          "quantity": "24",
+          "unitPrice": "125000",
+          "paymentTerms": null,
+          "deliveryCompleted": true
+        },
+        "missingFields": [
+          "invoiceNumber",
+          "contractNumber",
+          "dueDate",
+          "paymentTerms"
+        ],
+        "reviewFields": [],
+        "sourceEvidence": [
+          {
+            "evidenceId": "ev-del-1",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "purchaseOrderNumber",
+            "quote": "PURCHASE ORDER NO. MR-PO-260701"
+          },
+          {
+            "evidenceId": "ev-del-2",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "issueDate",
+            "quote": "ISSUE DATE 2026-08-09"
+          },
+          {
+            "evidenceId": "ev-del-3",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "supplierName",
+            "quote": "SUPPLIER Hanseong Precision Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-del-4",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "buyerName",
+            "quote": "BUYER Mirae Robotics Co., Ltd."
+          },
+          {
+            "evidenceId": "ev-del-5",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "currency",
+            "quote": "CURRENCY KRW"
+          },
+          {
+            "evidenceId": "ev-del-6",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "itemName",
+            "quote": "ITEM DESCRIPTION Servo Housing Type S7"
+          },
+          {
+            "evidenceId": "ev-del-7",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "quantity",
+            "quote": "QUANTITY 24"
+          },
+          {
+            "evidenceId": "ev-del-8",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "unitPrice",
+            "quote": "UNIT PRICE 125,000"
+          },
+          {
+            "evidenceId": "ev-del-9",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "totalAmount",
+            "quote": "TOTAL AMOUNT 3,000,000"
+          },
+          {
+            "evidenceId": "ev-del-10",
+            "documentId": "u01-delivery-receipt",
+            "page": 1,
+            "field": "deliveryCompleted",
+            "quote": "DELIVERY STATUS COMPLETED - received in full"
+          }
+        ]
+      }
+    ],
+    "mismatches": [],
+    "reviewRequired": false
+  },
+  "error": null,
+  "startedAt": "2026-08-12T10:10:20.061937+00:00",
+  "finishedAt": "2026-08-12T10:11:11.521574+00:00",
+  "durationSeconds": 51.46
+}

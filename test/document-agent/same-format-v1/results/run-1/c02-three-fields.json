@@ -1,0 +1,16 @@
+{
+  "setId": "c02-three-fields",
+  "passed": true,
+  "documentCount": 4,
+  "mismatchFields": [
+    "buyerName",
+    "currency",
+    "quantity"
+  ],
+  "reviewRequired": true,
+  "failures": [],
+  "error": null,
+  "startedAt": "2026-08-12T08:20:19.431860+00:00",
+  "finishedAt": "2026-08-12T08:20:57.270833+00:00",
+  "durationSeconds": 37.839
+}

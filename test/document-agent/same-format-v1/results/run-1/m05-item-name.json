@@ -1,0 +1,20 @@
+{
+  "setId": "m05-item-name",
+  "passed": false,
+  "documentCount": 0,
+  "mismatchFields": [],
+  "reviewRequired": null,
+  "failures": [
+    "AI_TEMPORARILY_UNAVAILABLE"
+  ],
+  "error": {
+    "code": "AI_TEMPORARILY_UNAVAILABLE",
+    "message": "분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.",
+    "retryable": true,
+    "exceptionType": "GeminiInvocationError",
+    "statusCode": 429
+  },
+  "startedAt": "2026-08-12T08:18:49.705354+00:00",
+  "finishedAt": "2026-08-12T08:18:50.628986+00:00",
+  "durationSeconds": 0.924
+}

@@ -1,0 +1,151 @@
+{
+  "setId": "m05-item-name",
+  "title": "Single itemName mismatch",
+  "documents": [
+    {
+      "documentId": "m05-invoice",
+      "pdf": "m05-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "INV-2026-0001",
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1001",
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": "3000",
+        "issueDate": "2026-07-29",
+        "dueDate": "2026-10-30",
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "30",
+        "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "m05-contract",
+      "pdf": "m05-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": null,
+        "unitPrice": "30",
+        "paymentTerms": "청구서 발행일로부터 93일 이내 지급",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약서에는 개별 청구 건의 번호·금액·만기일이 없다. 해당 필드는 누락으로 선언되어야 한다."
+    },
+    {
+      "documentId": "m05-purchase-order",
+      "pdf": "m05-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1001",
+        "contractNumber": "CT-2026-0007",
+        "currency": "KRW",
+        "totalAmount": "3000",
+        "issueDate": "2026-07-01",
+        "dueDate": null,
+        "itemName": "정밀 가공 부품",
+        "quantity": "100",
+        "unitPrice": "30",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주일은 발주서 자체의 발행일이며 청구서 발행일과 다르다. 불일치가 아니다."
+    },
+    {
+      "documentId": "m05-delivery-note",
+      "pdf": "m05-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "(주)알파컴포넌츠",
+        "buyerName": "(주)프라임모빌리티",
+        "purchaseOrderNumber": "PO-2026-1001",
+        "contractNumber": null,
+        "currency": "KRW",
+        "totalAmount": "3000",
+        "issueDate": "2026-07-24",
+        "dueDate": null,
+        "itemName": "Precision Part B",
+        "quantity": "100",
+        "unitPrice": "30",
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "dueDate",
+        "paymentTerms"
+      ],
+      "note": "납품 완료 사실을 확인하는 증빙이다. 지급 만기일과 계약번호는 담지 않는다."
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "itemName",
+      "values": [
+        {
+          "documentId": "m05-invoice",
+          "value": "정밀 가공 부품"
+        },
+        {
+          "documentId": "m05-contract",
+          "value": "정밀 가공 부품"
+        },
+        {
+          "documentId": "m05-purchase-order",
+          "value": "정밀 가공 부품"
+        },
+        {
+          "documentId": "m05-delivery-note",
+          "value": "Precision Part B"
+        }
+      ],
+      "description": "Expected itemName mismatch for scenario evaluation."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "notes": [],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

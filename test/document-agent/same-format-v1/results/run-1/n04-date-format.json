@@ -1,0 +1,12 @@
+{
+  "setId": "n04-date-format",
+  "passed": true,
+  "documentCount": 4,
+  "mismatchFields": [],
+  "reviewRequired": false,
+  "failures": [],
+  "error": null,
+  "startedAt": "2026-08-12T08:17:22.908043+00:00",
+  "finishedAt": "2026-08-12T08:17:50.987069+00:00",
+  "durationSeconds": 28.079
+}
