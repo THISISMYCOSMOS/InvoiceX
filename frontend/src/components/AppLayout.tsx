@@ -17,7 +17,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const isBuyer = pathname.startsWith("/buyer");
   const isInvestor = pathname.startsWith("/investor");
   const isInvestorActivity = pathname.startsWith("/investor/activities/");
-  const isInvestorSetup = pathname === "/investor/setup";
+  const isInvestorPolicy = pathname === "/investor/investment-policy";
+  const isInvestorVault = pathname === "/investor/vault";
+  const isInvestorProfile = pathname === "/investor/profile";
   const detailInvoiceId = pathname.match(/^\/(?:supplier|buyer)\/invoices\/([^/]+)/)?.[1] ?? "";
   const detailInvoice = useInvoice(detailInvoiceId, Boolean(detailInvoiceId));
   const invoices = useInvoices();
@@ -44,13 +46,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const buyerPaymentPath = buyerPaymentInvoice
     ? `/buyer/invoices/${buyerPaymentInvoice.id}?section=payment`
     : "/buyer";
-  const investorActivityInvoice = invoices.data?.find((invoice) => (
-    Boolean(invoice.agentDecision || invoice.rwaAsset)
-  ));
-  const investorActivityPath = investorActivityInvoice
-    ? `/investor/activities/${investorActivityInvoice.id}`
-    : "/investor";
-  const investorActivityStatus = investorActivityInvoice?.agentDecision?.status;
   const switchRole = async (event: ChangeEvent<HTMLSelectElement>) => {
     const nextRole = event.target.value;
     const account = DEMO_ACCOUNTS.find((candidate) => candidate.role.toUpperCase() === nextRole);
@@ -109,18 +104,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {t("Buyer verified", "구매기업 확인 완료")}
               </span>
             )}
-            {isInvestor && (
-              <span className="topbar-status-pill topbar-status-pill--purple">
-                {isInvestorActivity
-                  ? investorActivityStatus === "EXECUTED"
-                    ? t("Investment completed", "투자 완료")
-                    : investorActivityStatus === "REJECTED"
-                      ? t("Investment not approved", "투자 미승인")
-                      : t("Investment evaluation", "투자 평가")
-                  : t("Auto-invest active", "자동 투자 활성")}
-              </span>
-            )}
-            <span className="user-avatar" aria-hidden="true" />
             <strong>{company}</strong>
           </div>
         </header>
@@ -161,16 +144,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
             ) : isInvestor ? (
               <nav className="sidebar-nav" aria-label={t("Investor navigation", "투자자 내비게이션")}>
                 <Link className={pathname === "/investor" ? "is-active" : ""} to="/investor">
-                  {t("Overview", "개요")}
+                  {t("Dashboard", "Dashboard")}
                 </Link>
                 <Link
                   className={isInvestorActivity ? "is-active" : ""}
-                  to={investorActivityPath}
+                  to="/investor/activities"
                 >
                   {t("Agent Activity", "에이전트 활동")}
                 </Link>
-                <Link className={isInvestorSetup ? "is-active" : ""} to="/investor/setup">
-                  {t("Settings", "설정")}
+                <Link className={isInvestorPolicy ? "is-active" : ""} to="/investor/investment-policy">
+                  {t("Investment Policy", "Investment Policy")}
+                </Link>
+                <Link className={isInvestorVault ? "is-active" : ""} to="/investor/vault">
+                  Vault
+                </Link>
+                <Link className={isInvestorProfile ? "is-active" : ""} to="/investor/profile">
+                  Profile
                 </Link>
               </nav>
             ) : (

@@ -4,6 +4,7 @@ import { LoadingState } from "../../components/LoadingState";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { AgentDecision, Invoice } from "../../types/invoice";
+import { investorActivityResult } from "./investorActivityStatus";
 
 interface PolicyCheck {
   label: string;
@@ -92,6 +93,7 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
   const investment = invoice.fundingTransaction?.amountUsdc ?? decision?.amountUsdc ?? 0;
   const transaction = invoice.fundingTransaction;
   const copy = decisionCopy(decision, t);
+  const result = investorActivityResult(invoice);
   const rwaId = invoice.rwaAsset?.mintAddress;
 
   return (
@@ -138,7 +140,7 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
               <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={rwaId}>{rwaId ? shortAddress(rwaId) : "—"}</dd></div>
               <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
               <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
-              <div><dt>{t("Decision", "결정")}</dt><dd>{decision?.status ?? t("NOT EVALUATED", "미평가")}</dd></div>
+              <div><dt>{t("Decision", "결정")}</dt><dd>{t(result.english, result.korean)}</dd></div>
               <div>
                 <dt>{t("Transaction", "트랜잭션")}</dt>
                 <dd>{transaction ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{shortAddress(transaction.signature)}</a> : "—"}</dd>

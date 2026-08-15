@@ -13,7 +13,7 @@ beforeEach(async () => {
   await scenarioAdapter.respondToOffer("INV-2026-001", "ACCEPT");
 });
 
-test("renders the treasury overview from the investor dashboard design", async () => {
+test("renders the investor dashboard from the investor dashboard design", async () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   render(
@@ -24,18 +24,22 @@ test("renders the treasury overview from the investor dashboard design", async (
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByRole("heading", { name: "Treasury overview" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   expect(screen.getByText("312,400")).toBeInTheDocument();
   expect(screen.getByText("187,600")).toBeInTheDocument();
   expect(screen.getByText("72,840")).toBeInTheDocument();
   expect(screen.getByText("Needs attention")).toBeInTheDocument();
   expect(screen.getByText("2")).toBeInTheDocument();
   expect(screen.getByText("Auto-invest active · Mandate active")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Manage mandate" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Manage Investment Policy" })).toHaveAttribute(
     "href",
-    "/investor/setup",
+    "/investor/investment-policy",
   );
-  expect(await screen.findByText("Awaiting mandate")).toBeInTheDocument();
+  expect(await screen.findByText("Under review")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "View all Agent Activity" })).toHaveAttribute(
+    "href",
+    "/investor/activities",
+  );
   expect(screen.getByRole("link", { name: "INV-2026-001" })).toHaveAttribute(
     "href",
     "/investor/activities/INV-2026-001",

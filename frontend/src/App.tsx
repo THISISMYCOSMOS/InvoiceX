@@ -7,8 +7,11 @@ import { SupplierInvoiceDetailPage } from "./pages/supplier/SupplierInvoiceDetai
 import { BuyerDashboardPage } from "./pages/buyer/BuyerDashboardPage";
 import { BuyerInvoiceDetailPage } from "./pages/buyer/BuyerInvoiceDetailPage";
 import { InvestorActivityPage } from "./pages/investor/InvestorActivityPage";
+import { InvestorActivityListPage } from "./pages/investor/InvestorActivityListPage";
 import { InvestorDashboardPage } from "./pages/investor/InvestorDashboardPage";
-import { InvestorSetupPage } from "./pages/investor/InvestorSetupPage";
+import { InvestorInvestmentPolicyPage } from "./pages/investor/InvestorInvestmentPolicyPage";
+import { InvestorProfilePage } from "./pages/investor/InvestorProfilePage";
+import { InvestorVaultPage } from "./pages/investor/InvestorVaultPage";
 import { DemoControlPage } from "./pages/dev/DemoControlPage";
 import { LoginPage } from "./pages/LoginPage";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -34,8 +37,11 @@ export function App() {
                     <Route path="/buyer" element={<BuyerDashboardPage />} />
                     <Route path="/buyer/invoices/:invoiceId" element={<BuyerInvoiceDetailPage />} />
                     <Route path="/investor" element={<InvestorDashboardPage />} />
-                    <Route path="/investor/setup" element={<InvestorSetupPage />} />
+                    <Route path="/investor/activities" element={<InvestorActivityListPage />} />
                     <Route path="/investor/activities/:invoiceId" element={<InvestorActivityPage />} />
+                    <Route path="/investor/investment-policy" element={<InvestorInvestmentPolicyPage />} />
+                    <Route path="/investor/vault" element={<InvestorVaultPage />} />
+                    <Route path="/investor/profile" element={<InvestorProfilePage />} />
                     <Route path="/dev/demo" element={<DemoControlPage />} />
                     <Route path="*" element={<Navigate to="/login" replace />} />
                   </Routes>

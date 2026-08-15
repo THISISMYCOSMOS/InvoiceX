@@ -4,18 +4,9 @@ import { LoadingState } from "../../components/LoadingState";
 import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
 import { useInvoices } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
+import { investorActivityAmount, investorActivityResult, investorActivityTime } from "./investorActivityStatus";
 
 const usdc = new Intl.NumberFormat("en-US");
-
-function activityResult(invoice: { agentDecision?: { status: string } }) {
-  switch (invoice.agentDecision?.status) {
-    case "EXECUTED": return { english: "Invested", korean: "투자 완료", className: "investor-result--invested" };
-    case "REJECTED": return { english: "Not approved", korean: "미승인", className: "investor-result--excluded" };
-    case "FAILED": return { english: "Execution failed", korean: "실행 실패", className: "investor-result--excluded" };
-    case "APPROVED": return { english: "Executing", korean: "실행 중", className: "investor-result--invested" };
-    default: return { english: "Awaiting mandate", korean: "Mandate 대기", className: "investor-result--excluded" };
-  }
-}
 
 export function InvestorDashboardPage() {
   const dashboard = useInvestorDashboard();
@@ -38,7 +29,7 @@ export function InvestorDashboardPage() {
   const activityInvoices = invoices.data?.filter((invoice) => (
     Boolean(invoice.agentDecision || invoice.rwaAsset)
   )) ?? [];
-  const firstActivityInvoice = activityInvoices[0];
+  const recentActivityInvoices = activityInvoices.slice(0, 3);
   const stats = [
     {
       label: t("Available to invest", "투자 가능 금액"),
@@ -72,7 +63,7 @@ export function InvestorDashboardPage() {
     <section className="investor-dashboard">
       <header className="investor-page-heading">
         <div>
-          <h1>{t("Treasury overview", "자금 운용 현황")}</h1>
+          <h1>{t("Dashboard", "Dashboard")}</h1>
           <p>
             {t(
               "Monitor available capital, outstanding positions, and exceptions requiring action.",
@@ -83,8 +74,8 @@ export function InvestorDashboardPage() {
             {automatedInvestmentLabel} · {mandateStatusLabel}
           </span>
         </div>
-        <Link className="investor-primary-button" to="/investor/setup">
-          {t("Manage mandate", "투자 위임 관리")}
+        <Link className="investor-primary-button" to="/investor/investment-policy">
+          {t("Manage Investment Policy", "Investment Policy 관리")}
         </Link>
       </header>
 
@@ -101,27 +92,26 @@ export function InvestorDashboardPage() {
 
       <section className="investor-activity-card">
         <header>
-          <h2>{t("Recent Treasury Agent activity", "최근 Treasury Agent 활동")}</h2>
-          <Link className="investor-secondary-button" to={firstActivityInvoice ? `/investor/activities/${firstActivityInvoice.id}` : "/investor"}>
-            {t("View all", "전체 보기")}
+          <h2>{t("Recent Agent decisions", "최근 Agent 투자 판단")}</h2>
+          <Link className="investor-secondary-button" to="/investor/activities">
+            {t("View all Agent Activity", "전체 Agent Activity 보기")}
           </Link>
         </header>
         <div className="table-scroll">
-          <table aria-label={t("Recent Treasury Agent activity", "최근 Treasury Agent 활동")}>
+          <table aria-label={t("Recent Agent decisions", "최근 Agent 투자 판단")}>
             <thead>
               <tr>
                 <th>{t("Invoice", "인보이스")}</th>
-                <th>{t("Buyer", "구매기업")}</th>
-                <th>{t("Result", "결과")}</th>
+                <th>{t("Decision", "결정")}</th>
                 <th>{t("Amount", "금액")}</th>
                 <th>{t("Time", "시간")}</th>
               </tr>
             </thead>
             <tbody>
-              {activityInvoices.length > 0 ? activityInvoices.map((invoice) => {
-                const result = activityResult(invoice);
-                const amount = invoice.fundingTransaction?.amountUsdc ?? invoice.agentDecision?.amountUsdc ?? 0;
-                const activityTime = invoice.fundingTransaction?.createdAt ?? invoice.agentDecision?.createdAt;
+              {recentActivityInvoices.length > 0 ? recentActivityInvoices.map((invoice) => {
+                const result = investorActivityResult(invoice);
+                const amount = investorActivityAmount(invoice);
+                const activityTime = investorActivityTime(invoice);
                 return (
                   <tr key={invoice.id}>
                   <td>
@@ -129,7 +119,6 @@ export function InvestorDashboardPage() {
                       {invoice.id}
                     </Link>
                   </td>
-                  <td>{invoice.buyer.name}</td>
                   <td>
                     <span className={`investor-result ${result.className}`}>{t(result.english, result.korean)}</span>
                   </td>
@@ -138,7 +127,7 @@ export function InvestorDashboardPage() {
                 </tr>
                 );
               }) : (
-                <tr><td colSpan={5} className="investor-activity-empty">{t("No investment has been executed yet.", "아직 실행된 투자가 없습니다.")}</td></tr>
+                <tr><td colSpan={4} className="investor-activity-empty">{t("No Agent decisions yet. Review all activity when decisions begin.", "아직 Agent 투자 판단이 없습니다. 판단이 시작되면 전체 Agent Activity에서 확인할 수 있습니다.")}</td></tr>
               )}
             </tbody>
           </table>

@@ -3118,6 +3118,65 @@ a {
   background: #eef2f7;
 }
 
+.investor-result--pending {
+  color: #7c3aed;
+  background: #f1edff;
+}
+
+.investor-activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.investor-activity-filters button {
+  border: 1px solid #d9dee8;
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: #475569;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.investor-activity-filters button.is-active {
+  border-color: #7c3aed;
+  color: #6d28d9;
+  background: #f1edff;
+  font-weight: 700;
+}
+
+.investor-activity-list-page .investor-activity-card {
+  margin-top: 12px;
+}
+
+.investor-activity-list-page .investor-activity-card th:nth-child(1),
+.investor-activity-list-page .investor-activity-card td:nth-child(1) { width: 15%; }
+
+.investor-activity-list-page .investor-activity-card th:nth-child(2),
+.investor-activity-list-page .investor-activity-card td:nth-child(2) { width: 15%; }
+
+.investor-activity-list-page .investor-activity-card th:nth-child(3),
+.investor-activity-list-page .investor-activity-card td:nth-child(3) { width: 15%; }
+
+.investor-activity-list-page .investor-activity-card th:nth-child(4),
+.investor-activity-list-page .investor-activity-card td:nth-child(4) { width: 28%; }
+
+.investor-activity-list-page .investor-activity-card th:nth-child(5),
+.investor-activity-list-page .investor-activity-card td:nth-child(5) { width: 12%; }
+
+.investor-activity-list-page .investor-activity-card th:nth-child(6),
+.investor-activity-list-page .investor-activity-card td:nth-child(6) { width: 15%; }
+
+.investor-activity-reason {
+  overflow: hidden;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .investor-breadcrumb {
   margin: 0 0 8px;
   color: #94a3b8;

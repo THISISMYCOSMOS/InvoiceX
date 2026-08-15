@@ -22,7 +22,7 @@ test.each([
   ["/supplier", "Good morning, Minjun"],
   ["/supplier/company-wallet", "Company & Wallet"],
   ["/buyer", "Invoice verification"],
-  ["/investor", "Treasury overview"],
+  ["/investor", "Dashboard"],
   ["/dev/demo", "Developer demo controls"],
 ])("renders %s", async (path, expectedText) => {
   renderAt(path);
@@ -44,7 +44,7 @@ test("renders the Figma login form", () => {
 test.each([
   ["Supplier", "supplier@company.com", "supplier", "Good morning, Minjun"],
   ["Buyer", "buyer@company.com", "buyer", "Invoice verification"],
-  ["Investor", "investor@company.com", "investor", "Treasury overview"],
+  ["Investor", "investor@company.com", "investor", "Dashboard"],
 ])("signs the %s demo account into its dashboard", async (role, email, password, expectedText) => {
   const user = userEvent.setup();
   renderAt("/login");
@@ -96,18 +96,16 @@ test("shows the supplier wallet connection without a hard-coded demo address", a
   expect(screen.getByRole("alert")).toHaveTextContent("지원하는 Solana 지갑을 설치한 뒤 다시 시도해 주세요.");
 });
 
-test("shows the institution wallet only in investor setup, never buyer pages", async () => {
+test("splits investor wallet, policy, and Vault across their MVP pages", async () => {
   const user = userEvent.setup();
-  const investor = renderAt("/investor/setup");
+  const investor = renderAt("/investor/investment-policy");
 
-  expect(await screen.findByRole("heading", { name: "Institution wallet" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Automatic investment setup" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Automatic investment authorization" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Investment criteria" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Investment Policy" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Investment Mandate" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Investment Conditions" })).toBeInTheDocument();
   expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("1");
-  expect(screen.getByRole("button", { name: "Connect Solana wallet" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Sign authorization" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Sign Vault deposit" })).toBeDisabled();
+  expect(screen.getByRole("link", { name: "Connect wallet in Profile" })).toHaveAttribute("href", "/investor/profile");
+  expect(screen.getByRole("button", { name: "Sign & save policy" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("Prime Mobility");
 
   await user.click(screen.getByRole("button", { name: "Buyer allowlist" }));
@@ -118,6 +116,14 @@ test("shows the institution wallet only in investor setup, never buyer pages", a
   expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("2 buyers selected");
 
   investor.unmount();
+  const vault = renderAt("/investor/vault");
+  expect(await screen.findByRole("heading", { name: "Vault" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Deposit USDC" })).toBeDisabled();
+  vault.unmount();
+  const profile = renderAt("/investor/profile");
+  expect(await screen.findByRole("heading", { name: "Profile" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "No wallet connected" })).toBeInTheDocument();
+  profile.unmount();
   renderAt("/buyer");
   expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Connect Solana wallet" })).not.toBeInTheDocument();
@@ -177,20 +183,25 @@ test("renders the investor Figma navigation and agent decision route", async () 
   const user = userEvent.setup();
   renderAt("/investor");
 
-  expect(await screen.findByRole("heading", { name: "Treasury overview" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "Investor navigation" })).toBeInTheDocument();
   expect(screen.queryByText("Vault · 7VB...0Qe")).not.toBeInTheDocument();
   expect(screen.queryByText("RWA Portfolio")).not.toBeInTheDocument();
-  expect(screen.queryByText("Vault", { exact: true })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Agent Activity" })).toHaveAttribute(
     "href",
-    "/investor/activities/INV-2026-001",
+    "/investor/activities",
   );
-  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/investor/setup");
+  expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/investor");
+  expect(screen.getByRole("link", { name: "Investment Policy" })).toHaveAttribute("href", "/investor/investment-policy");
+  expect(screen.getByRole("link", { name: "Vault" })).toHaveAttribute("href", "/investor/vault");
+  expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/investor/profile");
+  expect(screen.queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
   expect(screen.queryByText("Settlement Reports")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("link", { name: "Agent Activity" }));
 
+  expect(await screen.findByRole("heading", { name: "Agent Activity" })).toBeInTheDocument();
+  await user.click(screen.getByRole("link", { name: "INV-2026-001" }));
   expect(await screen.findByRole("heading", { name: "Treasury Agent evaluation pending" })).toBeInTheDocument();
   expect(screen.getByText("0 / 1 PASSED")).toBeInTheDocument();
 });
@@ -256,6 +267,6 @@ test("translates buyer and investor screens into Korean", async () => {
   buyer.unmount();
   renderAt("/investor");
 
-  expect(await screen.findByRole("heading", { name: "자금 운용 현황" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "에이전트 활동" })).toBeInTheDocument();
 });
