@@ -16,6 +16,7 @@ from typing import Protocol
 from invoicex_agents.models.document import DocumentAnalysisResult
 
 from invoicex_backend.config import BackendSettings
+from invoicex_backend.agent_activity import AgentHandoff, AgentRun, AgentToolCall
 from invoicex_backend.models import (
     AgentDecision,
     InvestorMandate,
@@ -48,6 +49,13 @@ class RwaRepository(Protocol):
     def list_analyses(self) -> dict[str, DocumentAnalysisResult]: ...
     def save_verification(self, verification: Verification) -> None: ...
     def list_verifications(self) -> list[Verification]: ...
+    def save_agent_run(self, run: AgentRun) -> None: ...
+    def get_agent_run(self, run_id: str) -> AgentRun | None: ...
+    def list_agent_runs(self, invoice_id: str) -> list[AgentRun]: ...
+    def save_agent_tool_call(self, call: AgentToolCall) -> None: ...
+    def list_agent_tool_calls(self, run_id: str) -> list[AgentToolCall]: ...
+    def save_agent_handoff(self, handoff: AgentHandoff) -> None: ...
+    def list_agent_handoffs(self, run_id: str) -> list[AgentHandoff]: ...
 
 
 class SQLiteRwaRepository:
@@ -100,6 +108,22 @@ class SQLiteRwaRepository:
                 );
                 CREATE TABLE IF NOT EXISTS verifications (
                     id TEXT PRIMARY KEY,
+                    document TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS agent_runs (
+                    id TEXT PRIMARY KEY,
+                    invoice_id TEXT NOT NULL,
+                    document TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS agent_tool_calls (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    document TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS agent_handoffs (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL,
                     document TEXT NOT NULL
                 );
                 """
@@ -285,6 +309,53 @@ class SQLiteRwaRepository:
             rows = self._connection.execute("SELECT document FROM verifications").fetchall()
         return [Verification.model_validate_json(row["document"]) for row in rows]
 
+    def save_agent_run(self, run: AgentRun) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT OR REPLACE INTO agent_runs (id, invoice_id, document) VALUES (?, ?, ?)",
+                (run.id, run.invoice_id, self._encode(run)),
+            )
+
+    def get_agent_run(self, run_id: str) -> AgentRun | None:
+        with self._lock:
+            row = self._connection.execute("SELECT document FROM agent_runs WHERE id = ?", (run_id,)).fetchone()
+        return AgentRun.model_validate_json(row["document"]) if row else None
+
+    def list_agent_runs(self, invoice_id: str) -> list[AgentRun]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT document FROM agent_runs WHERE invoice_id = ? ORDER BY id", (invoice_id,)
+            ).fetchall()
+        return [AgentRun.model_validate_json(row["document"]) for row in rows]
+
+    def save_agent_tool_call(self, call: AgentToolCall) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT OR REPLACE INTO agent_tool_calls (id, run_id, sequence, document) VALUES (?, ?, ?, ?)",
+                (call.id, call.run_id, call.sequence, self._encode(call)),
+            )
+
+    def list_agent_tool_calls(self, run_id: str) -> list[AgentToolCall]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT document FROM agent_tool_calls WHERE run_id = ? ORDER BY sequence", (run_id,)
+            ).fetchall()
+        return [AgentToolCall.model_validate_json(row["document"]) for row in rows]
+
+    def save_agent_handoff(self, handoff: AgentHandoff) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "INSERT OR REPLACE INTO agent_handoffs (id, run_id, document) VALUES (?, ?, ?)",
+                (handoff.id, handoff.run_id, self._encode(handoff)),
+            )
+
+    def list_agent_handoffs(self, run_id: str) -> list[AgentHandoff]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT document FROM agent_handoffs WHERE run_id = ? ORDER BY id", (run_id,)
+            ).fetchall()
+        return [AgentHandoff.model_validate_json(row["document"]) for row in rows]
+
 
 class CloudSqlRwaRepository:
     """PostgreSQL adapter used by the Cloud Run deployment.
@@ -353,6 +424,28 @@ class CloudSqlRwaRepository:
         """
         CREATE TABLE IF NOT EXISTS verifications (
             id TEXT PRIMARY KEY,
+            document JSONB NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS agent_runs (
+            id TEXT PRIMARY KEY,
+            invoice_id TEXT NOT NULL,
+            document JSONB NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS agent_tool_calls (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL,
+            document JSONB NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS agent_handoffs (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
             document JSONB NOT NULL
         )
         """,
@@ -583,6 +676,52 @@ class CloudSqlRwaRepository:
             self._decode(Verification, row[0])  # type: ignore[list-item]
             for row in self._read_all("SELECT document FROM verifications ORDER BY id")
         ]
+
+    def save_agent_run(self, run: AgentRun) -> None:
+        self._write(
+            lambda cursor: cursor.execute(
+                """INSERT INTO agent_runs (id, invoice_id, document) VALUES (%s, %s, %s::jsonb)
+                ON CONFLICT (id) DO UPDATE SET invoice_id = EXCLUDED.invoice_id, document = EXCLUDED.document""",
+                (run.id, run.invoice_id, self._encode(run)),
+            )
+        )
+
+    def get_agent_run(self, run_id: str) -> AgentRun | None:
+        row = self._read_one("SELECT document FROM agent_runs WHERE id = %s", (run_id,))
+        return self._decode(AgentRun, row[0]) if row else None  # type: ignore[arg-type]
+
+    def list_agent_runs(self, invoice_id: str) -> list[AgentRun]:
+        return [self._decode(AgentRun, row[0]) for row in self._read_all(
+            "SELECT document FROM agent_runs WHERE invoice_id = %s ORDER BY id", (invoice_id,)
+        )]  # type: ignore[list-item]
+
+    def save_agent_tool_call(self, call: AgentToolCall) -> None:
+        self._write(
+            lambda cursor: cursor.execute(
+                """INSERT INTO agent_tool_calls (id, run_id, sequence, document) VALUES (%s, %s, %s, %s::jsonb)
+                ON CONFLICT (id) DO UPDATE SET document = EXCLUDED.document""",
+                (call.id, call.run_id, call.sequence, self._encode(call)),
+            )
+        )
+
+    def list_agent_tool_calls(self, run_id: str) -> list[AgentToolCall]:
+        return [self._decode(AgentToolCall, row[0]) for row in self._read_all(
+            "SELECT document FROM agent_tool_calls WHERE run_id = %s ORDER BY sequence", (run_id,)
+        )]  # type: ignore[list-item]
+
+    def save_agent_handoff(self, handoff: AgentHandoff) -> None:
+        self._write(
+            lambda cursor: cursor.execute(
+                """INSERT INTO agent_handoffs (id, run_id, document) VALUES (%s, %s, %s::jsonb)
+                ON CONFLICT (id) DO UPDATE SET document = EXCLUDED.document""",
+                (handoff.id, handoff.run_id, self._encode(handoff)),
+            )
+        )
+
+    def list_agent_handoffs(self, run_id: str) -> list[AgentHandoff]:
+        return [self._decode(AgentHandoff, row[0]) for row in self._read_all(
+            "SELECT document FROM agent_handoffs WHERE run_id = %s ORDER BY id", (run_id,)
+        )]  # type: ignore[list-item]
 
     def _upsert_document(self, table: str, key: str, value: str, document: object) -> None:
         self._write(

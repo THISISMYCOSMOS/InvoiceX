@@ -15,6 +15,8 @@ import { InvoiceWorkflowStatusSection } from "./sections/InvoiceWorkflowStatusSe
 import { RwaIssuedSection } from "./sections/RwaIssuedSection";
 import { SettlementReceiptSection } from "./sections/SettlementReceiptSection";
 import { useLanguage } from "../../i18n/LanguageContext";
+import { useAgentActivity } from "../../hooks/useAgentActivity";
+import { AgentActivityTimeline } from "../../components/AgentActivityTimeline";
 
 export function SupplierInvoiceDetailContent({
   invoice,
@@ -94,16 +96,17 @@ export function SupplierInvoiceDetailPage() {
   const invoice = useInvoice(invoiceId);
   const acceptOffer = useAcceptOffer();
   const requestVerification = useRequestVerification();
+  const activity = useAgentActivity(invoiceId, "Supplier");
   if (invoice.isLoading) return <LoadingState />;
   if (invoice.error || !invoice.data) return <ErrorState error={invoice.error ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))} />;
   return (
-    <SupplierInvoiceDetailContent
+    <><SupplierInvoiceDetailContent
       invoice={invoice.data}
       onAccept={() => acceptOffer.mutate({ invoiceId: invoice.data.id, response: "ACCEPT" })}
       isAccepting={acceptOffer.isPending}
       acceptError={acceptOffer.error instanceof Error ? acceptOffer.error.message : undefined}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
-    />
+    /><AgentActivityTimeline activity={activity.data} /></>
   );
 }

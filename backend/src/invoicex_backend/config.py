@@ -108,6 +108,29 @@ class BackendSettings(BaseSettings):
         default="auto",
         validation_alias="AGENT_MODE",
     )
+    vertex_ai_project_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VERTEX_AI_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT_ID"),
+    )
+    vertex_ai_location: str = Field(
+        default="us-central1",
+        validation_alias="VERTEX_AI_LOCATION",
+        min_length=1,
+    )
+    risk_scoring_provider: Literal["deterministic"] = Field(
+        default="deterministic",
+        validation_alias="RISK_SCORING_PROVIDER",
+    )
+    agent_task_dispatcher: Literal["inline", "cloud_tasks"] = Field(
+        default="inline",
+        validation_alias="AGENT_TASK_DISPATCHER",
+    )
+    cloud_tasks_queue: str | None = Field(default=None, validation_alias="CLOUD_TASKS_QUEUE")
+    cloud_tasks_location: str | None = Field(default=None, validation_alias="CLOUD_TASKS_LOCATION")
+    cloud_run_task_audience: str | None = Field(default=None, validation_alias="CLOUD_RUN_TASK_AUDIENCE")
+    cloud_tasks_service_account_email: str | None = Field(
+        default=None, validation_alias="CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL"
+    )
     gemini_api_key: str | None = Field(
         default=None,
         validation_alias="GEMINI_API_KEY",
@@ -282,6 +305,20 @@ class BackendSettings(BaseSettings):
                 raise ValueError("DEPLOYMENT_TARGET=gcp requires DOCUMENT_STORAGE_BACKEND=gcs")
             if not self.api_auth_required:
                 raise ValueError("DEPLOYMENT_TARGET=gcp requires API_AUTH_REQUIRED=true")
+            if self.resolved_agent_mode() == "real" and not self._non_blank(
+                self.vertex_ai_project_id
+            ):
+                raise ValueError("real AGENT_MODE on GCP requires VERTEX_AI_PROJECT_ID")
+            if self.agent_task_dispatcher == "cloud_tasks":
+                task_values = {
+                    "CLOUD_TASKS_QUEUE": self.cloud_tasks_queue,
+                    "CLOUD_TASKS_LOCATION": self.cloud_tasks_location,
+                    "CLOUD_RUN_TASK_AUDIENCE": self.cloud_run_task_audience,
+                    "CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL": self.cloud_tasks_service_account_email,
+                }
+                absent = [name for name, value in task_values.items() if not self._non_blank(value)]
+                if absent:
+                    raise ValueError("Cloud Tasks requires configuration: " + ", ".join(absent))
             if self.mock_settlement_enabled:
                 settlement_values = {
                     "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
@@ -316,7 +353,7 @@ class BackendSettings(BaseSettings):
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
         if self.agent_mode == "auto":
-            return "real" if self._non_blank(self.gemini_api_key) else "mock"
+            return "real" if self._non_blank(self.vertex_ai_project_id) else "mock"
         return self.agent_mode
 
     def resolved_solana_mode(self) -> Literal["direct", "privy", "mock"]:

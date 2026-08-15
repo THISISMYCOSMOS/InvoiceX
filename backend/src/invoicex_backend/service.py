@@ -21,6 +21,16 @@ from solders.pubkey import Pubkey
 from solders.signature import Signature
 
 from invoicex_backend.agents import AgentDocument, AgentGateway
+from invoicex_backend.agent_activity import (
+    AgentActivityItem,
+    AgentActivityTimeline,
+    AgentHandoff,
+    AgentRun,
+    AgentRunStatus,
+    AgentToolCall,
+    AgentTrigger,
+    ToolCallStatus,
+)
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     DocumentValidationError,
@@ -63,6 +73,11 @@ from invoicex_backend.policy import (
     DeterministicRiskPolicy,
     RiskDecision,
 )
+from invoicex_backend.risk_scoring import (
+    DeterministicRiskScoringProvider,
+    RiskScoringProvider,
+    RiskScoringRequest,
+)
 from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.solana import SolanaGateway
 from invoicex_backend.storage import DocumentStorage
@@ -100,6 +115,7 @@ class InvoiceService:
         solana_gateway: SolanaGateway,
         storage: DocumentStorage,
         repository: RwaRepository | None = None,
+        risk_scoring_provider: RiskScoringProvider | None = None,
     ) -> None:
         self._settings = settings
         self._agents = agent_gateway
@@ -107,6 +123,9 @@ class InvoiceService:
         self._storage = storage
         self._repository = repository or SQLiteRwaRepository(settings.rwa_database_path)
         self._risk_policy = DeterministicRiskPolicy()
+        self._risk_scoring = risk_scoring_provider or DeterministicRiskScoringProvider(
+            self._risk_policy
+        )
         self._invoices: dict[str, Invoice] = {}
         self._agent_analyses: dict[str, DocumentAnalysisResult] = {}
         self._verifications: dict[str, Verification] = {}
@@ -251,6 +270,14 @@ class InvoiceService:
             target="RISK_AGENT",
             status="COMPLETED",
             summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
+        )
+        self._record_completed_agent_run(
+            invoice_id=invoice.id,
+            trigger=AgentTrigger.INVOICE_CREATED,
+            tool_name="analyze_documents",
+            summary="문서 분석과 교차 검증을 완료했습니다.",
+            source_agent="DOCUMENT_AGENT",
+            target_agent="RISK_AGENT",
         )
         self._save_invoice(invoice)
         return self._copy_invoice(invoice)
@@ -460,9 +487,24 @@ class InvoiceService:
             verification.status = VerificationStatus.CONFIRMED
             invoice.status = InvoiceStatus.RISK_ASSESSING
             agent_analysis = self._agent_analyses[invoice.id]
-            decision = self._risk_policy.evaluate(
-                has_mismatches=bool(agent_analysis.mismatches),
-                face_value_usdc=invoice.invoice_amount_krw // self._settings.demo_krw_per_usdc,
+            score_result = self._risk_scoring.evaluate(
+                RiskScoringRequest(
+                    invoice_id=invoice.id,
+                    face_value_usdc=invoice.invoice_amount_krw // self._settings.demo_krw_per_usdc,
+                    has_document_mismatches=bool(agent_analysis.mismatches),
+                    buyer_confirmed=True,
+                    remaining_term_days=max(
+                        0, (self._parse_iso_date(invoice.due_date, "인보이스 만기일") - date.today()).days
+                    ),
+                    document_summary="mismatch" if agent_analysis.mismatches else "documents consistent",
+                )
+            )
+            decision = RiskDecision(
+                score=score_result.score,
+                level=score_result.eligibility.value,
+                eligibility=score_result.eligibility,
+                advance_rate_bps=score_result.advance_rate_bps,
+                advance_amount_usdc=score_result.advance_amount_usdc,
             )
             risk_request = self._risk_request(invoice, agent_analysis, decision)
             try:
@@ -499,7 +541,7 @@ class InvoiceService:
                 suggested_advance_rate_bps=decision.advance_rate_bps,
                 suggested_advance_amount_usdc=decision.advance_amount_usdc,
                 model_name=self._agents.model_name,
-                policy_version=self._risk_policy.policy_version,
+                policy_version=score_result.method_version,
                 generated_at=datetime.now(UTC).isoformat(),
             )
             invoice.status = InvoiceStatus.OFFER_READY
@@ -509,6 +551,14 @@ class InvoiceService:
                 target="TREASURY_AGENT",
                 status="COMPLETED",
                 summary=risk_result.risk_passport.summary,
+            )
+            self._record_completed_agent_run(
+                invoice_id=invoice.id,
+                trigger=AgentTrigger.BUYER_CONFIRMED,
+                tool_name="evaluate_risk",
+                summary=f"Risk Score {score_result.score} ({score_result.method_version})를 산출했습니다.",
+                source_agent="RISK_AGENT",
+                target_agent="TREASURY_AGENT",
             )
             self._repository.save_verification(verification)
             self._save_invoice(invoice)
@@ -571,6 +621,14 @@ class InvoiceService:
                 target="TREASURY_AGENT",
                 status="COMPLETED",
                 summary="인보이스별 RWA 1개를 Devnet 에스크로에 발행했습니다.",
+            )
+            self._record_completed_agent_run(
+                invoice_id=invoice.id,
+                trigger=AgentTrigger.OFFER_ACCEPTED,
+                tool_name="evaluate_mandate",
+                summary="RWA를 발행하고 Mandate 평가 대기 상태로 전환했습니다.",
+                source_agent="TREASURY_AGENT",
+                target_agent="TREASURY_AGENT",
             )
             self._save_invoice(invoice)
             return self._copy_invoice(invoice), True
@@ -698,6 +756,58 @@ class InvoiceService:
                 for invoice in self._invoices.values()
                 if invoice.status is InvoiceStatus.RWA_ISSUED
             )
+        )
+
+    def get_agent_activity(self, invoice_id: str, *, role: Literal["Supplier", "Investor"]):
+        """Return persisted records only; sensitive mandate/vault fields stay server-side."""
+        invoice = self._invoice(invoice_id)
+        runs = self._repository.list_agent_runs(invoice_id)
+        items: list[AgentActivityItem] = []
+        for run in runs:
+            items.append(
+                AgentActivityItem(
+                    id=run.id,
+                    kind="RUN",
+                    status=run.status.value,
+                    title="자동 업무 진행" if role == "Supplier" else "Orchestrator 실행",
+                    summary=run.plan_summary,
+                    created_at=run.created_at,
+                    method_version=(invoice.risk_passport.policy_version if role == "Investor" else None),
+                )
+            )
+            for call in self._repository.list_agent_tool_calls(run.id):
+                items.append(
+                    AgentActivityItem(
+                        id=call.id,
+                        kind="TOOL",
+                        status=call.status.value,
+                        title=("업무 단계 완료" if role == "Supplier" else call.tool_name),
+                        summary=call.output_summary,
+                        created_at=call.completed_at or call.started_at or run.created_at,
+                        method_version=(invoice.risk_passport.policy_version if role == "Investor" else None),
+                    )
+                )
+        if role == "Investor" and invoice.agent_decision is not None:
+            decision = invoice.agent_decision
+            tx = invoice.funding_transaction
+            items.append(
+                AgentActivityItem(
+                    id=f"decision-{invoice.id}",
+                    kind="TOOL",
+                    status=decision.status,
+                    title="Mandate 정책 검사",
+                    summary=decision.reason or "Mandate 정책 검사를 완료했습니다.",
+                    created_at=decision.created_at,
+                    checks=decision.checks,
+                    transaction_signature=tx.signature if tx else None,
+                    explorer_url=tx.explorer_url if tx else None,
+                )
+            )
+        return AgentActivityTimeline(
+            invoice_id=invoice_id,
+            role=role,
+            runs=runs,
+            timeline=sorted(items, key=lambda item: item.created_at),
         )
 
     async def settle_mock_payment(self, invoice_id: str) -> Invoice:
@@ -1030,6 +1140,56 @@ class InvoiceService:
                 summary=summary,
                 created_at=now,
                 completed_at=now if status in {"COMPLETED", "FAILED"} else None,
+            )
+        )
+
+    def _record_completed_agent_run(
+        self,
+        *,
+        invoice_id: str,
+        trigger: AgentTrigger,
+        tool_name: str,
+        summary: str,
+        source_agent: str,
+        target_agent: str,
+    ) -> None:
+        """Persist redacted activity. Never place prompts, documents, keys or wallet data here."""
+        now = datetime.now(UTC).isoformat()
+        run_id = f"RUN-{secrets.token_urlsafe(12)}"
+        run = AgentRun(
+            id=run_id,
+            invoice_id=invoice_id,
+            trigger=trigger,
+            status=AgentRunStatus.COMPLETED,
+            plan_summary=summary,
+            created_at=now,
+            started_at=now,
+            completed_at=now,
+        )
+        self._repository.save_agent_run(run)
+        self._repository.save_agent_tool_call(
+            AgentToolCall(
+                id=f"CALL-{secrets.token_urlsafe(12)}",
+                run_id=run_id,
+                sequence=1,
+                tool_name=tool_name,
+                status=ToolCallStatus.COMPLETED,
+                input_summary="invoice_id only",
+                output_summary=summary,
+                started_at=now,
+                completed_at=now,
+            )
+        )
+        self._repository.save_agent_handoff(
+            AgentHandoff(
+                id=f"HANDOFF-{secrets.token_urlsafe(12)}",
+                run_id=run_id,
+                source_agent=source_agent,
+                target_agent=target_agent,
+                reason=summary,
+                status=ToolCallStatus.COMPLETED,
+                created_at=now,
+                completed_at=now,
             )
         )
 

@@ -1,5 +1,6 @@
 import { isMockApi } from "./client";
 import { getAuthorizationHeader } from "../auth/demoAccounts";
+import type { AgentActivityTimeline } from "../types/agents";
 
 export interface MandatePolicyInput {
   totalInvestmentLimitUsdc: number;
@@ -82,6 +83,13 @@ async function requestOrNullOn404<T>(path: string): Promise<T | null> {
 }
 
 export const rwaApi = {
+  async getAgentActivity(invoiceId: string, role: "Supplier" | "Investor"): Promise<AgentActivityTimeline | null> {
+    if (isMockApi) return null;
+    return request<AgentActivityTimeline>(
+      `/invoices/${encodeURIComponent(invoiceId)}/agent-activity?viewerRole=${encodeURIComponent(role)}`,
+      { method: "GET" },
+    );
+  },
   async getInvestmentCriteriaBuyers(): Promise<InvestmentCriteriaBuyer[]> {
     if (isMockApi) {
       return [

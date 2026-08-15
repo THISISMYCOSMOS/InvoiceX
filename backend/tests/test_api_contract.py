@@ -207,7 +207,8 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
     expected_paths = {
         "/api/v1/auth/login",
         "/api/v1/invoices",
-        "/api/v1/invoices/{invoiceId}",
+            "/api/v1/invoices/{invoiceId}",
+            "/api/v1/invoices/{invoiceId}/agent-activity",
         "/api/v1/invoices/{invoiceId}/verification-request",
         "/api/v1/verifications",
         "/api/v1/verifications/{verificationId}",

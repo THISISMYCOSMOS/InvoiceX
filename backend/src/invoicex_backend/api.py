@@ -26,6 +26,7 @@ from invoicex_backend.auth import (
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import DocumentValidationError, NotFoundError
 from invoicex_backend.models import (
+    LoginRole,
     ConfirmVaultDepositRequest,
     CreateMandateRequest,
     DocumentType,
@@ -37,7 +38,6 @@ from invoicex_backend.models import (
     InvoiceResponse,
     LoginRequest,
     LoginResponse,
-    LoginRole,
     MandateSigningPayload,
     OfferResponseRequest,
     PrepareMandateRequest,
@@ -50,6 +50,7 @@ from invoicex_backend.models import (
     VerificationListResponse,
     VerificationResponse,
 )
+from invoicex_backend.agent_activity import AgentActivityTimeline
 from invoicex_backend.seed import INVESTMENT_CRITERIA_BUYERS, authenticate_demo_account
 from invoicex_backend.service import InvoiceService
 
@@ -227,6 +228,29 @@ async def get_invoice(
     service: InvoiceServiceDependency,
 ) -> InvoiceResponse:
     return InvoiceResponse(invoice=service.get_invoice(invoice_id))
+
+
+@router.get(
+    "/invoices/{invoiceId}/agent-activity",
+    response_model=AgentActivityTimeline,
+    responses=documented_errors(403, 404),
+    tags=["Invoices"],
+    summary="역할별 Agent Activity 타임라인",
+    dependencies=[invoice_reader],
+)
+async def get_agent_activity(
+    invoice_id: InvoiceId,
+    service: InvoiceServiceDependency,
+    viewer_role: LoginRole = Query(default=LoginRole.SUPPLIER, alias="viewerRole"),
+    identity: AuthenticatedIdentity | None = Depends(require_authenticated_identity),
+) -> AgentActivityTimeline:
+    # The request parameter is only a local-demo fallback. Authenticated users
+    # are always rendered from their signed role, preventing Investor detail
+    # from being selected by a Supplier query parameter.
+    role = identity.role if identity is not None else viewer_role
+    if role not in {LoginRole.SUPPLIER, LoginRole.INVESTOR}:
+        raise HTTPException(status_code=403, detail="Buyer does not have an Agent Activity view.")
+    return service.get_agent_activity(invoice_id, role=role.value)  # type: ignore[arg-type]
 
 
 @router.post(
