@@ -1,0 +1,135 @@
+{
+  "setId": "03-sanctions",
+  "title": "제재 관할 — 문서는 완전하나 구매기업 소재지가 제재 대상이다",
+  "documents": [
+    {
+      "documentId": "03-sanctions-invoice",
+      "pdf": "03-sanctions-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-0902",
+        "supplierName": "Aurora Marine Supplies Pte Ltd",
+        "buyerName": "Pars Offshore Engineering Co.",
+        "purchaseOrderNumber": "POE-4471-SG",
+        "contractNumber": "CTR-2026-0518",
+        "currency": "USD",
+        "totalAmount": "59200",
+        "issueDate": "2026-08-05",
+        "dueDate": "2026-09-19",
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "40",
+        "unitPrice": "1480",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "03-sanctions-contract",
+      "pdf": "03-sanctions-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Aurora Marine Supplies Pte Ltd",
+        "buyerName": "Pars Offshore Engineering Co.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-0518",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": null,
+        "unitPrice": "1480",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약서에는 개별 청구 건의 번호·총액·발행일·만기일·수량이 없다."
+    },
+    {
+      "documentId": "03-sanctions-purchase-order",
+      "pdf": "03-sanctions-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Aurora Marine Supplies Pte Ltd",
+        "buyerName": "Pars Offshore Engineering Co.",
+        "purchaseOrderNumber": "POE-4471-SG",
+        "contractNumber": "CTR-2026-0518",
+        "currency": "USD",
+        "totalAmount": "59200",
+        "issueDate": "2026-06-22",
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "40",
+        "unitPrice": "1480",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주일은 발주서 자체의 발행일이다."
+    },
+    {
+      "documentId": "03-sanctions-delivery-note",
+      "pdf": "03-sanctions-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Aurora Marine Supplies Pte Ltd",
+        "buyerName": "Pars Offshore Engineering Co.",
+        "purchaseOrderNumber": "POE-4471-SG",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-08-03",
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "40",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": "납품 완료 증빙이다."
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "문서 4종의 대사는 모두 통과한다. 문서 품질로는 걸릴 것이 없도록 의도적으로 구성했다.",
+    "반려 사유는 구매기업 소재지(Tehran, Iran)와 정산 지갑(Tron TRC-20)이며, 둘 다 Document Agent가 아니라 제재·지갑 스크리닝 단계에서 판정한다.",
+    "mismatches는 비어 있고 reviewRequired는 false가 기대값이다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

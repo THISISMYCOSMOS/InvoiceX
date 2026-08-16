@@ -1,0 +1,134 @@
+{
+  "setId": "02-overdue",
+  "title": "잔존만기 도과 — 문서 대사는 통과하나 만기일이 지났다",
+  "documents": [
+    {
+      "documentId": "02-overdue-invoice",
+      "pdf": "02-overdue-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-0655",
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Vantage Retail Group Inc.",
+        "purchaseOrderNumber": "VRG-PO-88214",
+        "contractNumber": "CTR-2025-0918",
+        "currency": "USD",
+        "totalAmount": "37800",
+        "issueDate": "2026-04-02",
+        "dueDate": "2026-07-01",
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "4200",
+        "unitPrice": "9",
+        "paymentTerms": "Net 90 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "02-overdue-contract",
+      "pdf": "02-overdue-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Vantage Retail Group Inc.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2025-0918",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": null,
+        "unitPrice": "9",
+        "paymentTerms": "Net 90 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약서에는 개별 청구 건의 번호·총액·발행일·만기일·수량이 없다."
+    },
+    {
+      "documentId": "02-overdue-purchase-order",
+      "pdf": "02-overdue-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Vantage Retail Group Inc.",
+        "purchaseOrderNumber": "VRG-PO-88214",
+        "contractNumber": "CTR-2025-0918",
+        "currency": "USD",
+        "totalAmount": "37800",
+        "issueDate": "2026-02-12",
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "4200",
+        "unitPrice": "9",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주일은 발주서 자체의 발행일이다."
+    },
+    {
+      "documentId": "02-overdue-delivery-note",
+      "pdf": "02-overdue-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Vantage Retail Group Inc.",
+        "purchaseOrderNumber": "VRG-PO-88214",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-03-28",
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "4200",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": "납품 완료 증빙이다."
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "기준일 2026-08-16 기준 만기 2026-07-01은 46일 도과했다.",
+    "문서 간 값은 모두 일치하므로 mismatches는 비어 있고 reviewRequired는 false다. 도과 판정은 룰 엔진의 몫이다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

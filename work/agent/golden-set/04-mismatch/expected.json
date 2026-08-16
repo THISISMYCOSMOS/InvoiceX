@@ -1,0 +1,201 @@
+{
+  "setId": "04-mismatch",
+  "title": "불일치 — 결제조건·수량·총액·납품완료가 문서마다 다르다",
+  "documents": [
+    {
+      "documentId": "04-mismatch-invoice",
+      "pdf": "04-mismatch-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-0748",
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Brightline Foods SAS",
+        "purchaseOrderNumber": null,
+        "contractNumber": null,
+        "currency": "EUR",
+        "totalAmount": "24000",
+        "issueDate": "2026-06-11",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "12000",
+        "unitPrice": "2",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "purchaseOrderNumber",
+        "contractNumber",
+        "dueDate"
+      ],
+      "note": "발주번호·계약번호·만기일이 기재되어 있지 않다. 결제조건은 계약서와 다르다."
+    },
+    {
+      "documentId": "04-mismatch-contract",
+      "pdf": "04-mismatch-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Brightline Foods SAS",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-0120",
+        "currency": "EUR",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": null,
+        "unitPrice": "2",
+        "paymentTerms": "Net 30 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약 결제조건은 Net 30이며 인보이스의 Net 45와 다르다."
+    },
+    {
+      "documentId": "04-mismatch-purchase-order",
+      "pdf": "04-mismatch-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Brightline Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-33027",
+        "contractNumber": "CTR-2026-0120",
+        "currency": "EUR",
+        "totalAmount": "22000",
+        "issueDate": "2026-04-28",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "11000",
+        "unitPrice": "2",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주 수량은 11,000개이며 인보이스의 12,000개와 다르다."
+    },
+    {
+      "documentId": "04-mismatch-delivery-note",
+      "pdf": "04-mismatch-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Brightline Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-33027",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-06-09",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "11000",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": false
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": "납품은 미완료 상태이며 수령자 서명이 없다. 인보이스의 납품 완료 표기와 다르다."
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "totalAmount",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "24000"
+        },
+        {
+          "documentId": "04-mismatch-purchase-order",
+          "value": "22000"
+        }
+      ],
+      "description": "청구서는 24,000유로, 발주서는 22,000유로다."
+    },
+    {
+      "field": "quantity",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "12000"
+        },
+        {
+          "documentId": "04-mismatch-purchase-order",
+          "value": "11000"
+        },
+        {
+          "documentId": "04-mismatch-delivery-note",
+          "value": "11000"
+        }
+      ],
+      "description": "청구 수량은 12,000개이나 발주 수량과 납품 기준 수량은 11,000개다."
+    },
+    {
+      "field": "paymentTerms",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "Net 45 days from the invoice date"
+        },
+        {
+          "documentId": "04-mismatch-contract",
+          "value": "Net 30 days from the invoice date"
+        }
+      ],
+      "description": "계약 결제조건은 Net 30이나 청구서는 Net 45로 발행되었다."
+    },
+    {
+      "field": "deliveryCompleted",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "true"
+        },
+        {
+          "documentId": "04-mismatch-delivery-note",
+          "value": "false"
+        }
+      ],
+      "description": "청구서는 납품 완료로 표기했으나 납품 증빙은 미완료다."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "notes": [
+    "reviewRequired는 true가 기대값이다.",
+    "인보이스에 발주번호·계약번호·만기일이 없다. 세 필드는 불일치가 아니라 누락으로 선언되어야 한다.",
+    "이 상태는 Dispute가 아니라 Request Revision으로 처리되는 정보 오기재 유형이다.",
+    "인보이스는 EUR 표기인데 정산은 USDC로 요청되어 있고 환율 근거가 없다. 이는 문서 대사가 아니라 룰 엔진에서 판정한다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

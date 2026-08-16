@@ -1,0 +1,136 @@
+{
+  "setId": "01-duplicate",
+  "title": "중복 — 동일 납품 건에 인보이스가 두 장 발행됨",
+  "documents": [
+    {
+      "documentId": "01-duplicate-invoice",
+      "pdf": "01-duplicate-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-0817-A",
+        "supplierName": "Nordwind Components GmbH",
+        "buyerName": "Halcyon Robotics Ltd",
+        "purchaseOrderNumber": "PO-2026-4471",
+        "contractNumber": "CTR-2026-0311",
+        "currency": "USD",
+        "totalAmount": "96000",
+        "issueDate": "2026-07-20",
+        "dueDate": "2026-09-18",
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "150",
+        "unitPrice": "640",
+        "paymentTerms": "Net 60 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": "인보이스 번호만 00-normal과 다르다. 세트 내부에서는 불일치가 아니다."
+    },
+    {
+      "documentId": "01-duplicate-contract",
+      "pdf": "01-duplicate-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Nordwind Components GmbH",
+        "buyerName": "Halcyon Robotics Ltd",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-0311",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": null,
+        "unitPrice": "640",
+        "paymentTerms": "Net 60 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": "계약서에는 개별 청구 건의 번호·총액·발행일·만기일·수량이 없다. 해당 필드는 누락으로 선언되어야 한다."
+    },
+    {
+      "documentId": "01-duplicate-purchase-order",
+      "pdf": "01-duplicate-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Nordwind Components GmbH",
+        "buyerName": "Halcyon Robotics Ltd",
+        "purchaseOrderNumber": "PO-2026-4471",
+        "contractNumber": "CTR-2026-0311",
+        "currency": "USD",
+        "totalAmount": "96000",
+        "issueDate": "2026-06-02",
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "150",
+        "unitPrice": "640",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": "발주일은 발주서 자체의 발행일이며 청구서 발행일과 다르다. 불일치가 아니다."
+    },
+    {
+      "documentId": "01-duplicate-delivery-note",
+      "pdf": "01-duplicate-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Nordwind Components GmbH",
+        "buyerName": "Halcyon Robotics Ltd",
+        "purchaseOrderNumber": "PO-2026-4471",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-07-14",
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "150",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": "납품 완료 사실을 확인하는 증빙이다. 계약번호·금액·지급 만기일은 담지 않는다."
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "계약서·발주서·납품증빙은 00-normal과 동일하고 인보이스 번호만 다르다.",
+    "Document Agent 단독으로는 잡히지 않는다. 세트 내부 4개 문서는 서로 일치하므로 mismatches는 비어 있고 reviewRequired는 false다.",
+    "중복은 세트 간 비교, 즉 자체 DB 복합키(판매자 VAT + 구매자 VAT + 통화 + 금액 + 발행일)와 PO 번호 단위 검사로 판정한다.",
+    "파일 해시는 00-normal과 다르므로 해시 단독으로는 잡히지 않는다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}
