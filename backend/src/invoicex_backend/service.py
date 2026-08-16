@@ -778,16 +778,39 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
-    def investor_dashboard(self) -> InvestorDashboard:
+    def investor_dashboard(self, *, owner_wallet_address: str | None = None) -> InvestorDashboard:
         active = {
             InvoiceStatus.FUNDED,
             InvoiceStatus.REPAYMENT_PENDING,
             InvoiceStatus.SETTLING,
         }
+        mandates = self._repository.active_mandates()
+        if owner_wallet_address is not None:
+            mandates = [
+                mandate
+                for mandate in mandates
+                if mandate.owner_wallet_address == owner_wallet_address
+            ]
+        mandate_ids = {mandate.id for mandate in mandates}
+        relevant_invoice_ids = {
+            invoice.id
+            for invoice in self._invoices.values()
+            if (
+                owner_wallet_address is None
+                or (
+                    (decision := self._repository.get_decision(invoice.id)) is not None
+                    and decision.mandate_id in mandate_ids
+                )
+            )
+        }
         active_invoices_with_passport = [
             invoice
             for invoice in self._invoices.values()
-            if invoice.status in active and invoice.risk_passport is not None
+            if (
+                invoice.id in relevant_invoice_ids
+                and invoice.status in active
+                and invoice.risk_passport is not None
+            )
         ]
         outstanding = sum(
             invoice.risk_passport.suggested_advance_amount_usdc or 0
@@ -801,15 +824,21 @@ class InvoiceService:
             and 0 <= (due_date - today).days <= 30
         )
         traces = sorted(
-            (trace for invoice in self._invoices.values() for trace in invoice.agent_traces),
+            (
+                trace
+                for invoice in self._invoices.values()
+                if invoice.id in relevant_invoice_ids
+                for trace in invoice.agent_traces
+            ),
             key=lambda trace: trace.created_at,
             reverse=True,
         )[:20]
-        mandates = self._repository.active_mandates()
         vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
         attention_required_statuses = {InvoiceStatus.ERROR, InvoiceStatus.BLOCKED}
         attention_required_count = 0
         for invoice in self._invoices.values():
+            if invoice.id not in relevant_invoice_ids:
+                continue
             if invoice.status in attention_required_statuses:
                 attention_required_count += 1
                 continue

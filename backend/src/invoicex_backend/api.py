@@ -16,6 +16,7 @@ from fastapi import (
     status,
 )
 
+from invoicex_backend.auth import PrivyPrincipalDependency, require_wallet_owner
 from invoicex_backend.errors import DocumentValidationError, NotFoundError
 from invoicex_backend.models import (
     ConfirmVaultDepositRequest,
@@ -46,6 +47,8 @@ router = APIRouter(prefix="/api/v1")
 def documented_errors(*status_codes: int) -> dict[int, dict[str, object]]:
     descriptions = {
         400: "Document or domain validation failed",
+        401: "Privy authentication is missing, invalid, or expired",
+        403: "The authenticated Privy user does not own the requested wallet",
         404: "Invoice or Verification was not found",
         409: "The requested state transition is not allowed",
         422: "The request does not match the API contract",
@@ -262,7 +265,9 @@ async def save_supplier_wallet(
 async def prepare_mandate(
     payload: PrepareMandateRequest,
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
 ) -> MandateSigningPayload:
+    require_wallet_owner(principal, payload.owner_wallet_address)
     return MandateSigningPayload(
         canonical_message=service.prepare_mandate_message(
             owner_wallet_address=payload.owner_wallet_address,
@@ -282,7 +287,9 @@ async def create_mandate(
     payload: CreateMandateRequest,
     background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
 ) -> InvestorMandate:
+    require_wallet_owner(principal, payload.owner_wallet_address)
     mandate = service.create_mandate(payload)
     background_tasks.add_task(service.execute_pending_investments)
     return mandate
@@ -297,8 +304,10 @@ async def create_mandate(
 )
 async def get_active_mandate(
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
     owner_wallet_address: str = Query(alias="ownerWalletAddress"),
 ) -> InvestorMandate:
+    require_wallet_owner(principal, owner_wallet_address)
     mandate = service.active_mandate_for_wallet(owner_wallet_address)
     if mandate is None:
         raise NotFoundError(f"{owner_wallet_address}의 활성 Mandate를 찾을 수 없습니다.")
@@ -314,8 +323,10 @@ async def get_active_mandate(
 )
 async def get_vault(
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
     owner_wallet_address: str = Query(alias="ownerWalletAddress"),
 ) -> VaultBalance:
+    require_wallet_owner(principal, owner_wallet_address)
     return service.get_vault(owner_wallet_address)
 
 
@@ -329,7 +340,9 @@ async def get_vault(
 async def prepare_vault_deposit(
     payload: PrepareVaultDepositRequest,
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
 ) -> VaultDepositPreparation:
+    require_wallet_owner(principal, payload.owner_wallet_address)
     prepared = await service.prepare_vault_deposit(
         owner_wallet_address=payload.owner_wallet_address,
         amount_usdc=payload.amount_usdc,
@@ -355,7 +368,9 @@ async def sponsor_vault_deposit(
     payload: SponsorVaultDepositRequest,
     background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
 ) -> VaultBalance:
+    require_wallet_owner(principal, payload.owner_wallet_address)
     vault = await service.sponsor_vault_deposit(payload)
     background_tasks.add_task(service.execute_pending_investments)
     return vault
@@ -372,7 +387,9 @@ async def confirm_vault_deposit(
     payload: ConfirmVaultDepositRequest,
     background_tasks: BackgroundTasks,
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
 ) -> VaultBalance:
+    require_wallet_owner(principal, payload.owner_wallet_address)
     vault = await service.confirm_vault_deposit(payload)
     background_tasks.add_task(service.execute_pending_investments)
     return vault
@@ -386,8 +403,10 @@ async def confirm_vault_deposit(
 )
 async def investor_dashboard(
     service: InvoiceServiceDependency,
+    principal: PrivyPrincipalDependency,
 ) -> InvestorDashboard:
-    return service.investor_dashboard()
+    owner_wallet_address = principal.primary_embedded_wallet() if principal is not None else None
+    return service.investor_dashboard(owner_wallet_address=owner_wallet_address)
 
 
 @router.post(

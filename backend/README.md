@@ -24,6 +24,25 @@ mode. Explicit `real`, `direct`, or `privy` modes fail during startup when
 their required configuration is missing; provider failures never fall back to
 mock execution.
 
+## Privy user authentication
+
+Investor APIs can enforce both the authenticated Privy session and embedded-wallet
+ownership. In Privy Dashboard, enable **Return user data in an identity token**, then
+configure the backend only:
+
+```dotenv
+AUTH_MODE=privy
+PRIVY_APP_ID=
+PRIVY_JWKS_URL=https://auth.privy.io/api/v1/apps/<PRIVY_APP_ID>/jwks.json
+```
+
+The frontend sends the access token as `Authorization: Bearer ...` and the identity
+token as `privy-id-token`. The API verifies both ES256 signatures through Privy's
+cached JWKS endpoint, as well as issuer, audience,
+expiry, and matching Privy user IDs. An investor request is authorized only when its
+`ownerWalletAddress` appears as a Privy-managed Solana wallet in the signed identity
+token. `AUTH_MODE=disabled` is limited to local mock tests.
+
 ## Real Devnet RWA demo
 
 The Devnet demo issues one indivisible SPL token per invoice. The platform

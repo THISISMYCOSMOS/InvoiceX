@@ -91,6 +91,18 @@ class BackendSettings(BaseSettings):
         default="https://api.privy.io",
         validation_alias="PRIVY_API_BASE_URL",
     )
+    auth_mode: Literal["disabled", "privy"] = Field(
+        default="disabled",
+        validation_alias="AUTH_MODE",
+    )
+    privy_verification_key: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_VERIFICATION_KEY",
+    )
+    privy_jwks_url: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_JWKS_URL",
+    )
 
     solana_cluster: Literal["devnet"] = Field(
         default="devnet",
@@ -181,6 +193,10 @@ class BackendSettings(BaseSettings):
             missing = self.missing_gasless_configuration()
             if missing:
                 raise ValueError("GASLESS_ENABLED requires configuration: " + ", ".join(missing))
+        if self.auth_mode == "privy":
+            missing = self.missing_privy_auth_configuration()
+            if missing:
+                raise ValueError("AUTH_MODE=privy requires configuration: " + ", ".join(missing))
         return self
 
     def resolved_agent_mode(self) -> Literal["real", "mock"]:
@@ -223,6 +239,17 @@ class BackendSettings(BaseSettings):
             "PRIVY_SPONSOR_WALLET_ADDRESS": self.privy_sponsor_wallet_address,
         }
         return [name for name, value in values.items() if not self._non_blank(value)]
+
+    def missing_privy_auth_configuration(self) -> list[str]:
+        missing = []
+        if not self._non_blank(self.privy_app_id):
+            missing.append("PRIVY_APP_ID")
+        if not (
+            self._non_blank(self.privy_jwks_url)
+            or self._non_blank(self.privy_verification_key)
+        ):
+            missing.append("PRIVY_JWKS_URL or PRIVY_VERIFICATION_KEY")
+        return missing
 
     @staticmethod
     def _non_blank(value: str | None) -> bool:

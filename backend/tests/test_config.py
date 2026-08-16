@@ -53,6 +53,25 @@ def test_explicit_privy_mode_requires_complete_configuration() -> None:
         )
 
 
+def test_privy_auth_mode_requires_app_id_and_a_verification_source() -> None:
+    with pytest.raises(ValidationError, match="AUTH_MODE=privy"):
+        BackendSettings(
+            _env_file=None,
+            AUTH_MODE="privy",
+            PRIVY_APP_ID="app-id",
+            PRIVY_VERIFICATION_KEY="",
+            PRIVY_JWKS_URL="",
+        )
+
+    settings = BackendSettings(
+        _env_file=None,
+        AUTH_MODE="privy",
+        PRIVY_APP_ID="app-id",
+        PRIVY_JWKS_URL="https://auth.privy.io/example/jwks.json",
+    )
+    assert settings.auth_mode == "privy"
+
+
 def test_gasless_mode_requires_a_separate_privy_sponsor_wallet() -> None:
     with pytest.raises(ValidationError, match="GASLESS_ENABLED"):
         BackendSettings(

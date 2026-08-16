@@ -70,6 +70,7 @@ def create_app(
         ],
     )
     app.state.invoice_service = service
+    app.state.backend_settings = resolved_settings
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[resolved_settings.frontend_origin],
