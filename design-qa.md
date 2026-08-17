@@ -88,3 +88,53 @@ No actionable P0, P1, or P2 visual or interaction issues were found.
 - Findings: No actionable P0, P1, or P2 issues.
 
 final result: passed
+
+## Company sign-up flow QA — 2026-08-18
+
+- Source visual truth: Figma nodes `123:1104`, `123:1143`, `123:1191`, `123:1252`, and `123:1302` from `https://www.figma.com/design/Gmn4FDxT8sXnW45RWWkgL1/GxS`.
+- Implementation: browser-rendered `http://127.0.0.1:5173/signup` (email entry, code, role, company details, and completion states).
+- Viewport: 1440 × 900 CSS px, device pixel ratio 1; comparison focused on the centered 1280 × 800 application shell.
+- Source and implementation pixels: Figma source frame 1280 × 800; implementation browser capture 1440 × 900 with the same 1280 × 800 shell at native CSS size. No density scaling was applied.
+- State: Korean sign-up flow; verification used mock inputs only (`finance@company.com`, six-digit code, Investor role, dummy company information).
+
+### Full-view comparison evidence
+
+The Figma email-entry capture and the browser-rendered email-entry capture were opened together in the same visual QA pass. The split layout, 480 px gradient brand panel, 800 px form panel, header actions, 560/640 px content widths, progress treatment, form controls, and primary CTA were compared at the desktop shell size. The remaining four Figma states were also checked against their corresponding interactive implementation states.
+
+### Focused region comparison evidence
+
+- Email and code states: Input heights, six-cell OTP layout, timer/re-send row, CTA, and alternate-email action match the target structure.
+- Company-role state: The completion toast, Supplier/Buyer/Investor card hierarchy, semantic role rails, selected radio state, and 2/3 progress state are present.
+- Company-details and completion states: The two-column form, verified-email strip, completion summary, activation chip, and role-aware dashboard CTA match the Figma composition.
+
+### Required fidelity surfaces
+
+- Fonts and typography: The existing Inter stack is used with matching bold display headings, compact labels, muted helper copy, and Korean line wrapping.
+- Spacing and layout rhythm: The desktop 1280 × 800 shell preserves the Figma panel split, panel padding, content widths, 50 px CTA height, 76 px role rows, and form grid rhythm.
+- Colors and visual tokens: The navy-to-violet brand panel, cyan/blue/violet progress fill, blue primary actions, pale verification banner, neutral borders, and role accents follow the source.
+- Image quality and asset fidelity: The source contains no raster imagery or custom icon assets. The wordmark and UI controls remain text/CSS interface elements, with no placeholder artwork introduced.
+- Copy and content: Figma Korean labels and supporting copy are preserved. Completion values reflect the locally entered mock data.
+
+### Interaction verification
+
+- Login's `Create a company account` link routes to `/signup`.
+- Email submission advances to OTP; six code fields accept digits and advance focus; resend clears the fields; alternate-email returns to the first state.
+- Role selection supports all three roles and the selected role routes the completion CTA to its corresponding dashboard.
+- Company details submission renders the completion card; the tested Investor flow navigated to `/investor`.
+- The top-left action routes only the email-entry screen to `/login`; each later state returns to its immediately preceding sign-up state, including completion back to company details.
+- Browser console errors: none.
+
+### Findings
+
+No actionable P0, P1, or P2 visual or interaction mismatches were found.
+
+### Comparison history
+
+- Initial comparison: the selected role control showed the browser's default dark focus outline. The component style was updated to use the intended blue focus treatment.
+- Post-fix comparison: no actionable P0, P1, or P2 findings remain.
+
+### Follow-up polish
+
+- P3: The company-information progress text deliberately remains `1 / 3 기업 이메일 인증` to match the provided Figma node, despite its fully filled progress bar.
+
+final result: passed

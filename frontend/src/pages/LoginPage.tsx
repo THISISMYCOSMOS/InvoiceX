@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { authApi } from "../api/auth.api";
 import { isMockApi } from "../api/client";
 import { Brand } from "../components/Brand";
@@ -134,7 +134,7 @@ export function LoginPage() {
             <button className="primary-button login-submit" type="submit">{t("Sign in", "로그인")}</button>
             <p className="login-form__foot">
               {t("New to InvoiceX?", "InvoiceX가 처음이신가요?")}{" "}
-              <a href="#create-account">{t("Create a company account", "회사 계정 만들기")}</a>
+              <Link to="/signup">{t("Create a company account", "회사 계정 만들기")}</Link>
             </p>
           </form>
         </section>

@@ -14,6 +14,7 @@ import { InvestorProfilePage } from "./pages/investor/InvestorProfilePage";
 import { InvestorVaultPage } from "./pages/investor/InvestorVaultPage";
 import { DemoControlPage } from "./pages/dev/DemoControlPage";
 import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
 import { LanguageProvider } from "./i18n/LanguageContext";
 import { SolanaWalletProvider } from "./wallet/SolanaWalletProvider";
 import { WalletRoleSwitchGuard } from "./wallet/WalletRoleSwitchGuard";
@@ -25,6 +26,7 @@ export function App() {
         <LanguageProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route
               path="*"
               element={(
