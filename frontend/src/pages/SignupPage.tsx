@@ -7,6 +7,7 @@ import { useSignupAuth } from "../auth/SignupAuthContext";
 type SignupStep = "email" | "verification" | "role" | "company" | "complete";
 type CompanyRole = "supplier" | "buyer" | "investor";
 type OtpDeadline = { expiresAtServerMs: number; serverOffsetMs: number };
+type OtpClockSync = { expiresInSeconds: number; serverOffsetMs: number };
 
 const roles: Record<CompanyRole, { korean: string; english: string; description: string }> = {
   supplier: {
@@ -32,6 +33,12 @@ const companyTypes: Record<CompanyRole, CompanyType> = {
   investor: "INVESTOR",
 };
 
+const companyRoles: Record<CompanyType, CompanyRole> = {
+  SUPPLIER: "supplier",
+  BUYER: "buyer",
+  INVESTOR: "investor",
+};
+
 const sideCopy: Record<SignupStep, string> = {
   email: "신뢰할 수 있는 기업 계정을 위해 업무용 이메일을 먼저 확인합니다.",
   verification: "보안을 위해 이메일로 전달된 6자리 코드를 확인합니다.",
@@ -54,6 +61,7 @@ export function SignupPage() {
   const [contactName, setContactName] = useState("");
   const [contactTitle, setContactTitle] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [resumingOnboarding, setResumingOnboarding] = useState(false);
   const [nextPath, setNextPath] = useState("/login");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,17 +81,25 @@ export function SignupPage() {
     return () => window.clearInterval(intervalId);
   }, [otpDeadline, step]);
 
-  const syncOtpDeadline = async () => {
+  const loadOtpClock = async (): Promise<OtpClockSync> => {
     const requestStartedAt = Date.now();
     const otpClock = await getOtpClock();
     const responseReceivedAt = Date.now();
     const estimatedClientTimeAtServerResponse = requestStartedAt
       + ((responseReceivedAt - requestStartedAt) / 2);
-    setOtpDeadline({
-      expiresAtServerMs: otpClock.serverTimeMs + (otpClock.expiresInSeconds * 1000),
+    return {
+      expiresInSeconds: otpClock.expiresInSeconds,
       serverOffsetMs: otpClock.serverTimeMs - estimatedClientTimeAtServerResponse,
+    };
+  };
+
+  const startOtpDeadline = (clock: OtpClockSync) => {
+    const currentServerTimeMs = Date.now() + clock.serverOffsetMs;
+    setOtpDeadline({
+      expiresAtServerMs: currentServerTimeMs + (clock.expiresInSeconds * 1000),
+      serverOffsetMs: clock.serverOffsetMs,
     });
-    setRemainingSeconds(otpClock.expiresInSeconds);
+    setRemainingSeconds(clock.expiresInSeconds);
   };
 
   const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
@@ -96,8 +112,9 @@ export function SignupPage() {
     setSubmitting(true);
     try {
       if (signupAuth.authenticated) await signupAuth.logout();
+      const otpClock = await loadOtpClock();
       await signupAuth.sendCode(email.trim());
-      await syncOtpDeadline();
+      startOtpDeadline(otpClock);
       setCode(["", "", "", "", "", ""]);
       setStep("verification");
     } catch (cause) {
@@ -131,6 +148,18 @@ export function SignupPage() {
         navigate(authMe.nextPath);
         return;
       }
+      if (authMe.onboardingStatus === "PROVISIONING_EMBEDDED_WALLET" && authMe.company) {
+        setRole(companyRoles[authMe.company.type]);
+        setCompanyName(authMe.company.name);
+        setBusinessRegistrationNumber(authMe.company.businessRegistrationNumber);
+        setContactName(authMe.user.name ?? "");
+        setContactTitle(authMe.user.title ?? "");
+        setContactPhone(authMe.user.phone ?? "");
+        setResumingOnboarding(true);
+        setStep("company");
+        return;
+      }
+      setResumingOnboarding(false);
       setStep("role");
     } catch (cause) {
       if (isInvalidVerificationCode(cause)) {
@@ -178,8 +207,9 @@ export function SignupPage() {
     setError(null);
     setSubmitting(true);
     try {
+      const otpClock = await loadOtpClock();
       await signupAuth.sendCode(email.trim());
-      await syncOtpDeadline();
+      startOtpDeadline(otpClock);
       setCode(["", "", "", "", "", ""]);
       document.getElementById("verification-code-0")?.focus();
     } catch (cause) {
@@ -197,6 +227,7 @@ export function SignupPage() {
       setCode(["", "", "", "", "", ""]);
       setOtpDeadline(null);
       setRemainingSeconds(0);
+      setResumingOnboarding(false);
       setStep("email");
     } catch (cause) {
       setError(toErrorMessage(cause, "인증 세션을 초기화하지 못했습니다."));
@@ -212,6 +243,11 @@ export function SignupPage() {
     }
 
     setError(null);
+
+    if (resumingOnboarding && step === "company") {
+      navigate("/login");
+      return;
+    }
 
     const previousStep: Record<Exclude<SignupStep, "email">, SignupStep> = {
       verification: "email",
@@ -258,7 +294,9 @@ export function SignupPage() {
         <section className="signup-panel">
           <header className="signup-top-row">
             <button className="signup-back" type="button" onClick={goBack}>
-              {step === "email" ? "← 로그인으로" : "← 이전 단계"}
+              {step === "email" || (resumingOnboarding && step === "company")
+                ? "← 로그인으로"
+                : "← 이전 단계"}
             </button>
             <p>이미 계정이 있나요? <button type="button" onClick={() => navigate("/login")}>로그인</button></p>
           </header>
@@ -286,6 +324,7 @@ export function SignupPage() {
               <Progress current="1 / 3 기업 이메일 인증" width="one-third" />
               <h1>인증 코드를 입력해주세요</h1>
               <p className="signup-description"><strong>{email || "name@company.com"}</strong>으로 6자리 인증 코드를 보내드렸습니다.</p>
+              <p className="signup-description">재전송했다면 가장 최근에 받은 코드를 입력해주세요.</p>
               <fieldset className="signup-field signup-code-field">
                 <legend>인증 코드</legend>
                 <div className="signup-code-inputs">
@@ -351,18 +390,24 @@ export function SignupPage() {
           {step === "company" && (
             <form className="signup-content signup-content--wide signup-company-step" onSubmit={submitCompany}>
               <Progress current="3 / 3 기업 정보 입력" width="complete" />
-              <h1>기업 정보를 입력해주세요.</h1>
-              <p className="signup-description">InvoiceX에서 거래 및 정산에 필요한 기업의 기본정보를 등록합니다.</p>
+              <h1>{resumingOnboarding ? "기업 가입을 이어서 완료해주세요." : "기업 정보를 입력해주세요."}</h1>
+              <p className="signup-description">
+                {resumingOnboarding
+                  ? "저장된 기업 정보로 Embedded Wallet 생성을 다시 시도합니다."
+                  : "InvoiceX에서 거래 및 정산에 필요한 기업의 기본정보를 등록합니다."}
+              </p>
               <div className="signup-company-fields">
-                <label className="signup-field"><span>기업명</span><input aria-label="기업명" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="예: 인보이스엑스 주식회사" required /></label>
-                <label className="signup-field"><span>사업자등록번호</span><input aria-label="사업자등록번호" value={businessRegistrationNumber} onChange={(event) => setBusinessRegistrationNumber(event.target.value)} placeholder="000-00-00000" required /></label>
-                <label className="signup-field"><span>담당자명</span><input aria-label="담당자명" value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="예: 홍길동" required /></label>
-                <label className="signup-field"><span>담당자 직책</span><input aria-label="담당자 직책" value={contactTitle} onChange={(event) => setContactTitle(event.target.value)} placeholder="예: 재무팀 매니저" required /></label>
-                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="010-0000-0000" required /></label>
+                <label className="signup-field"><span>기업명</span><input aria-label="기업명" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="예: 인보이스엑스 주식회사" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field"><span>사업자등록번호</span><input aria-label="사업자등록번호" value={businessRegistrationNumber} onChange={(event) => setBusinessRegistrationNumber(event.target.value)} placeholder="000-00-00000" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field"><span>담당자명</span><input aria-label="담당자명" value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="예: 홍길동" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field"><span>담당자 직책</span><input aria-label="담당자 직책" value={contactTitle} onChange={(event) => setContactTitle(event.target.value)} placeholder="예: 재무팀 매니저" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="010-0000-0000" readOnly={resumingOnboarding} required /></label>
               </div>
               <div className="signup-verified-email"><span>인증된 이메일 · {email || "finance@company.com"}</span><strong>인증 완료</strong></div>
               <button className="signup-primary-button" disabled={submitting} type="submit">
-                {submitting ? "사용자 지갑 생성 중..." : "기업 등록 완료"}
+                {submitting
+                  ? "사용자 지갑 생성 중..."
+                  : resumingOnboarding ? "지갑 생성 다시 시도" : "기업 등록 완료"}
               </button>
               <p className="signup-company-note">별도의 서류 제출이나 관리자 승인 없이 제출 즉시 계정이 활성화됩니다.</p>
             </form>

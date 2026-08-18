@@ -28,10 +28,11 @@ from .conftest import mock_settings
 @dataclass
 class FakePrivyGateway:
     fail_wallet_attempts: int = 0
+    emails: dict[str, str] = field(default_factory=dict)
     wallet_calls: list[tuple[str, str]] = field(default_factory=list)
 
     async def verified_email(self, user_id: str) -> str:
-        return f"{user_id.rsplit(':', 1)[-1]}@example.com"
+        return self.emails.get(user_id, f"{user_id.rsplit(':', 1)[-1]}@example.com")
 
     async def get_or_create_solana_wallet(
         self, user_id: str, *, idempotency_key: str
@@ -383,6 +384,29 @@ def test_business_number_and_completed_user_cannot_be_reused(tmp_path: Path) -> 
     assert duplicate.json()["code"] == "BUSINESS_REGISTRATION_ALREADY_USED"
 
 
+def test_same_email_cannot_create_two_local_accounts(tmp_path: Path) -> None:
+    shared_email = "Finance@Example.com"
+    gateway = FakePrivyGateway(
+        emails={
+            "did:privy:first-email": shared_email,
+            "did:privy:second-email": shared_email.lower(),
+        }
+    )
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        first = client.get(
+            "/api/v1/auth/me",
+            headers=headers(private_key, "did:privy:first-email"),
+        )
+        duplicate = client.get(
+            "/api/v1/auth/me",
+            headers=headers(private_key, "did:privy:second-email"),
+        )
+
+    assert first.status_code == 200
+    assert duplicate.status_code == 409
+    assert duplicate.json()["code"] == "EMAIL_ALREADY_REGISTERED"
+
+
 def test_onboarding_requires_a_privy_access_token(tmp_path: Path) -> None:
     gateway = FakePrivyGateway()
     with onboarding_client(tmp_path, gateway) as (client, _, _):
@@ -395,6 +419,8 @@ def test_onboarding_requires_a_privy_access_token(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Path) -> None:
     requests: list[httpx.Request] = []
+    user_id = "did:privy:user-owner"
+    external_id = HttpPrivyUserGateway._wallet_external_id(user_id)
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
@@ -406,6 +432,8 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
                 "id": "wallet-1",
                 "address": "7YpT1nGKM4gL4pWj6Rc2sN9u8TqfAEHvkM3dXeZbQ5Uc",
                 "chain_type": "solana",
+                "external_id": external_id,
+                "entity": {"id": user_id, "type": "user"},
                 "owner_id": None,
             },
         )
@@ -420,16 +448,17 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
     gateway = HttpPrivyUserGateway(settings, http_client=client)
 
     wallet = await gateway.get_or_create_solana_wallet(
-        "did:privy:user-owner",
+        user_id,
         idempotency_key="onboarding-attempt-1",
     )
     await client.aclose()
 
-    assert wallet.user_id == "did:privy:user-owner"
+    assert wallet.user_id == user_id
     assert len(requests) == 2
     lookup_request = requests[0]
-    assert lookup_request.url.params["user_id"] == "did:privy:user-owner"
+    assert lookup_request.url.params["user_id"] == user_id
     assert lookup_request.url.params["chain_type"] == "solana"
+    assert lookup_request.url.params["external_id"] == external_id
     create_request = requests[1]
     assert create_request.headers["privy-idempotency-key"] == "onboarding-attempt-1"
     assert create_request.headers["privy-app-id"] == "test-privy-app"
@@ -438,5 +467,57 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
     assert create_request.headers["content-type"].startswith("application/json")
     payload = json.loads(create_request.content)
     assert payload["chain_type"] == "solana"
+    assert payload["external_id"] == external_id
     assert "entity" not in payload
-    assert payload["owner"] == {"user_id": "did:privy:user-owner"}
+    assert payload["owner"] == {"user_id": user_id}
+
+
+@pytest.mark.asyncio
+async def test_privy_wallet_lookup_selects_only_the_invoicex_wallet(tmp_path: Path) -> None:
+    requests: list[httpx.Request] = []
+    user_id = "did:privy:wallet-choice"
+    external_id = HttpPrivyUserGateway._wallet_external_id(user_id)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "id": "unrelated-wallet",
+                        "address": "UnrelatedSolanaAddress",
+                        "chain_type": "solana",
+                        "external_id": "another_product_wallet",
+                        "entity": {"id": user_id, "type": "user"},
+                    },
+                    {
+                        "id": "invoicex-wallet",
+                        "address": "InvoiceXSolanaAddress",
+                        "chain_type": "solana",
+                        "external_id": external_id,
+                        "entity": {"id": user_id, "type": "user"},
+                    },
+                ]
+            },
+        )
+
+    settings = mock_settings(
+        tmp_path / "uploads",
+        PRIVY_APP_ID="test-privy-app",
+        PRIVY_APP_SECRET="test-secret",
+        PRIVY_API_BASE_URL="https://api.privy.test",
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = HttpPrivyUserGateway(settings, http_client=client)
+
+    wallet = await gateway.get_or_create_solana_wallet(
+        user_id,
+        idempotency_key="unused-for-existing-wallet",
+    )
+    await client.aclose()
+
+    assert wallet.id == "invoicex-wallet"
+    assert wallet.address == "InvoiceXSolanaAddress"
+    assert len(requests) == 1
+    assert requests[0].method == "GET"

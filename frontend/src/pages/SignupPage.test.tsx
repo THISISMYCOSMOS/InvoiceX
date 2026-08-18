@@ -210,6 +210,84 @@ test("counts down from the server clock and disables verification at expiration"
   expect(screen.getByRole("button", { name: "인증 완료" })).toBeDisabled();
 });
 
+test("syncs the OTP clock before sending both initial and replacement codes", async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  await user.click(screen.getByRole("button", { name: /재전송/ }));
+
+  expect(mocks.getOtpClock).toHaveBeenCalledTimes(2);
+  expect(mocks.sendCode).toHaveBeenCalledTimes(2);
+  expect(mocks.getOtpClock.mock.invocationCallOrder[0])
+    .toBeLessThan(mocks.sendCode.mock.invocationCallOrder[0]);
+  expect(mocks.getOtpClock.mock.invocationCallOrder[1])
+    .toBeLessThan(mocks.sendCode.mock.invocationCallOrder[1]);
+});
+
+test("keeps the current OTP valid when clock sync fails before resend", async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  mocks.getOtpClock.mockRejectedValueOnce(new Error("clock unavailable"));
+  await user.click(screen.getByRole("button", { name: /재전송/ }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("clock unavailable");
+  expect(mocks.sendCode).toHaveBeenCalledTimes(1);
+});
+
+test("restores a failed signup and retries its stored company wallet", async () => {
+  mocks.getAuthMe.mockResolvedValue({
+    user: {
+      email: "finance@company.com",
+      name: "홍길동",
+      title: "재무팀 매니저",
+      phone: "010-1234-5678",
+    },
+    company: {
+      name: "인보이스엑스 주식회사",
+      type: "BUYER",
+      businessRegistrationNumber: "123-45-67890",
+    },
+    embeddedWallet: null,
+    onboardingStatus: "PROVISIONING_EMBEDDED_WALLET",
+    nextPath: "/signup",
+  });
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  screen.getByLabelText("1번째 인증 코드").focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+
+  expect(await screen.findByRole("heading", { name: "기업 가입을 이어서 완료해주세요." }))
+    .toBeInTheDocument();
+  expect(screen.getByLabelText("기업명")).toHaveValue("인보이스엑스 주식회사");
+  expect(screen.getByLabelText("기업명")).toHaveAttribute("readonly");
+  expect(screen.getByLabelText("사업자등록번호")).toHaveValue("123-45-67890");
+  expect(screen.queryByRole("radiogroup", { name: "기업 유형" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "지갑 생성 다시 시도" }));
+
+  expect(mocks.onboardCompany).toHaveBeenCalledWith("privy-access-token", {
+    company: {
+      name: "인보이스엑스 주식회사",
+      type: "BUYER",
+      businessRegistrationNumber: "123-45-67890",
+    },
+    representative: {
+      name: "홍길동",
+      title: "재무팀 매니저",
+      phone: "010-1234-5678",
+    },
+  });
+});
+
 test("logs out of Privy before changing to another email", async () => {
   const user = userEvent.setup();
   render(<MemoryRouter><SignupPage /></MemoryRouter>);

@@ -185,6 +185,8 @@ class SQLiteRwaRepository:
                     available_usdc INTEGER NOT NULL CHECK (available_usdc >= 0),
                     status TEXT NOT NULL
                 );
+                CREATE UNIQUE INDEX IF NOT EXISTS users_normalized_email_unique
+                ON users(LOWER(TRIM(email)));
                 """
             )
 
@@ -471,25 +473,46 @@ class SQLiteRwaRepository:
 
     def ensure_onboarding_user(self, user: OnboardingUser) -> OnboardingUser:
         with self._lock, self._connection:
-            self._connection.execute(
-                """
-                INSERT OR IGNORE INTO users (
-                    id, privy_user_id, email, name, title, phone, company_id,
-                    onboarding_status, wallet_idempotency_key
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    user.id,
-                    user.privy_user_id,
-                    user.email,
-                    user.name,
-                    user.title,
-                    user.phone,
-                    user.company_id,
-                    user.onboarding_status.value,
-                    user.wallet_idempotency_key,
-                ),
-            )
+            existing_email = self._connection.execute(
+                "SELECT privy_user_id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))",
+                (user.email,),
+            ).fetchone()
+            if (
+                existing_email is not None
+                and existing_email["privy_user_id"] != user.privy_user_id
+            ):
+                raise OnboardingApiError(
+                    409,
+                    "EMAIL_ALREADY_REGISTERED",
+                    "이미 가입에 사용된 이메일입니다.",
+                )
+            try:
+                self._connection.execute(
+                    """
+                    INSERT INTO users (
+                        id, privy_user_id, email, name, title, phone, company_id,
+                        onboarding_status, wallet_idempotency_key
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(privy_user_id) DO NOTHING
+                    """,
+                    (
+                        user.id,
+                        user.privy_user_id,
+                        user.email,
+                        user.name,
+                        user.title,
+                        user.phone,
+                        user.company_id,
+                        user.onboarding_status.value,
+                        user.wallet_idempotency_key,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise OnboardingApiError(
+                    409,
+                    "EMAIL_ALREADY_REGISTERED",
+                    "이미 가입에 사용된 이메일입니다.",
+                ) from exc
             row = self._connection.execute(
                 "SELECT * FROM users WHERE privy_user_id = ?", (user.privy_user_id,)
             ).fetchone()

@@ -98,7 +98,8 @@ class HttpPrivyUserGateway:
         *,
         idempotency_key: str,
     ) -> PrivyWalletRecord:
-        existing = await self._find_solana_wallet(user_id)
+        external_id = self._wallet_external_id(user_id)
+        existing = await self._find_solana_wallet(user_id, external_id)
         if existing is not None:
             return existing
 
@@ -108,7 +109,6 @@ class HttpPrivyUserGateway:
             "privy-idempotency-key": idempotency_key,
             "Content-Type": "application/json",
         }
-        external_id = f"invoicex_{hashlib.sha256(user_id.encode()).hexdigest()[:48]}"
         try:
             response = await self._client.post(
                 f"{self._settings.privy_api_base_url}/v1/wallets",
@@ -121,7 +121,7 @@ class HttpPrivyUserGateway:
                 },
             )
             response.raise_for_status()
-            return self._wallet_from_payload(response.json(), user_id)
+            return self._wallet_from_payload(response.json(), user_id, external_id)
         except OnboardingApiError:
             raise
         except (httpx.HTTPError, ValueError, TypeError) as exc:
@@ -131,14 +131,25 @@ class HttpPrivyUserGateway:
                 "사용자 소유 Solana Embedded Wallet을 생성하지 못했습니다.",
             ) from exc
 
-    async def _find_solana_wallet(self, user_id: str) -> PrivyWalletRecord | None:
+    @staticmethod
+    def _wallet_external_id(user_id: str) -> str:
+        return f"invoicex_{hashlib.sha256(user_id.encode()).hexdigest()[:48]}"
+
+    async def _find_solana_wallet(
+        self, user_id: str, external_id: str
+    ) -> PrivyWalletRecord | None:
         headers, auth = self._request_options()
         try:
             response = await self._client.get(
                 f"{self._settings.privy_api_base_url}/v1/wallets",
                 headers=headers,
                 auth=auth,
-                params={"user_id": user_id, "chain_type": "solana", "limit": 100},
+                params={
+                    "user_id": user_id,
+                    "chain_type": "solana",
+                    "external_id": external_id,
+                    "limit": 100,
+                },
             )
             response.raise_for_status()
             payload = response.json()
@@ -155,22 +166,29 @@ class HttpPrivyUserGateway:
                 "EMBEDDED_WALLET_PROVISIONING_FAILED",
                 "Privy Wallet 응답 형식이 올바르지 않습니다.",
             )
-        candidates: list[tuple[int, PrivyWalletRecord]] = []
+        candidates: list[PrivyWalletRecord] = []
         for row in rows:
-            if not isinstance(row, dict) or row.get("chain_type") != "solana":
+            if (
+                not isinstance(row, dict)
+                or row.get("chain_type") != "solana"
+                or row.get("external_id") != external_id
+            ):
                 continue
-            try:
-                wallet = self._wallet_from_payload(row, user_id)
-            except OnboardingApiError:
-                continue
-            created_at = row.get("created_at")
-            candidates.append((int(created_at) if isinstance(created_at, int) else 0, wallet))
+            candidates.append(self._wallet_from_payload(row, user_id, external_id))
         if not candidates:
             return None
-        return min(candidates, key=lambda item: item[0])[1]
+        if len(candidates) > 1:
+            raise OnboardingApiError(
+                status.HTTP_502_BAD_GATEWAY,
+                "EMBEDDED_WALLET_RESPONSE_INVALID",
+                "InvoiceX 전용 Embedded Wallet이 중복 조회되었습니다.",
+            )
+        return candidates[0]
 
     @staticmethod
-    def _wallet_from_payload(payload: object, expected_user_id: str) -> PrivyWalletRecord:
+    def _wallet_from_payload(
+        payload: object, expected_user_id: str, expected_external_id: str
+    ) -> PrivyWalletRecord:
         if not isinstance(payload, dict):
             raise OnboardingApiError(
                 status.HTTP_502_BAD_GATEWAY,
@@ -179,10 +197,15 @@ class HttpPrivyUserGateway:
             )
         wallet_id = payload.get("id")
         address = payload.get("address")
+        entity = payload.get("entity")
         if (
             payload.get("chain_type") != "solana"
+            or payload.get("external_id") != expected_external_id
             or not isinstance(wallet_id, str)
             or not isinstance(address, str)
+            or not isinstance(entity, dict)
+            or entity.get("type") != "user"
+            or entity.get("id") != expected_user_id
         ):
             raise OnboardingApiError(
                 status.HTTP_502_BAD_GATEWAY,
