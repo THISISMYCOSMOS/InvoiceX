@@ -1,4 +1,4 @@
-"""Small signed-token auth boundary for the fixed InvoiceX demo accounts."""
+"""Authentication boundary for fixed demo accounts and completed Privy users."""
 
 from __future__ import annotations
 
@@ -10,17 +10,25 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import HTTPException, Request, status
 
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.models import LoginRole
+from invoicex_backend.onboarding_models import CompanyType, OnboardingStatus
+from invoicex_backend.privy_auth import verify_privy_access_token
 
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedIdentity:
     role: LoginRole
     email: str
+    source: Literal["DEMO", "PRIVY"] = "DEMO"
+    privy_user_id: str | None = None
+    company_id: str | None = None
+    company_name: str | None = None
+    wallet_address: str | None = None
 
 
 def issue_access_token(
@@ -38,14 +46,21 @@ def issue_access_token(
     return f"{body}.{signature}", datetime.fromtimestamp(expires_at, UTC).isoformat()
 
 
-def require_authenticated_identity(request: Request) -> AuthenticatedIdentity | None:
+async def require_authenticated_identity(request: Request) -> AuthenticatedIdentity | None:
+    existing = getattr(request.state, "authenticated_identity", None)
+    if isinstance(existing, AuthenticatedIdentity):
+        return existing
     settings: BackendSettings = request.app.state.settings
-    if not settings.api_auth_required:
-        return None
     authorization = request.headers.get("Authorization", "")
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
+        if not settings.api_auth_required:
+            return None
         raise _unauthorized()
+    if token.count(".") == 2:
+        identity = _privy_identity(request, token, settings)
+        request.state.authenticated_identity = identity
+        return identity
     try:
         body, signature = token.split(".", 1)
         if not hmac.compare_digest(_sign(body, settings.auth_token_secret), signature):
@@ -74,8 +89,8 @@ def require_roles(*allowed_roles: LoginRole) -> Callable[[Request], Authenticate
 
     allowed = frozenset(allowed_roles)
 
-    def dependency(request: Request) -> AuthenticatedIdentity | None:
-        identity = require_authenticated_identity(request)
+    async def dependency(request: Request) -> AuthenticatedIdentity | None:
+        identity = await require_authenticated_identity(request)
         if identity is None:
             return None
         if identity.role not in allowed:
@@ -87,6 +102,46 @@ def require_roles(*allowed_roles: LoginRole) -> Callable[[Request], Authenticate
         return identity
 
     return dependency
+
+
+def _privy_identity(
+    request: Request,
+    token: str,
+    settings: BackendSettings,
+) -> AuthenticatedIdentity:
+    principal = verify_privy_access_token(token, settings)
+    repository = request.app.state.invoice_service.repository
+    user = repository.get_onboarding_user(principal.user_id)
+    if (
+        user is None
+        or user.onboarding_status is not OnboardingStatus.COMPLETED
+        or user.company_id is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="InvoiceX 회원가입을 완료한 후 이용해 주세요.",
+        )
+    company = repository.get_company(user.company_id)
+    wallet = repository.get_company_wallet(user.company_id)
+    if company is None or wallet is None or wallet.privy_user_id != principal.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="가입한 회사와 Embedded Wallet 연결을 확인할 수 없습니다.",
+        )
+    role = {
+        CompanyType.SUPPLIER: LoginRole.SUPPLIER,
+        CompanyType.BUYER: LoginRole.BUYER,
+        CompanyType.INVESTOR: LoginRole.INVESTOR,
+    }[company.type]
+    return AuthenticatedIdentity(
+        role=role,
+        email=user.email,
+        source="PRIVY",
+        privy_user_id=principal.user_id,
+        company_id=company.id,
+        company_name=company.name,
+        wallet_address=wallet.address,
+    )
 
 
 def _encode(value: bytes) -> str:

@@ -67,6 +67,7 @@ class RwaRepository(Protocol):
     def get_onboarding_user(self, privy_user_id: str) -> OnboardingUser | None: ...
     def ensure_onboarding_user(self, user: OnboardingUser) -> OnboardingUser: ...
     def get_company(self, company_id: str) -> Company | None: ...
+    def find_company_by_name(self, name: str, company_type: str) -> Company | None: ...
     def get_company_wallet(self, company_id: str) -> CompanyWallet | None: ...
     def get_company_vault(self, company_id: str) -> LogicalVault | None: ...
     def save_company_profile(
@@ -499,6 +500,17 @@ class SQLiteRwaRepository:
         with self._lock:
             row = self._connection.execute(
                 "SELECT * FROM companies WHERE id = ?", (company_id,)
+            ).fetchone()
+        return self._company(row) if row is not None else None
+
+    def find_company_by_name(self, name: str, company_type: str) -> Company | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT * FROM companies
+                WHERE company_type = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?))
+                """,
+                (company_type, name),
             ).fetchone()
         return self._company(row) if row is not None else None
 
@@ -1176,6 +1188,17 @@ class CloudSqlRwaRepository:
             FROM companies WHERE id = %s
             """,
             (company_id,),
+        )
+        return self._company(row) if row else None
+
+    def find_company_by_name(self, name: str, company_type: str) -> Company | None:
+        row = self._read_one(
+            """
+            SELECT id, name, company_type, business_registration_number, kyb_status, status
+            FROM companies
+            WHERE company_type = %s AND LOWER(BTRIM(name)) = LOWER(BTRIM(%s))
+            """,
+            (company_type, name),
         )
         return self._company(row) if row else None
 

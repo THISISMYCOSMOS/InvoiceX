@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 import { SignupPage } from "./SignupPage";
 
@@ -34,6 +34,8 @@ vi.mock("../api/onboarding.api", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
   mocks.getAccessToken.mockResolvedValue("privy-access-token");
   mocks.logout.mockResolvedValue(undefined);
   mocks.getAuthMe.mockResolvedValue({
@@ -93,6 +95,36 @@ test("completes signup only after the onboarding API creates the user-owned wall
   });
   expect(await screen.findByRole("heading", { name: "기업 계정 생성이 완료되었습니다!" }))
     .toBeInTheDocument();
+});
+
+test("signs an existing Privy member into the stored company route", async () => {
+  mocks.getAuthMe.mockResolvedValue({
+    user: { email: "finance@company.com" },
+    company: { name: "Supplier One", type: "SUPPLIER" },
+    embeddedWallet: { address: "SolanaAddress" },
+    onboardingStatus: "COMPLETED",
+    nextPath: "/supplier",
+  });
+  window.localStorage.setItem("invoicex-demo-session", "stale-demo-session");
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={["/signup"]}>
+      <Routes>
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/supplier" element={<h1>Supplier member dashboard</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  screen.getByLabelText("1번째 인증 코드").focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+
+  expect(await screen.findByRole("heading", { name: "Supplier member dashboard" }))
+    .toBeInTheDocument();
+  expect(window.localStorage.getItem("invoicex-demo-session")).toBeNull();
 });
 
 test("does not show completion when wallet provisioning is incomplete", async () => {

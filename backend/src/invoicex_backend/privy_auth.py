@@ -1,4 +1,4 @@
-"""Privy access-token verification for the onboarding API only."""
+"""Privy access-token verification shared by onboarding and business APIs."""
 
 from __future__ import annotations
 
@@ -65,10 +65,22 @@ async def require_privy_principal(
         )
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized("Privy access token이 필요합니다.")
+    return verify_privy_access_token(credentials.credentials, settings)
+
+
+def verify_privy_access_token(token: str, settings: BackendSettings) -> PrivyPrincipal:
+    """Verify one Privy access token without depending on FastAPI request parsing."""
+
+    if not settings.privy_app_id:
+        raise OnboardingApiError(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "PRIVY_CONFIGURATION_MISSING",
+            "Privy 인증 설정이 완료되지 않았습니다.",
+        )
     try:
         payload = jwt.decode(
-            credentials.credentials,
-            key=_signing_key(credentials.credentials, settings),
+            token,
+            key=_signing_key(token, settings),
             algorithms=["ES256"],
             audience=settings.privy_app_id,
             issuer="privy.io",

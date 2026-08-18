@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from collections.abc import Iterator
@@ -13,6 +14,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from fastapi.testclient import TestClient
+from solders.keypair import Keypair
 
 from invoicex_backend.app import create_app
 from invoicex_backend.errors import OnboardingApiError
@@ -45,7 +47,7 @@ class FakePrivyGateway:
         suffix = user_id.rsplit(":", 1)[-1]
         return PrivyWalletRecord(
             id=f"privy-wallet-{suffix}",
-            address="7YpT1nGKM4gL4pWj6Rc2sN9u8TqfAEHvkM3dXeZbQ5Uc",
+            address=str(Keypair.from_seed(hashlib.sha256(user_id.encode()).digest()).pubkey()),
             user_id=user_id,
         )
 
@@ -110,6 +112,51 @@ def company_payload(company_type: str = "SUPPLIER", business_number: str = "123-
     }
 
 
+@contextmanager
+def privy_business_client(
+    tmp_path: Path,
+) -> Iterator[tuple[TestClient, ec.EllipticCurvePrivateKey]]:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_key = private_key.public_key()
+    settings = mock_settings(
+        tmp_path / "uploads",
+        API_AUTH_REQUIRED=True,
+        AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
+        PRIVY_APP_ID="test-privy-app",
+        PRIVY_APP_SECRET="test-secret",
+        PRIVY_VERIFICATION_KEY=public_key.public_bytes(
+            Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
+        ).decode(),
+    )
+    app = create_app(settings=settings)
+    app.state.onboarding_service = OnboardingService(
+        app.state.invoice_service.repository,
+        FakePrivyGateway(),
+    )
+    with TestClient(app) as client:
+        yield client, private_key
+
+
+def register_company(
+    client: TestClient,
+    private_key: ec.EllipticCurvePrivateKey,
+    *,
+    user_id: str,
+    company_type: str,
+    company_name: str,
+    business_number: str,
+) -> dict[str, object]:
+    payload = company_payload(company_type, business_number)
+    payload["company"]["name"] = company_name
+    response = client.post(
+        "/api/v1/onboarding/company",
+        headers=headers(private_key, user_id),
+        json=payload,
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
 def test_auth_me_creates_a_pending_user_from_privy(tmp_path: Path) -> None:
     gateway = FakePrivyGateway()
     with onboarding_client(tmp_path, gateway) as (client, private_key, _):
@@ -154,6 +201,100 @@ def test_supplier_onboarding_creates_a_user_owned_wallet(tmp_path: Path) -> None
     assert body["company"]["kybStatus"] == "NOT_PERFORMED"
     assert body["logicalVault"] is None
     assert gateway.wallet_calls[0][0] == "did:privy:supplier"
+
+
+def test_privy_business_requests_use_database_company_role_and_scope(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    with privy_business_client(tmp_path) as (client, private_key):
+        supplier = register_company(
+            client,
+            private_key,
+            user_id="did:privy:supplier-one",
+            company_type="SUPPLIER",
+            company_name="Supplier One",
+            business_number="111-11-11111",
+        )
+        buyer = register_company(
+            client,
+            private_key,
+            user_id="did:privy:buyer-one",
+            company_type="BUYER",
+            company_name="Prime Mobility",
+            business_number="222-22-22222",
+        )
+        other_supplier = register_company(
+            client,
+            private_key,
+            user_id="did:privy:supplier-two",
+            company_type="SUPPLIER",
+            company_name="Supplier Two",
+            business_number="333-33-33333",
+        )
+        register_company(
+            client,
+            private_key,
+            user_id="did:privy:buyer-two",
+            company_type="BUYER",
+            company_name="Other Buyer",
+            business_number="444-44-44444",
+        )
+
+        supplier_headers = headers(private_key, "did:privy:supplier-one")
+        created = client.post(
+            "/api/v1/invoices",
+            headers=supplier_headers,
+            files=contract_files,
+        )
+        assert created.status_code == 201
+        invoice = created.json()["invoice"]
+        invoice_id = invoice["id"]
+        assert invoice["supplier"] == {
+            "id": supplier["company"]["id"],
+            "name": "Supplier One",
+            "walletAddress": supplier["embeddedWallet"]["address"],
+            "vaultAddress": None,
+        }
+        assert invoice["buyer"]["id"] == buyer["company"]["id"]
+
+        assert len(client.get(
+            "/api/v1/invoices",
+            headers=headers(private_key, "did:privy:buyer-one"),
+        ).json()["items"]) == 1
+        assert client.get(
+            f"/api/v1/invoices/{invoice_id}",
+            headers=headers(private_key, "did:privy:supplier-two"),
+        ).status_code == 404
+        assert other_supplier["company"]["id"] != supplier["company"]["id"]
+
+        requested = client.post(
+            f"/api/v1/invoices/{invoice_id}/verification-request",
+            headers=supplier_headers,
+        )
+        assert requested.status_code == 200
+        assert len(client.get(
+            "/api/v1/verifications",
+            headers=headers(private_key, "did:privy:buyer-one"),
+        ).json()["items"]) == 1
+        assert client.get(
+            "/api/v1/verifications",
+            headers=headers(private_key, "did:privy:buyer-two"),
+        ).json()["items"] == []
+        assert client.get(
+            "/api/v1/investor/dashboard",
+            headers=supplier_headers,
+        ).status_code == 403
+
+
+def test_privy_business_api_rejects_incomplete_onboarding(tmp_path: Path) -> None:
+    with privy_business_client(tmp_path) as (client, private_key):
+        pending_headers = headers(private_key, "did:privy:pending-business-user")
+        assert client.get("/api/v1/auth/me", headers=pending_headers).status_code == 200
+        blocked = client.get("/api/v1/invoices", headers=pending_headers)
+
+    assert blocked.status_code == 403
+    assert "회원가입을 완료" in str(blocked.json())
 
 
 def test_investor_onboarding_creates_only_a_logical_vault_row(tmp_path: Path) -> None:

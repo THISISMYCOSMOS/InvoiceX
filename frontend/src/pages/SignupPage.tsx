@@ -1,6 +1,7 @@
 import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthMe, getOtpClock, onboardCompany, type CompanyType } from "../api/onboarding.api";
+import { clearDemoSession } from "../auth/demoAccounts";
 import { useSignupAuth } from "../auth/SignupAuthContext";
 
 type SignupStep = "email" | "verification" | "role" | "company" | "complete";
@@ -121,6 +122,7 @@ export function SignupPage() {
     setSubmitting(true);
     try {
       await signupAuth.verifyCode(verificationCode);
+      clearDemoSession();
       const accessToken = await signupAuth.getAccessToken();
       if (!accessToken) throw new Error("Privy Access Token을 확인할 수 없습니다.");
       const authMe = await getAuthMe(accessToken);

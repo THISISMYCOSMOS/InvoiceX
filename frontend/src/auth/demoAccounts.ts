@@ -67,7 +67,7 @@ export function getDemoSession(): DemoSession | undefined {
   return undefined;
 }
 
-export function getAuthorizationHeader(): HeadersInit {
-  const token = getDemoSession()?.accessToken;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+export function clearDemoSession() {
+  window.sessionStorage.removeItem(DEMO_SESSION_KEY);
+  window.localStorage.removeItem(DEMO_SESSION_KEY);
 }

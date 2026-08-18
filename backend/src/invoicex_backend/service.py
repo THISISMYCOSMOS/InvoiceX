@@ -31,6 +31,7 @@ from invoicex_backend.agent_activity import (
     ToolCallStatus,
 )
 from invoicex_backend.agents import AgentDocument, AgentGateway
+from invoicex_backend.auth import AuthenticatedIdentity
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     DocumentValidationError,
@@ -55,6 +56,7 @@ from invoicex_backend.models import (
     Invoice,
     InvoiceParty,
     InvoiceStatus,
+    LoginRole,
     MandatePolicy,
     OfferResponse,
     PositiveFactor,
@@ -186,18 +188,31 @@ class InvoiceService:
     def _save_invoice(self, invoice: Invoice) -> None:
         self._repository.save_invoice(invoice)
 
-    async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
+    async def create_invoice(
+        self,
+        uploads: list[UploadedDocument],
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         self._validate_uploads(uploads)
         invoice_id, document_ids = await self._reserve_invoice_ids(len(uploads))
         now = datetime.now(UTC)
         invoice_number = int(invoice_id[-3:])
+        supplier = InvoiceParty(
+            id="SUPPLIER_ALPHA",
+            name="Alpha Components",
+            wallet_address=self._settings.supplier_wallet_address,
+        )
+        if identity is not None and identity.source == "PRIVY":
+            if identity.company_id is None or identity.company_name is None:
+                raise StateConflictError("가입한 공급기업 정보를 확인할 수 없습니다.")
+            supplier = InvoiceParty(
+                id=identity.company_id,
+                name=identity.company_name,
+                wallet_address=identity.wallet_address,
+            )
         invoice = Invoice(
             id=invoice_id,
-            supplier=InvoiceParty(
-                id="SUPPLIER_ALPHA",
-                name="Alpha Components",
-                wallet_address=self._settings.supplier_wallet_address,
-            ),
+            supplier=supplier,
             buyer=InvoiceParty(id="BUYER_PRIME", name="Prime Mobility"),
             investor=InvoiceParty(
                 id="INVESTOR_NOVA",
@@ -263,6 +278,8 @@ class InvoiceService:
             {document.document_id: document.type for document in agent_documents},
         )
         self._apply_extracted_metadata(invoice, agent_result)
+        if identity is not None and identity.source == "PRIVY":
+            invoice.supplier.name = identity.company_name or invoice.supplier.name
         invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
         self._append_trace(
             invoice,
@@ -282,7 +299,10 @@ class InvoiceService:
         self._save_invoice(invoice)
         return self._copy_invoice(invoice)
 
-    def list_invoices(self) -> list[Invoice]:
+    def list_invoices(
+        self,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> list[Invoice]:
         return [
             self._copy_invoice(invoice)
             for invoice in sorted(
@@ -290,13 +310,27 @@ class InvoiceService:
                 key=lambda item: item.id,
                 reverse=True,
             )
+            if self._can_access_invoice(invoice, identity)
         ]
 
-    def get_invoice(self, invoice_id: str) -> Invoice:
-        return self._copy_invoice(self._invoice(invoice_id))
+    def get_invoice(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
+        invoice = self._invoice(invoice_id)
+        self.assert_invoice_access(invoice, identity)
+        return self._copy_invoice(invoice)
 
-    def save_supplier_wallet(self, wallet_address: str) -> None:
+    def save_supplier_wallet(
+        self,
+        wallet_address: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> None:
         self._validate_wallet_address(wallet_address)
+        self.assert_wallet_ownership(wallet_address, identity)
+        if identity is not None and identity.source == "PRIVY":
+            return
         self._repository.save_supplier_wallet(wallet_address)
 
     def create_mandate(self, request: CreateMandateRequest) -> InvestorMandate:
@@ -430,9 +464,14 @@ class InvoiceService:
         self._repository.save_vault(updated)
         return updated
 
-    async def request_verification(self, invoice_id: str) -> Invoice:
+    async def request_verification(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if invoice.verification_id is not None:
                 return self._copy_invoice(invoice)
             if invoice.status is not InvoiceStatus.DOCUMENT_REVIEW_REQUIRED:
@@ -459,7 +498,10 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
-    def list_verifications(self) -> list[Verification]:
+    def list_verifications(
+        self,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> list[Verification]:
         return [
             verification.model_copy(deep=True)
             for verification in sorted(
@@ -467,15 +509,27 @@ class InvoiceService:
                 key=lambda item: item.id,
                 reverse=True,
             )
+            if self._can_access_invoice(self._invoice(verification.invoice_id), identity)
         ]
 
-    def get_verification(self, verification_id: str) -> Verification:
-        return self._verification(verification_id).model_copy(deep=True)
+    def get_verification(
+        self,
+        verification_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Verification:
+        verification = self._verification(verification_id)
+        self.assert_invoice_access(self._invoice(verification.invoice_id), identity)
+        return verification.model_copy(deep=True)
 
-    async def confirm_verification(self, verification_id: str) -> Invoice:
+    async def confirm_verification(
+        self,
+        verification_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         verification = self._verification(verification_id)
         async with self._invoice_lock(verification.invoice_id):
             invoice = self._invoice(verification.invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if verification.status is VerificationStatus.CONFIRMED:
                 return self._copy_invoice(invoice)
             if (
@@ -568,11 +622,13 @@ class InvoiceService:
         self,
         invoice_id: str,
         response: OfferResponse,
+        identity: AuthenticatedIdentity | None = None,
     ) -> tuple[Invoice, bool]:
         """Issue one RWA unit and then queue automatic mandate evaluation."""
 
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if response is OfferResponse.ACCEPT and invoice.status in {
                 InvoiceStatus.RWA_ISSUED,
                 InvoiceStatus.FUNDING,
@@ -591,7 +647,9 @@ class InvoiceService:
                 return self._copy_invoice(invoice), False
 
             supplier_wallet = (
-                self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
+                identity.wallet_address
+                if identity is not None and identity.source == "PRIVY"
+                else self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
             )
             if not supplier_wallet or supplier_wallet.startswith("DEMO_"):
                 if self._solana.mode != "mock":
@@ -810,13 +868,18 @@ class InvoiceService:
             timeline=sorted(items, key=lambda item: item.created_at),
         )
 
-    async def settle_mock_payment(self, invoice_id: str) -> Invoice:
+    async def settle_mock_payment(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         if not self._settings.mock_settlement_enabled:
             raise StateConflictError(
                 "Mock 상환 정산은 현재 GCP 자동매수 범위에서 비활성화되어 있습니다."
             )
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if invoice.status is InvoiceStatus.SETTLED:
                 return self._copy_invoice(invoice)
             if invoice.status not in {
@@ -872,7 +935,10 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
-    def investor_dashboard(self) -> InvestorDashboard:
+    def investor_dashboard(
+        self,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> InvestorDashboard:
         active = {
             InvoiceStatus.FUNDED,
             InvoiceStatus.REPAYMENT_PENDING,
@@ -900,6 +966,12 @@ class InvoiceService:
             reverse=True,
         )[:20]
         mandates = self._repository.active_mandates()
+        if identity is not None and identity.source == "PRIVY":
+            mandates = [
+                mandate
+                for mandate in mandates
+                if mandate.owner_wallet_address == identity.wallet_address
+            ]
         vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
         attention_required_statuses = {InvoiceStatus.ERROR, InvoiceStatus.BLOCKED}
         attention_required_count = 0
@@ -911,7 +983,9 @@ class InvoiceService:
             if decision is not None and decision.status == "FAILED":
                 attention_required_count += 1
         return InvestorDashboard(
-            investor_name="Nova Capital",
+            investor_name=(
+                identity.company_name if identity and identity.company_name else "Nova Capital"
+            ),
             automated_investment_active=bool(mandates),
             mandate_status="ACTIVE" if mandates else "DRAFT",
             available_vault_usdc=vault.available_usdc if vault else 0,
@@ -1047,6 +1121,12 @@ class InvoiceService:
             analysis.purchase_order_number.value or invoice.purchase_order_number
         )
         invoice.supplier.name = analysis.supplier_name.value or invoice.supplier.name
+        buyer_name = analysis.buyer_name.value
+        if buyer_name:
+            buyer_company = self._repository.find_company_by_name(buyer_name, "BUYER")
+            if buyer_company is not None:
+                invoice.buyer.id = buyer_company.id
+                invoice.buyer.name = buyer_company.name
         issue_date = self._first_raw_value(result, "issue_date")
         if isinstance(issue_date, str):
             invoice.issue_date = issue_date
@@ -1196,6 +1276,45 @@ class InvoiceService:
                 completed_at=now,
             )
         )
+
+    def assert_invoice_access(
+        self,
+        invoice: Invoice,
+        identity: AuthenticatedIdentity | None,
+    ) -> None:
+        if not self._can_access_invoice(invoice, identity):
+            raise NotFoundError(f"Invoice {invoice.id}를 찾을 수 없습니다.")
+
+    def assert_wallet_ownership(
+        self,
+        wallet_address: str,
+        identity: AuthenticatedIdentity | None,
+    ) -> None:
+        if (
+            identity is not None
+            and identity.source == "PRIVY"
+            and identity.wallet_address != wallet_address
+        ):
+            raise StateConflictError(
+                "가입한 Privy Embedded Wallet과 요청 지갑 주소가 일치하지 않습니다."
+            )
+
+    @staticmethod
+    def _can_access_invoice(
+        invoice: Invoice,
+        identity: AuthenticatedIdentity | None,
+    ) -> bool:
+        if identity is None or identity.source == "DEMO":
+            return True
+        if identity.role is LoginRole.INVESTOR:
+            return True
+        if identity.company_id is None:
+            return False
+        if identity.role is LoginRole.SUPPLIER:
+            return invoice.supplier.id == identity.company_id
+        if identity.role is LoginRole.BUYER:
+            return invoice.buyer.id == identity.company_id
+        return False
 
     def _invoice(self, invoice_id: str) -> Invoice:
         try:

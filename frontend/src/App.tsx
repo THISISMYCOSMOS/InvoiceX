@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AppLayout } from "./components/AppLayout";
 import { NewInvoicePage } from "./pages/supplier/NewInvoicePage";
 import { SupplierCompanyWalletPage } from "./pages/supplier/SupplierCompanyWalletPage";
 import { SupplierDashboardPage } from "./pages/supplier/SupplierDashboardPage";
@@ -18,6 +17,7 @@ import { SignupPage } from "./pages/SignupPage";
 import { LanguageProvider } from "./i18n/LanguageContext";
 import { SolanaWalletProvider } from "./wallet/SolanaWalletProvider";
 import { WalletRoleSwitchGuard } from "./wallet/WalletRoleSwitchGuard";
+import { AuthenticatedAppLayout } from "./auth/AuthenticatedAppLayout";
 
 export function App() {
   return (
@@ -30,7 +30,7 @@ export function App() {
             <Route
               path="*"
               element={(
-                <AppLayout>
+                <AuthenticatedAppLayout>
                   <Routes>
                     <Route path="/supplier" element={<SupplierDashboardPage />} />
                     <Route path="/supplier/company-wallet" element={<SupplierCompanyWalletPage />} />
@@ -47,7 +47,7 @@ export function App() {
                     <Route path="/dev/demo" element={<DemoControlPage />} />
                     <Route path="*" element={<Navigate to="/login" replace />} />
                   </Routes>
-                </AppLayout>
+                </AuthenticatedAppLayout>
               )}
             />
           </Routes>
