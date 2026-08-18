@@ -154,6 +154,7 @@ test("shows extracted information and requests verification after confirmation",
   );
 
   expect(screen.getByRole("heading", { name: "Review extracted information" })).toBeInTheDocument();
+  expect(screen.getByText("2 / 3 Review extraction")).toBeInTheDocument();
   expect(screen.getByText("9 of 10 verified")).toBeInTheDocument();
   expect(screen.getByText("PM-SUPPLY-2026-04")).toBeInTheDocument();
   expect(screen.getByText("Needs review")).toBeInTheDocument();
@@ -163,10 +164,10 @@ test("shows extracted information and requests verification after confirmation",
   expect(screen.getByText("Prime Mobility Co., Ltd.")).toBeInTheDocument();
   expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Next document" }));
+  await user.click(screen.getByRole("tab", { name: "Contract" }));
   expect(screen.getByText("02_Goods_Supply_Agreement_PM-SUPPLY-2026-04.pdf")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Previous document" }));
+  await user.click(screen.getByRole("tab", { name: "Invoice" }));
   expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Confirm and continue" }));

@@ -1,10 +1,6 @@
 import {
-  CaretLeft,
-  CaretRight,
   ArrowRight,
   CheckCircle,
-  NumberCircleThree,
-  NumberCircleTwo,
   Warning,
 } from "@phosphor-icons/react";
 import { useState } from "react";
@@ -24,6 +20,13 @@ const krwFormatter = new Intl.NumberFormat("ko-KR", {
   currency: "KRW",
   maximumFractionDigits: 0,
 });
+
+const documentTabs: Array<{ type: DocumentType; english: string; korean: string }> = [
+  { type: "INVOICE", english: "Invoice", korean: "인보이스" },
+  { type: "CONTRACT", english: "Contract", korean: "계약서" },
+  { type: "PURCHASE_ORDER", english: "PO", korean: "발주서" },
+  { type: "DELIVERY_PROOF", english: "Delivery proof", korean: "납품 증빙" },
+];
 
 function ReviewField({
   label,
@@ -97,15 +100,9 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
     };
     return t(...labels[type]);
   };
-  const selectPreviousDocument = () => {
-    if (documentCount > 1) {
-      setActiveDocumentIndex((current) => (current - 1 + documentCount) % documentCount);
-    }
-  };
-  const selectNextDocument = () => {
-    if (documentCount > 1) {
-      setActiveDocumentIndex((current) => (current + 1) % documentCount);
-    }
+  const selectDocument = (type: DocumentType) => {
+    const documentIndex = reviewDocuments.findIndex((document) => document.type === type);
+    if (documentIndex >= 0) setActiveDocumentIndex(documentIndex);
   };
   const longDateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "long",
@@ -132,20 +129,13 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
         <span className="verification-count">{t("9 of 10 verified", "10개 중 9개 검증")}</span>
       </header>
 
-      <ol className="review-steps" aria-label={t("Invoice verification progress", "인보이스 확인 진행 상황")}>
-        <li className="is-complete">
-          <CheckCircle aria-hidden="true" size={24} weight="fill" />
-          <span>{t("Upload documents", "문서 업로드")}</span>
-        </li>
-        <li className="is-current">
-          <NumberCircleTwo aria-hidden="true" size={24} weight="fill" />
-          <span>{t("Review extraction", "추출 정보 확인")}</span>
-        </li>
-        <li>
-          <NumberCircleThree aria-hidden="true" size={24} weight="regular" />
-          <span>{t("Request verification", "검증 요청")}</span>
-        </li>
-      </ol>
+      <div className="review-progress" aria-label={t("Invoice verification progress", "인보이스 확인 진행 상황")}>
+        <div className="review-progress__summary">
+          <strong>{t("2 / 3 Review extraction", "2 / 3 추출 정보 확인")}</strong>
+          <span>{t("Invoice verification", "인보이스 확인")}</span>
+        </div>
+        <div className="review-progress__track" aria-hidden="true"><span /></div>
+      </div>
 
       <div className="review-layout">
         <section className="document-review-preview" aria-label={t("Uploaded document preview", "업로드 문서 미리보기")}>
@@ -160,16 +150,25 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
               {t(`${activeDocumentNumber} of ${documentCount} documents`, `총 ${documentCount}개 중 ${activeDocumentNumber}개`)}
             </span>
           </header>
+          <div className="document-tabs document-review-tabs" role="tablist" aria-label={t("Uploaded document types", "업로드 문서 유형")}>
+            {documentTabs.map((tab) => {
+              const isAvailable = reviewDocuments.some((document) => document.type === tab.type);
+              return (
+                <button
+                  key={tab.type}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeDocument?.type === tab.type}
+                  className={activeDocument?.type === tab.type ? "is-active" : ""}
+                  onClick={() => selectDocument(tab.type)}
+                  disabled={!isAvailable}
+                >
+                  {t(tab.english, tab.korean)}
+                </button>
+              );
+            })}
+          </div>
           <div className="document-review-preview__body">
-            <button
-              className="document-review-preview__nav"
-              type="button"
-              onClick={selectPreviousDocument}
-              disabled={documentCount < 2}
-              aria-label={t("Previous document", "이전 문서")}
-            >
-              <CaretLeft aria-hidden="true" size={18} weight="bold" />
-            </button>
             <div className="document-review-preview__frame">
               {activeDocument?.storageUrl ? (
                 <iframe title={activeDocument.fileName} src={activeDocument.storageUrl} />
@@ -180,15 +179,6 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
                 />
               )}
             </div>
-            <button
-              className="document-review-preview__nav"
-              type="button"
-              onClick={selectNextDocument}
-              disabled={documentCount < 2}
-              aria-label={t("Next document", "다음 문서")}
-            >
-              <CaretRight aria-hidden="true" size={18} weight="bold" />
-            </button>
           </div>
         </section>
 
