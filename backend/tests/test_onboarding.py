@@ -79,8 +79,13 @@ def onboarding_client(
     repository.close()
 
 
-def token(private_key: ec.EllipticCurvePrivateKey, user_id: str) -> str:
-    now = int(time.time())
+def token(
+    private_key: ec.EllipticCurvePrivateKey,
+    user_id: str,
+    *,
+    issued_at_offset_seconds: int = 0,
+) -> str:
+    now = int(time.time()) + issued_at_offset_seconds
     return jwt.encode(
         {
             "sub": user_id,
@@ -466,6 +471,22 @@ def test_onboarding_requires_a_privy_access_token(tmp_path: Path) -> None:
 
     assert response.status_code == 401
     assert response.json()["code"] == "PRIVY_TOKEN_INVALID"
+
+
+def test_privy_access_token_allows_small_clock_skew(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        future_token = token(
+            private_key,
+            "did:privy:clock-skew",
+            issued_at_offset_seconds=5,
+        )
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {future_token}"},
+        )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio

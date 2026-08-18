@@ -1,6 +1,12 @@
 import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuthMe, getOtpClock, onboardCompany, type CompanyType } from "../api/onboarding.api";
+import {
+  getAuthMe,
+  getOtpClock,
+  onboardCompany,
+  withPrivyAccessTokenRetry,
+  type CompanyType,
+} from "../api/onboarding.api";
 import { clearDemoSession } from "../auth/demoAccounts";
 import { useSignupAuth } from "../auth/SignupAuthContext";
 
@@ -141,9 +147,10 @@ export function SignupPage() {
     try {
       await signupAuth.verifyCode(verificationCode);
       clearDemoSession();
-      const accessToken = await signupAuth.getAccessToken();
-      if (!accessToken) throw new Error("Privy Access Token을 확인할 수 없습니다.");
-      const authMe = await getAuthMe(accessToken);
+      const authMe = await withPrivyAccessTokenRetry(
+        signupAuth.getAccessToken,
+        getAuthMe,
+      );
       setEmail(authMe.user.email);
       if (authMe.onboardingStatus === "COMPLETED") {
         navigate(authMe.nextPath);
@@ -179,21 +186,22 @@ export function SignupPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const accessToken = await signupAuth.getAccessToken();
-      if (!accessToken) throw new Error("로그인 세션이 만료되었습니다. 이메일 인증부터 다시 진행해 주세요.");
-      const result = await onboardCompany(accessToken, {
-        company: {
-          name: companyName,
-          type: companyTypes[role],
-          countryCode,
-          registrationNumber,
-        },
-        representative: {
-          name: contactName,
-          title: contactTitle,
-          phone: contactPhone,
-        },
-      });
+      const result = await withPrivyAccessTokenRetry(
+        signupAuth.getAccessToken,
+        (accessToken) => onboardCompany(accessToken, {
+          company: {
+            name: companyName,
+            type: companyTypes[role],
+            countryCode,
+            registrationNumber,
+          },
+          representative: {
+            name: contactName,
+            title: contactTitle,
+            phone: contactPhone,
+          },
+        }),
+      );
       if (result.onboardingStatus !== "COMPLETED" || !result.embeddedWallet) {
         throw new Error("사용자 지갑 생성이 완료되지 않았습니다. 다시 시도해 주세요.");
       }

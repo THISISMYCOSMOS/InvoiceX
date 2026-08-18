@@ -26,11 +26,15 @@ vi.mock("../auth/SignupAuthContext", () => ({
   }),
 }));
 
-vi.mock("../api/onboarding.api", () => ({
-  getAuthMe: mocks.getAuthMe,
-  getOtpClock: mocks.getOtpClock,
-  onboardCompany: mocks.onboardCompany,
-}));
+vi.mock("../api/onboarding.api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/onboarding.api")>();
+  return {
+    ...actual,
+    getAuthMe: mocks.getAuthMe,
+    getOtpClock: mocks.getOtpClock,
+    onboardCompany: mocks.onboardCompany,
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -192,6 +196,37 @@ test("shows an actionable message and clears an invalid verification code", asyn
   );
   expect(firstInput).toHaveValue("");
   expect(firstInput).toHaveFocus();
+});
+
+test("retries a transient Privy token synchronization failure after OTP succeeds", async () => {
+  const transientTokenError = Object.assign(
+    new Error("Privy access token이 유효하지 않거나 만료되었습니다."),
+    { code: "PRIVY_TOKEN_INVALID", status: 401 },
+  );
+  mocks.getAccessToken
+    .mockResolvedValueOnce(null)
+    .mockResolvedValue("privy-access-token");
+  mocks.getAuthMe
+    .mockRejectedValueOnce(transientTokenError)
+    .mockResolvedValueOnce({
+      user: { email: "finance@company.com" },
+      onboardingStatus: "NEEDS_COMPANY_PROFILE",
+      nextPath: "/signup",
+    });
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  screen.getByLabelText("1번째 인증 코드").focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+
+  expect(await screen.findByRole("radiogroup", { name: "기업 유형" }, { timeout: 4_000 }))
+    .toBeInTheDocument();
+  expect(mocks.verifyCode).toHaveBeenCalledTimes(1);
+  expect(mocks.getAccessToken).toHaveBeenCalledTimes(3);
+  expect(mocks.getAuthMe).toHaveBeenCalledTimes(2);
 });
 
 test("counts down from the server clock and disables verification at expiration", async () => {

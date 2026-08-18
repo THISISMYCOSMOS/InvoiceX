@@ -16,6 +16,7 @@ from invoicex_backend.errors import OnboardingApiError
 
 _bearer = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
+PRIVY_JWT_CLOCK_SKEW_SECONDS = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +85,7 @@ def verify_privy_access_token(token: str, settings: BackendSettings) -> PrivyPri
             algorithms=["ES256"],
             audience=settings.privy_app_id,
             issuer="privy.io",
+            leeway=PRIVY_JWT_CLOCK_SKEW_SECONDS,
             options={"require": ["sub", "sid", "iss", "aud", "iat", "exp"]},
         )
     except OnboardingApiError:

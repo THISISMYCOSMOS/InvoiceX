@@ -69,6 +69,39 @@ export class OnboardingApiError extends Error {
   }
 }
 
+const privyTokenRetryDelaysMs = [0, 250, 750, 1_500] as const;
+
+function isRetryablePrivyTokenError(cause: unknown): boolean {
+  if (!(cause instanceof Error)) return false;
+  const error = cause as Error & { code?: string; status?: number };
+  return error.code === "PRIVY_TOKEN_INVALID" && error.status === 401;
+}
+
+export async function withPrivyAccessTokenRetry<T>(
+  getAccessToken: () => Promise<string | null>,
+  operation: (token: string) => Promise<T>,
+  retryDelaysMs: readonly number[] = privyTokenRetryDelaysMs,
+): Promise<T> {
+  let lastError: unknown;
+  for (const delayMs of retryDelaysMs) {
+    if (delayMs > 0) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
+    }
+    const token = await getAccessToken();
+    if (!token) {
+      lastError = new Error("Privy Access Token을 확인할 수 없습니다.");
+      continue;
+    }
+    try {
+      return await operation(token);
+    } catch (cause) {
+      if (!isRetryablePrivyTokenError(cause)) throw cause;
+      lastError = cause;
+    }
+  }
+  throw lastError ?? new Error("Privy Access Token을 확인할 수 없습니다.");
+}
+
 export async function getOtpClock(): Promise<OtpClock> {
   const response = await fetch(`${apiBaseUrl}/api/v1/auth/otp-clock`, { cache: "no-store" });
   if (!response.ok) throw new Error("인증 코드 유효시간을 서버와 동기화하지 못했습니다.");
