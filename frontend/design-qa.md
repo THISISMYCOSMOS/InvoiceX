@@ -126,4 +126,31 @@ Findings and iteration history:
 - Primary interactions: dashboard activity navigation, mandate navigation, Korean/English switching, and the RWA explorer action were verified.
 - Automated checks: passed — lint, typecheck, 20 test files / 42 tests, and production build.
 
-final result: passed
+## Document-review refinement — 2026-08-18
+
+Source visual truth:
+
+- User-provided reference: `C:/Users/tjsvu/AppData/Local/Temp/codex-clipboard-3d544ef9-dc77-47b6-8c35-149bf8085bbb.png`.
+- Target state: Korean supplier extraction review, desktop.
+
+Implementation status:
+
+- Updated `DocumentReviewSection` to use the same four document tabs as buyer verification, replacing the previous next/previous arrow controls.
+- Replaced the disconnected three-step markers with a continuous 66.666% progress track matching the signup progress treatment.
+- Unified the review heading with the shared Korean/system font stack and explicit inherited heading typography.
+- Automated checks passed: `npm run typecheck`, `npm run test`, `npm run build`, and `npm run lint`.
+
+Browser-rendered comparison:
+
+- Blocked: the local app at `http://127.0.0.1:4173/supplier` remained in the loading state because its configured API did not return the invoice data. Consequently, the extraction-review route could not be captured, compared against the reference, or checked for browser-console errors in this run.
+- No implementation screenshot was produced; the prior captures in this file predate this refinement and are not valid evidence for it.
+
+Required fidelity surfaces:
+
+- Fonts and typography: code-level update applied; browser evidence pending.
+- Spacing and layout rhythm: code-level update applied; browser evidence pending.
+- Colors and visual tokens: existing buyer-tab and signup-progress tokens reused; browser evidence pending.
+- Image quality and asset fidelity: unchanged from the existing raster invoice preview.
+- Copy and content: unchanged apart from retaining the existing document labels in the new tab control.
+
+final result: blocked
