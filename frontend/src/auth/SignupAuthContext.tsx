@@ -11,6 +11,7 @@ type SignupAuthContextValue = {
   configured: boolean;
   ready: boolean;
   getAccessToken: () => Promise<string | null>;
+  logout: () => Promise<void>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (code: string) => Promise<void>;
 };
@@ -20,6 +21,7 @@ const disabledContext: SignupAuthContextValue = {
   configured: false,
   ready: true,
   getAccessToken: async () => null,
+  logout: async () => undefined,
   sendCode: async () => {
     throw new Error("Privy App ID가 설정되지 않았습니다.");
   },
@@ -31,7 +33,7 @@ const disabledContext: SignupAuthContextValue = {
 const SignupAuthContext = createContext<SignupAuthContextValue>(disabledContext);
 
 function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
-  const { authenticated, ready } = usePrivy();
+  const { authenticated, logout, ready } = usePrivy();
   const { loginWithCode, sendCode } = useLoginWithEmail();
 
   return (
@@ -41,6 +43,7 @@ function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
         configured: true,
         ready,
         getAccessToken: getPrivyAccessToken,
+        logout,
         sendCode: async (email) => sendCode({ email }),
         verifyCode: async (code) => loginWithCode({ code }),
       }}

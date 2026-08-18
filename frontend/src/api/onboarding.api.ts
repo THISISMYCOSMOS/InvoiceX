@@ -52,6 +52,11 @@ export type OnboardCompanyInput = {
   };
 };
 
+export type OtpClock = {
+  serverTimeMs: number;
+  expiresInSeconds: number;
+};
+
 export class OnboardingApiError extends Error {
   constructor(
     message: string,
@@ -60,6 +65,12 @@ export class OnboardingApiError extends Error {
   ) {
     super(message);
   }
+}
+
+export async function getOtpClock(): Promise<OtpClock> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/auth/otp-clock`, { cache: "no-store" });
+  if (!response.ok) throw new Error("인증 코드 유효시간을 서버와 동기화하지 못했습니다.");
+  return response.json() as Promise<OtpClock>;
 }
 
 async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {

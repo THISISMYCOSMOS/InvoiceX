@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -248,6 +249,17 @@ def test_healthz_is_available_without_api_authentication(client: TestClient) -> 
         response = client.get(path)
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+
+def test_otp_clock_uses_server_time_and_is_not_cached(client: TestClient) -> None:
+    before_ms = int(time.time() * 1000)
+    response = client.get("/api/v1/auth/otp-clock")
+    after_ms = int(time.time() * 1000)
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["expiresInSeconds"] == 300
+    assert before_ms <= response.json()["serverTimeMs"] <= after_ms
 
 
 def test_fixed_demo_accounts_issue_tokens_and_protect_gcp_api(tmp_path: Path) -> None:

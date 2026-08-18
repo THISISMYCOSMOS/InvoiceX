@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Annotated, Any, cast
@@ -14,6 +15,7 @@ from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import OnboardingApiError
 
 _bearer = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +76,15 @@ async def require_privy_principal(
         )
     except OnboardingApiError:
         raise
+    except jwt.PyJWKClientConnectionError as exc:
+        logger.warning("Privy JWKS endpoint unavailable: %s", exc)
+        raise OnboardingApiError(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "PRIVY_VERIFICATION_UNAVAILABLE",
+            "Privy 토큰 검증 서비스에 연결할 수 없습니다.",
+        ) from exc
     except (jwt.PyJWTError, ValueError, TypeError) as exc:
+        logger.warning("Privy access token rejected (%s): %s", type(exc).__name__, exc)
         raise _unauthorized("Privy access token이 유효하지 않거나 만료되었습니다.") from exc
     return PrivyPrincipal(
         user_id=str(payload["sub"]),

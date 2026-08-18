@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -7,6 +7,8 @@ import { SignupPage } from "./SignupPage";
 const mocks = vi.hoisted(() => ({
   getAccessToken: vi.fn(),
   getAuthMe: vi.fn(),
+  getOtpClock: vi.fn(),
+  logout: vi.fn(),
   onboardCompany: vi.fn(),
   sendCode: vi.fn(),
   verifyCode: vi.fn(),
@@ -18,6 +20,7 @@ vi.mock("../auth/SignupAuthContext", () => ({
     configured: true,
     ready: true,
     getAccessToken: mocks.getAccessToken,
+    logout: mocks.logout,
     sendCode: mocks.sendCode,
     verifyCode: mocks.verifyCode,
   }),
@@ -25,16 +28,22 @@ vi.mock("../auth/SignupAuthContext", () => ({
 
 vi.mock("../api/onboarding.api", () => ({
   getAuthMe: mocks.getAuthMe,
+  getOtpClock: mocks.getOtpClock,
   onboardCompany: mocks.onboardCompany,
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getAccessToken.mockResolvedValue("privy-access-token");
+  mocks.logout.mockResolvedValue(undefined);
   mocks.getAuthMe.mockResolvedValue({
     user: { email: "finance@company.com" },
     onboardingStatus: "NEEDS_COMPANY_PROFILE",
     nextPath: "/signup",
+  });
+  mocks.getOtpClock.mockResolvedValue({
+    serverTimeMs: Date.now(),
+    expiresInSeconds: 300,
   });
   mocks.onboardCompany.mockResolvedValue({
     embeddedWallet: {
@@ -112,4 +121,71 @@ test("does not show completion when wallet provisioning is incomplete", async ()
   expect(await screen.findByRole("alert")).toHaveTextContent("사용자 지갑 생성이 완료되지 않았습니다.");
   expect(screen.queryByRole("heading", { name: "기업 계정 생성이 완료되었습니다!" }))
     .not.toBeInTheDocument();
+});
+
+test("distributes a pasted verification code across all six inputs", async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+
+  const firstInput = screen.getByLabelText("1번째 인증 코드");
+  firstInput.focus();
+  await user.paste("123456");
+
+  for (const [index, digit] of [..."123456"].entries()) {
+    expect(screen.getByLabelText(`${index + 1}번째 인증 코드`)).toHaveValue(digit);
+  }
+  expect(screen.getByLabelText("6번째 인증 코드")).toHaveFocus();
+});
+
+test("shows an actionable message and clears an invalid verification code", async () => {
+  mocks.verifyCode.mockRejectedValueOnce(new Error("Invalid email and code combination"));
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  const firstInput = screen.getByLabelText("1번째 인증 코드");
+  firstInput.focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "인증 코드가 일치하지 않습니다. 가장 최근에 받은 코드를 입력하거나 재전송해 주세요.",
+  );
+  expect(firstInput).toHaveValue("");
+  expect(firstInput).toHaveFocus();
+});
+
+test("counts down from the server clock and disables verification at expiration", async () => {
+  mocks.getOtpClock.mockResolvedValueOnce({
+    serverTimeMs: Date.now(),
+    expiresInSeconds: 1,
+  });
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+
+  expect(mocks.getOtpClock).toHaveBeenCalledTimes(1);
+  await waitFor(
+    () => expect(screen.getByText("00:00")).toBeInTheDocument(),
+    { timeout: 2_000 },
+  );
+  expect(screen.getByRole("button", { name: "인증 완료" })).toBeDisabled();
+});
+
+test("logs out of Privy before changing to another email", async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  await user.click(screen.getByRole("button", { name: "다른 이메일 사용하기" }));
+
+  expect(mocks.logout).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("heading", { name: "기업 이메일을 인증해주세요" })).toBeInTheDocument();
 });

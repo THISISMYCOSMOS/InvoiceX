@@ -17,6 +17,26 @@ uv run uvicorn invoicex_backend.main:app --reload --port 8000
 - OpenAPI JSON: `http://localhost:8000/api/docs-json`
 - API base URL: `http://localhost:8000/api/v1`
 
+## Local Privy signup
+
+The shared InvoiceX Privy development App ID is included in both environment
+examples because it is public. Each developer must receive the App Secret and
+verification public key through the team's secret-sharing channel; never commit
+either value or send them to the frontend.
+
+1. Copy `backend/.env.example` to `backend/.env`.
+2. Set `PRIVY_APP_SECRET` and `PRIVY_VERIFICATION_KEY` in `backend/.env`.
+3. Copy `frontend/.env.example` to `frontend/.env.local`.
+4. Start the backend on `http://localhost:8000` and the frontend on
+   `http://localhost:5173`.
+5. Open `http://localhost:5173/signup`. Do not substitute `127.0.0.1`; the
+   Privy development app allows the exact `localhost:5173` origin.
+
+Every developer gets a separate local SQLite database and can register a
+separate Privy user-owned Solana wallet. Logging in with the same email against
+the same Privy app reuses that user's existing Privy wallet, while InvoiceX
+company/profile data remains local until a shared backend database is deployed.
+
 `AGENT_MODE=auto` uses the real Gemini agents only when `GEMINI_API_KEY` is
 configured. For the shared Devnet flow, set `SOLANA_MODE=privy` explicitly so
 the server fails during startup when Privy configuration is missing rather than

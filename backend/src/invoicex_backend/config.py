@@ -209,6 +209,12 @@ class BackendSettings(BaseSettings):
         gt=0,
         le=60,
     )
+    privy_otp_display_ttl_seconds: int = Field(
+        default=300,
+        validation_alias="PRIVY_OTP_DISPLAY_TTL_SECONDS",
+        ge=30,
+        le=3600,
+    )
     # Privy's transaction broadcaster may be separate from the configured RPC.
     # The rpc option keeps a Devnet transaction's recent blockhash and broadcast
     # on the same RPC while Privy still holds every service-wallet private key.

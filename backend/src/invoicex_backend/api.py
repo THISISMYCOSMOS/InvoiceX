@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Annotated, cast
 
 from fastapi import (
@@ -13,6 +14,7 @@ from fastapi import (
     Path,
     Query,
     Request,
+    Response,
     UploadFile,
     status,
 )
@@ -170,6 +172,17 @@ async def login(payload: LoginRequest, settings: SettingsDependency) -> LoginRes
         email=account.email,
         expires_at=expires_at,
     )
+
+
+@auth_router.get("/otp-clock", include_in_schema=False)
+async def otp_clock(response: Response, settings: SettingsDependency) -> dict[str, int]:
+    """Return the server clock and configured OTP countdown window without caching."""
+
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "serverTimeMs": int(time.time() * 1000),
+        "expiresInSeconds": settings.privy_otp_display_ttl_seconds,
+    }
 
 
 @auth_router.get(

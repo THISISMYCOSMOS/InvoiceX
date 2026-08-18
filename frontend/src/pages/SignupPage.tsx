@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuthMe, onboardCompany, type CompanyType } from "../api/onboarding.api";
+import { getAuthMe, getOtpClock, onboardCompany, type CompanyType } from "../api/onboarding.api";
 import { useSignupAuth } from "../auth/SignupAuthContext";
 
 type SignupStep = "email" | "verification" | "role" | "company" | "complete";
 type CompanyRole = "supplier" | "buyer" | "investor";
+type OtpDeadline = { expiresAtServerMs: number; serverOffsetMs: number };
 
 const roles: Record<CompanyRole, { korean: string; english: string; description: string }> = {
   supplier: {
@@ -44,6 +45,8 @@ export function SignupPage() {
   const [step, setStep] = useState<SignupStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [otpDeadline, setOtpDeadline] = useState<OtpDeadline | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [role, setRole] = useState<CompanyRole>("supplier");
   const [companyName, setCompanyName] = useState("");
   const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
@@ -54,6 +57,34 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (step !== "verification" || !otpDeadline) return;
+
+    const getRemainingSeconds = () => Math.max(
+      0,
+      Math.ceil((otpDeadline.expiresAtServerMs - (Date.now() + otpDeadline.serverOffsetMs)) / 1000),
+    );
+    const intervalId = window.setInterval(() => {
+      const nextRemainingSeconds = getRemainingSeconds();
+      setRemainingSeconds(nextRemainingSeconds);
+      if (nextRemainingSeconds === 0) window.clearInterval(intervalId);
+    }, 250);
+    return () => window.clearInterval(intervalId);
+  }, [otpDeadline, step]);
+
+  const syncOtpDeadline = async () => {
+    const requestStartedAt = Date.now();
+    const otpClock = await getOtpClock();
+    const responseReceivedAt = Date.now();
+    const estimatedClientTimeAtServerResponse = requestStartedAt
+      + ((responseReceivedAt - requestStartedAt) / 2);
+    setOtpDeadline({
+      expiresAtServerMs: otpClock.serverTimeMs + (otpClock.expiresInSeconds * 1000),
+      serverOffsetMs: otpClock.serverTimeMs - estimatedClientTimeAtServerResponse,
+    });
+    setRemainingSeconds(otpClock.expiresInSeconds);
+  };
+
   const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -63,7 +94,10 @@ export function SignupPage() {
     }
     setSubmitting(true);
     try {
+      if (signupAuth.authenticated) await signupAuth.logout();
       await signupAuth.sendCode(email.trim());
+      await syncOtpDeadline();
+      setCode(["", "", "", "", "", ""]);
       setStep("verification");
     } catch (cause) {
       setError(toErrorMessage(cause, "인증 코드를 보내지 못했습니다."));
@@ -76,6 +110,10 @@ export function SignupPage() {
     event.preventDefault();
     setError(null);
     const verificationCode = code.join("");
+    if (remainingSeconds === 0) {
+      setError("인증 코드가 만료되었습니다. 코드를 재전송해 주세요.");
+      return;
+    }
     if (verificationCode.length !== 6) {
       setError("6자리 인증 코드를 모두 입력해 주세요.");
       return;
@@ -93,7 +131,11 @@ export function SignupPage() {
       }
       setStep("role");
     } catch (cause) {
-      setError(toErrorMessage(cause, "인증 코드를 확인하지 못했습니다."));
+      if (isInvalidVerificationCode(cause)) {
+        setCode(["", "", "", "", "", ""]);
+        document.getElementById("verification-code-0")?.focus();
+      }
+      setError(toVerificationErrorMessage(cause));
     } finally {
       setSubmitting(false);
     }
@@ -135,9 +177,27 @@ export function SignupPage() {
     setSubmitting(true);
     try {
       await signupAuth.sendCode(email.trim());
+      await syncOtpDeadline();
       setCode(["", "", "", "", "", ""]);
+      document.getElementById("verification-code-0")?.focus();
     } catch (cause) {
       setError(toErrorMessage(cause, "인증 코드를 다시 보내지 못했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const changeEmail = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await signupAuth.logout();
+      setCode(["", "", "", "", "", ""]);
+      setOtpDeadline(null);
+      setRemainingSeconds(0);
+      setStep("email");
+    } catch (cause) {
+      setError(toErrorMessage(cause, "인증 세션을 초기화하지 못했습니다."));
     } finally {
       setSubmitting(false);
     }
@@ -161,11 +221,22 @@ export function SignupPage() {
   };
 
   const updateCode = (index: number, value: string) => {
+    setError(null);
     const digit = value.replace(/\D/g, "").slice(-1);
     setCode((current) => current.map((item, itemIndex) => itemIndex === index ? digit : item));
     if (digit && index < code.length - 1) {
       document.getElementById(`verification-code-${index + 1}`)?.focus();
     }
+  };
+
+  const pasteCode = (event: ClipboardEvent<HTMLInputElement>) => {
+    const pastedDigits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, code.length);
+    if (pastedDigits.length <= 1) return;
+
+    event.preventDefault();
+    setError(null);
+    setCode(code.map((_, index) => pastedDigits[index] ?? ""));
+    document.getElementById(`verification-code-${Math.min(pastedDigits.length, code.length) - 1}`)?.focus();
   };
 
   return (
@@ -219,6 +290,7 @@ export function SignupPage() {
                   {code.map((value, index) => (
                     <input
                       aria-label={`${index + 1}번째 인증 코드`}
+                      autoComplete={index === 0 ? "one-time-code" : "off"}
                       id={`verification-code-${index}`}
                       inputMode="numeric"
                       key={index}
@@ -227,19 +299,22 @@ export function SignupPage() {
                       onKeyDown={(event) => {
                         if (event.key === "Backspace" && !value && index > 0) document.getElementById(`verification-code-${index - 1}`)?.focus();
                       }}
+                      onPaste={pasteCode}
                       value={value}
                     />
                   ))}
                 </div>
                 <div className="signup-code-meta">
-                  <span>인증 코드 유효시간 <strong>04:59</strong></span>
+                  <span>
+                    인증 코드 유효시간 <strong>{formatRemainingTime(remainingSeconds)}</strong>
+                  </span>
                   <button disabled={submitting} type="button" onClick={resendCode}>코드를 받지 못하셨나요? <strong>재전송</strong></button>
                 </div>
               </fieldset>
-              <button className="signup-primary-button" disabled={submitting} type="submit">
+              <button className="signup-primary-button" disabled={submitting || remainingSeconds === 0} type="submit">
                 {submitting ? "확인 중..." : "인증 완료"}
               </button>
-              <button className="signup-change-email" type="button" onClick={() => setStep("email")}>다른 이메일 사용하기</button>
+              <button className="signup-change-email" disabled={submitting} type="button" onClick={changeEmail}>다른 이메일 사용하기</button>
             </form>
           )}
 
@@ -312,6 +387,23 @@ export function SignupPage() {
 
 function toErrorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
+}
+
+function isInvalidVerificationCode(cause: unknown): boolean {
+  return cause instanceof Error && /invalid email and code combination/i.test(cause.message);
+}
+
+function toVerificationErrorMessage(cause: unknown): string {
+  if (isInvalidVerificationCode(cause)) {
+    return "인증 코드가 일치하지 않습니다. 가장 최근에 받은 코드를 입력하거나 재전송해 주세요.";
+  }
+  return toErrorMessage(cause, "인증 코드를 확인하지 못했습니다.");
+}
+
+function formatRemainingTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function Progress({ current, width }: { current: string; width: "one-third" | "two-thirds" | "complete" }) {
