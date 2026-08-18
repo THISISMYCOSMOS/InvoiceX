@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle, ClipboardText, CurrencyKrw } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, CheckCircle, ClipboardText, CurrencyDollar } from "@phosphor-icons/react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import invoicePreview from "../../assets/invoice-preview.png";
 import { ErrorState } from "../../components/ErrorState";
@@ -8,7 +8,7 @@ import { useBuyerConfirm } from "../../hooks/useBuyerConfirm";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { DocumentType } from "../../types/documents";
-import type { Invoice, InvoiceStatus } from "../../types/invoice";
+import { formatInvoiceAmount, type Invoice, type InvoiceStatus } from "../../types/invoice";
 
 type BuyerView = "verification" | "payment";
 type VerificationChoice = "match" | "mismatch";
@@ -27,12 +27,6 @@ const previewableVerificationStatuses: InvoiceStatus[] = [
   "DOCUMENT_REVIEW_REQUIRED",
   "BUYER_REVIEW",
 ];
-
-const krw = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
 
 function formatDate(date: string, locale: "en-US" | "ko-KR") {
   return new Intl.DateTimeFormat(locale, {
@@ -110,11 +104,11 @@ function BuyerVerificationSection({
   const rows = useMemo(() => [
     { key: "transaction", label: t("Transaction exists", "거래 존재 여부"), positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
     { key: "supplier", label: t("Supplier information", "공급기업 정보"), positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
-    { key: "amount", label: `${t("Invoice amount", "인보이스 금액")} · ${krw.format(invoice.invoiceAmountKrw)}`, positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
+    { key: "amount", label: `${t("Invoice amount", "인보이스 금액")} · ${formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, language === "ko" ? "ko-KR" : "en-US")}`, positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
     { key: "dueDate", label: `${t("Due date", "만기일")} · ${formatDate(invoice.dueDate, language === "ko" ? "ko-KR" : "en-US")}`, positive: t("Match", "일치"), negative: t("Mismatch", "불일치") },
     { key: "delivery", label: t("Delivery completed", "납품 완료"), positive: t("Confirmed", "확인"), negative: t("Unconfirmed", "미확인") },
     { key: "dispute", label: t("Dispute or payment hold", "분쟁 또는 결제 보류"), positive: t("None", "없음"), negative: t("Exists", "있음") },
-  ], [invoice.dueDate, invoice.invoiceAmountKrw, language, t]);
+  ], [invoice.currency, invoice.dueDate, invoice.invoiceAmount, language, t]);
   const activeDocument = invoice.documents.find((document) => document.type === activeTab);
   const locale = language === "ko" ? "ko-KR" : "en-US";
   const requestedAt = invoice.verificationRequestedAt;
@@ -220,7 +214,7 @@ function BuyerVerificationSection({
 function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
-  const accountNumber = "123-456-789012";
+  const accountNumber = "DemoSettlement7VB0Qe";
 
   const copyAccount = async () => {
     await navigator.clipboard?.writeText(accountNumber);
@@ -233,9 +227,9 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
         <div>
           <p className="detail-breadcrumb">{t("Payment Schedule", "결제 일정")} / {invoice.id}</p>
           <h1>{t("Pay invoice amount", "인보이스 금액 결제")}</h1>
-          <p>{t("Transfer the KRW amount to the dedicated virtual account by the contractual due date.", "계약상 만기일까지 원화 금액을 전용 가상계좌로 이체하세요.")}</p>
+          <p>{t("Transfer the USDC amount to the designated settlement address by the contractual due date.", "계약상 만기일까지 USDC 금액을 지정 정산 주소로 이체하세요.")}</p>
         </div>
-        <span className="payment-pending-chip">{t("KRW PAYMENT PENDING", "원화 결제 대기")}</span>
+        <span className="payment-pending-chip">{t("USDC PAYMENT PENDING", "USDC 결제 대기")}</span>
       </header>
 
       <div className="buyer-payment-grid">
@@ -247,16 +241,16 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
           <dl>
             <div className="payment-amount-row">
               <dt>{t("Amount to pay", "결제 금액")}</dt>
-              <dd>{krw.format(invoice.invoiceAmountKrw)}</dd>
+              <dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency)}</dd>
             </div>
             <div><dt>{t("Payment deadline", "결제 기한")}</dt><dd>{t("October 30, 2026", "2026년 10월 30일")}</dd></div>
-            <div><dt>{t("Bank", "은행")}</dt><dd>OOBank</dd></div>
-            <div><dt>{t("Virtual account", "가상계좌")}</dt><dd>{accountNumber}</dd></div>
-            <div><dt>{t("Account holder", "예금주")}</dt><dd>InvoiceX Settlement Partner</dd></div>
+            <div><dt>{t("Network", "네트워크")}</dt><dd>Solana Devnet</dd></div>
+            <div><dt>{t("Settlement address", "정산 주소")}</dt><dd>{accountNumber}</dd></div>
+            <div><dt>{t("Recipient", "수취인")}</dt><dd>InvoiceX Settlement Partner</dd></div>
           </dl>
           <footer>
             <button type="button" className="copy-account-button" onClick={copyAccount}>
-              {copied ? t("Account number copied", "계좌번호 복사 완료") : t("Copy account number", "계좌번호 복사")}
+              {copied ? t("Address copied", "주소 복사 완료") : t("Copy address", "주소 복사")}
             </button>
           </footer>
         </section>
@@ -264,13 +258,13 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
         <section className="payment-status-card">
           <header><h2>{t("Current status", "현재 상태")}</h2></header>
           <div>
-            <span className="krw-status-icon" aria-hidden="true"><CurrencyKrw size={26} /></span>
-            <h3>{t("Waiting for KRW payment", "원화 결제 대기 중")}</h3>
-            <p>{t("The status updates automatically after the bank confirms receipt. No manual payment confirmation is required.", "은행이 입금을 확인하면 상태가 자동으로 갱신됩니다. 별도의 수동 결제 확인은 필요하지 않습니다.")}</p>
+            <span className="krw-status-icon" aria-hidden="true"><CurrencyDollar size={26} /></span>
+            <h3>{t("Waiting for USDC payment", "USDC 결제 대기 중")}</h3>
+            <p>{t("The status updates automatically after the transfer is confirmed. No manual payment confirmation is required.", "전송이 확인되면 상태가 자동으로 갱신됩니다. 별도의 수동 결제 확인은 필요하지 않습니다.")}</p>
           </div>
         </section>
       </div>
-      <p className="payment-processing-note">{t("The amount and virtual account must match for automatic processing.", "자동 처리를 위해 금액과 가상계좌가 정확히 일치해야 합니다.")}</p>
+      <p className="payment-processing-note">{t("The amount, asset, and settlement address must match for automatic processing.", "자동 처리를 위해 금액, 통화 자산, 정산 주소가 정확히 일치해야 합니다.")}</p>
     </section>
   );
 }
@@ -310,7 +304,7 @@ function BuyerInvoiceIdleSection({ invoice }: { invoice: Invoice }) {
           </div>
           <div>
             <dt>{t("Invoice amount", "인보이스 금액")}</dt>
-            <dd>{krw.format(invoice.invoiceAmountKrw)}</dd>
+            <dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency)}</dd>
           </div>
         </dl>
 

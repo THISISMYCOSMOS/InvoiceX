@@ -20,7 +20,18 @@ from invoicex_agents.models.risk import RiskAnalysisRequest, RiskFactorContext
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 
+from invoicex_backend.agent_activity import (
+    AgentActivityItem,
+    AgentActivityTimeline,
+    AgentHandoff,
+    AgentRun,
+    AgentRunStatus,
+    AgentToolCall,
+    AgentTrigger,
+    ToolCallStatus,
+)
 from invoicex_backend.agents import AgentDocument, AgentGateway
+from invoicex_backend.auth import AuthenticatedIdentity
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     DocumentValidationError,
@@ -45,6 +56,7 @@ from invoicex_backend.models import (
     Invoice,
     InvoiceParty,
     InvoiceStatus,
+    LoginRole,
     MandatePolicy,
     OfferResponse,
     PositiveFactor,
@@ -64,6 +76,11 @@ from invoicex_backend.policy import (
     RiskDecision,
 )
 from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
+from invoicex_backend.risk_scoring import (
+    DeterministicRiskScoringProvider,
+    RiskScoringProvider,
+    RiskScoringRequest,
+)
 from invoicex_backend.solana import SolanaGateway
 from invoicex_backend.storage import DocumentStorage
 
@@ -100,6 +117,7 @@ class InvoiceService:
         solana_gateway: SolanaGateway,
         storage: DocumentStorage,
         repository: RwaRepository | None = None,
+        risk_scoring_provider: RiskScoringProvider | None = None,
     ) -> None:
         self._settings = settings
         self._agents = agent_gateway
@@ -107,6 +125,9 @@ class InvoiceService:
         self._storage = storage
         self._repository = repository or SQLiteRwaRepository(settings.rwa_database_path)
         self._risk_policy = DeterministicRiskPolicy()
+        self._risk_scoring = risk_scoring_provider or DeterministicRiskScoringProvider(
+            self._risk_policy
+        )
         self._invoices: dict[str, Invoice] = {}
         self._agent_analyses: dict[str, DocumentAnalysisResult] = {}
         self._verifications: dict[str, Verification] = {}
@@ -167,25 +188,39 @@ class InvoiceService:
     def _save_invoice(self, invoice: Invoice) -> None:
         self._repository.save_invoice(invoice)
 
-    async def create_invoice(self, uploads: list[UploadedDocument]) -> Invoice:
+    async def create_invoice(
+        self,
+        uploads: list[UploadedDocument],
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         self._validate_uploads(uploads)
         invoice_id, document_ids = await self._reserve_invoice_ids(len(uploads))
         now = datetime.now(UTC)
         invoice_number = int(invoice_id[-3:])
+        supplier = InvoiceParty(
+            id="SUPPLIER_ALPHA",
+            name="Alpha Components",
+            wallet_address=self._settings.supplier_wallet_address,
+        )
+        if identity is not None and identity.source == "PRIVY":
+            if identity.company_id is None or identity.company_name is None:
+                raise StateConflictError("가입한 공급기업 정보를 확인할 수 없습니다.")
+            supplier = InvoiceParty(
+                id=identity.company_id,
+                name=identity.company_name,
+                wallet_address=identity.wallet_address,
+            )
         invoice = Invoice(
             id=invoice_id,
-            supplier=InvoiceParty(
-                id="SUPPLIER_ALPHA",
-                name="Alpha Components",
-                wallet_address=self._settings.supplier_wallet_address,
-            ),
+            supplier=supplier,
             buyer=InvoiceParty(id="BUYER_PRIME", name="Prime Mobility"),
             investor=InvoiceParty(
                 id="INVESTOR_NOVA",
                 name="Nova Capital",
                 vault_address=self._settings.investor_settlement_wallet_address,
             ),
-            invoice_amount_krw=3_000,
+            invoice_amount=3,
+            currency="USDC",
             issue_date=now.date().isoformat(),
             due_date=(now + timedelta(days=90)).date().isoformat(),
             delivery_date=(now - timedelta(days=5)).date().isoformat(),
@@ -244,6 +279,8 @@ class InvoiceService:
             {document.document_id: document.type for document in agent_documents},
         )
         self._apply_extracted_metadata(invoice, agent_result)
+        if identity is not None and identity.source == "PRIVY":
+            invoice.supplier.name = identity.company_name or invoice.supplier.name
         invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
         self._append_trace(
             invoice,
@@ -252,10 +289,21 @@ class InvoiceService:
             status="COMPLETED",
             summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
         )
+        self._record_completed_agent_run(
+            invoice_id=invoice.id,
+            trigger=AgentTrigger.INVOICE_CREATED,
+            tool_name="analyze_documents",
+            summary="문서 분석과 교차 검증을 완료했습니다.",
+            source_agent="DOCUMENT_AGENT",
+            target_agent="RISK_AGENT",
+        )
         self._save_invoice(invoice)
         return self._copy_invoice(invoice)
 
-    def list_invoices(self) -> list[Invoice]:
+    def list_invoices(
+        self,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> list[Invoice]:
         return [
             self._copy_invoice(invoice)
             for invoice in sorted(
@@ -263,13 +311,27 @@ class InvoiceService:
                 key=lambda item: item.id,
                 reverse=True,
             )
+            if self._can_access_invoice(invoice, identity)
         ]
 
-    def get_invoice(self, invoice_id: str) -> Invoice:
-        return self._copy_invoice(self._invoice(invoice_id))
+    def get_invoice(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
+        invoice = self._invoice(invoice_id)
+        self.assert_invoice_access(invoice, identity)
+        return self._copy_invoice(invoice)
 
-    def save_supplier_wallet(self, wallet_address: str) -> None:
+    def save_supplier_wallet(
+        self,
+        wallet_address: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> None:
         self._validate_wallet_address(wallet_address)
+        self.assert_wallet_ownership(wallet_address, identity)
+        if identity is not None and identity.source == "PRIVY":
+            return
         self._repository.save_supplier_wallet(wallet_address)
 
     def create_mandate(self, request: CreateMandateRequest) -> InvestorMandate:
@@ -403,9 +465,14 @@ class InvoiceService:
         self._repository.save_vault(updated)
         return updated
 
-    async def request_verification(self, invoice_id: str) -> Invoice:
+    async def request_verification(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if invoice.verification_id is not None:
                 return self._copy_invoice(invoice)
             if invoice.status is not InvoiceStatus.DOCUMENT_REVIEW_REQUIRED:
@@ -432,7 +499,10 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
-    def list_verifications(self) -> list[Verification]:
+    def list_verifications(
+        self,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> list[Verification]:
         return [
             verification.model_copy(deep=True)
             for verification in sorted(
@@ -440,15 +510,27 @@ class InvoiceService:
                 key=lambda item: item.id,
                 reverse=True,
             )
+            if self._can_access_invoice(self._invoice(verification.invoice_id), identity)
         ]
 
-    def get_verification(self, verification_id: str) -> Verification:
-        return self._verification(verification_id).model_copy(deep=True)
+    def get_verification(
+        self,
+        verification_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Verification:
+        verification = self._verification(verification_id)
+        self.assert_invoice_access(self._invoice(verification.invoice_id), identity)
+        return verification.model_copy(deep=True)
 
-    async def confirm_verification(self, verification_id: str) -> Invoice:
+    async def confirm_verification(
+        self,
+        verification_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         verification = self._verification(verification_id)
         async with self._invoice_lock(verification.invoice_id):
             invoice = self._invoice(verification.invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if verification.status is VerificationStatus.CONFIRMED:
                 return self._copy_invoice(invoice)
             if (
@@ -460,9 +542,24 @@ class InvoiceService:
             verification.status = VerificationStatus.CONFIRMED
             invoice.status = InvoiceStatus.RISK_ASSESSING
             agent_analysis = self._agent_analyses[invoice.id]
-            decision = self._risk_policy.evaluate(
-                has_mismatches=bool(agent_analysis.mismatches),
-                face_value_usdc=invoice.invoice_amount_krw // self._settings.demo_krw_per_usdc,
+            score_result = self._risk_scoring.evaluate(
+                RiskScoringRequest(
+                    invoice_id=invoice.id,
+                    face_value_usdc=invoice.invoice_amount,
+                    has_document_mismatches=bool(agent_analysis.mismatches),
+                    buyer_confirmed=True,
+                    remaining_term_days=max(
+                        0, (self._parse_iso_date(invoice.due_date, "인보이스 만기일") - date.today()).days
+                    ),
+                    document_summary="mismatch" if agent_analysis.mismatches else "documents consistent",
+                )
+            )
+            decision = RiskDecision(
+                score=score_result.score,
+                level=score_result.eligibility.value,
+                eligibility=score_result.eligibility,
+                advance_rate_bps=score_result.advance_rate_bps,
+                advance_amount_usdc=score_result.advance_amount_usdc,
             )
             risk_request = self._risk_request(invoice, agent_analysis, decision)
             try:
@@ -499,7 +596,7 @@ class InvoiceService:
                 suggested_advance_rate_bps=decision.advance_rate_bps,
                 suggested_advance_amount_usdc=decision.advance_amount_usdc,
                 model_name=self._agents.model_name,
-                policy_version=self._risk_policy.policy_version,
+                policy_version=score_result.method_version,
                 generated_at=datetime.now(UTC).isoformat(),
             )
             invoice.status = InvoiceStatus.OFFER_READY
@@ -510,6 +607,14 @@ class InvoiceService:
                 status="COMPLETED",
                 summary=risk_result.risk_passport.summary,
             )
+            self._record_completed_agent_run(
+                invoice_id=invoice.id,
+                trigger=AgentTrigger.BUYER_CONFIRMED,
+                tool_name="evaluate_risk",
+                summary=f"Risk Score {score_result.score} ({score_result.method_version})를 산출했습니다.",
+                source_agent="RISK_AGENT",
+                target_agent="TREASURY_AGENT",
+            )
             self._repository.save_verification(verification)
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
@@ -518,11 +623,13 @@ class InvoiceService:
         self,
         invoice_id: str,
         response: OfferResponse,
+        identity: AuthenticatedIdentity | None = None,
     ) -> tuple[Invoice, bool]:
         """Issue one RWA unit and then queue automatic mandate evaluation."""
 
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if response is OfferResponse.ACCEPT and invoice.status in {
                 InvoiceStatus.RWA_ISSUED,
                 InvoiceStatus.FUNDING,
@@ -541,7 +648,9 @@ class InvoiceService:
                 return self._copy_invoice(invoice), False
 
             supplier_wallet = (
-                self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
+                identity.wallet_address
+                if identity is not None and identity.source == "PRIVY"
+                else self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
             )
             if not supplier_wallet or supplier_wallet.startswith("DEMO_"):
                 if self._solana.mode != "mock":
@@ -571,6 +680,14 @@ class InvoiceService:
                 target="TREASURY_AGENT",
                 status="COMPLETED",
                 summary="인보이스별 RWA 1개를 Devnet 에스크로에 발행했습니다.",
+            )
+            self._record_completed_agent_run(
+                invoice_id=invoice.id,
+                trigger=AgentTrigger.OFFER_ACCEPTED,
+                tool_name="evaluate_mandate",
+                summary="RWA를 발행하고 Mandate 평가 대기 상태로 전환했습니다.",
+                source_agent="TREASURY_AGENT",
+                target_agent="TREASURY_AGENT",
             )
             self._save_invoice(invoice)
             return self._copy_invoice(invoice), True
@@ -700,13 +817,70 @@ class InvoiceService:
             )
         )
 
-    async def settle_mock_payment(self, invoice_id: str) -> Invoice:
+    def get_agent_activity(self, invoice_id: str, *, role: Literal["Supplier", "Investor"]):
+        """Return persisted records only; sensitive mandate/vault fields stay server-side."""
+        invoice = self._invoice(invoice_id)
+        runs = self._repository.list_agent_runs(invoice_id)
+        items: list[AgentActivityItem] = []
+        for run in runs:
+            items.append(
+                AgentActivityItem(
+                    id=run.id,
+                    kind="RUN",
+                    status=run.status.value,
+                    title="자동 업무 진행" if role == "Supplier" else "Orchestrator 실행",
+                    summary=run.plan_summary,
+                    created_at=run.created_at,
+                    method_version=(invoice.risk_passport.policy_version if role == "Investor" else None),
+                )
+            )
+            for call in self._repository.list_agent_tool_calls(run.id):
+                items.append(
+                    AgentActivityItem(
+                        id=call.id,
+                        kind="TOOL",
+                        status=call.status.value,
+                        title=("업무 단계 완료" if role == "Supplier" else call.tool_name),
+                        summary=call.output_summary,
+                        created_at=call.completed_at or call.started_at or run.created_at,
+                        method_version=(invoice.risk_passport.policy_version if role == "Investor" else None),
+                    )
+                )
+        if role == "Investor" and invoice.agent_decision is not None:
+            decision = invoice.agent_decision
+            tx = invoice.funding_transaction
+            items.append(
+                AgentActivityItem(
+                    id=f"decision-{invoice.id}",
+                    kind="TOOL",
+                    status=decision.status,
+                    title="Mandate 정책 검사",
+                    summary=decision.reason or "Mandate 정책 검사를 완료했습니다.",
+                    created_at=decision.created_at,
+                    checks=decision.checks,
+                    transaction_signature=tx.signature if tx else None,
+                    explorer_url=tx.explorer_url if tx else None,
+                )
+            )
+        return AgentActivityTimeline(
+            invoice_id=invoice_id,
+            role=role,
+            runs=runs,
+            timeline=sorted(items, key=lambda item: item.created_at),
+        )
+
+    async def settle_mock_payment(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
         if not self._settings.mock_settlement_enabled:
             raise StateConflictError(
                 "Mock 상환 정산은 현재 GCP 자동매수 범위에서 비활성화되어 있습니다."
             )
         async with self._invoice_lock(invoice_id):
             invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
             if invoice.status is InvoiceStatus.SETTLED:
                 return self._copy_invoice(invoice)
             if invoice.status not in {
@@ -762,7 +936,10 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
-    def investor_dashboard(self) -> InvestorDashboard:
+    def investor_dashboard(
+        self,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> InvestorDashboard:
         active = {
             InvoiceStatus.FUNDED,
             InvoiceStatus.REPAYMENT_PENDING,
@@ -790,6 +967,12 @@ class InvoiceService:
             reverse=True,
         )[:20]
         mandates = self._repository.active_mandates()
+        if identity is not None and identity.source == "PRIVY":
+            mandates = [
+                mandate
+                for mandate in mandates
+                if mandate.owner_wallet_address == identity.wallet_address
+            ]
         vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
         attention_required_statuses = {InvoiceStatus.ERROR, InvoiceStatus.BLOCKED}
         attention_required_count = 0
@@ -801,7 +984,9 @@ class InvoiceService:
             if decision is not None and decision.status == "FAILED":
                 attention_required_count += 1
         return InvestorDashboard(
-            investor_name="Nova Capital",
+            investor_name=(
+                identity.company_name if identity and identity.company_name else "Nova Capital"
+            ),
             automated_investment_active=bool(mandates),
             mandate_status="ACTIVE" if mandates else "DRAFT",
             available_vault_usdc=vault.available_usdc if vault else 0,
@@ -818,6 +1003,10 @@ class InvoiceService:
     @property
     def settings(self) -> BackendSettings:
         return self._settings
+
+    @property
+    def repository(self) -> RwaRepository:
+        return self._repository
 
     async def _reserve_invoice_ids(self, document_count: int) -> tuple[str, list[str]]:
         async with self._sequence_lock:
@@ -905,7 +1094,8 @@ class InvoiceService:
             invoice_number=field("invoice_number", "invoiceNumber"),
             supplier_name=field("supplier_name", "supplierName"),
             buyer_name=field("buyer_name", "buyerName"),
-            amount_krw=field("total_amount", "totalAmount", self._parse_amount),
+            amount=field("total_amount", "totalAmount", self._parse_amount),
+            currency=field("currency", "currency"),
             due_date=field("due_date", "dueDate"),
             contract_number=field("contract_number", "contractNumber"),
             purchase_order_number=field(
@@ -926,13 +1116,19 @@ class InvoiceService:
         analysis = invoice.analysis
         if analysis is None:
             return
-        invoice.invoice_amount_krw = analysis.amount_krw.value or invoice.invoice_amount_krw
+        invoice.invoice_amount = analysis.amount.value or invoice.invoice_amount
         invoice.due_date = analysis.due_date.value or invoice.due_date
         invoice.contract_number = analysis.contract_number.value or invoice.contract_number
         invoice.purchase_order_number = (
             analysis.purchase_order_number.value or invoice.purchase_order_number
         )
         invoice.supplier.name = analysis.supplier_name.value or invoice.supplier.name
+        buyer_name = analysis.buyer_name.value
+        if buyer_name:
+            buyer_company = self._repository.find_company_by_name(buyer_name, "BUYER")
+            if buyer_company is not None:
+                invoice.buyer.id = buyer_company.id
+                invoice.buyer.name = buyer_company.name
         issue_date = self._first_raw_value(result, "issue_date")
         if isinstance(issue_date, str):
             invoice.issue_date = issue_date
@@ -1032,6 +1228,95 @@ class InvoiceService:
                 completed_at=now if status in {"COMPLETED", "FAILED"} else None,
             )
         )
+
+    def _record_completed_agent_run(
+        self,
+        *,
+        invoice_id: str,
+        trigger: AgentTrigger,
+        tool_name: str,
+        summary: str,
+        source_agent: str,
+        target_agent: str,
+    ) -> None:
+        """Persist redacted activity. Never place prompts, documents, keys or wallet data here."""
+        now = datetime.now(UTC).isoformat()
+        run_id = f"RUN-{secrets.token_urlsafe(12)}"
+        run = AgentRun(
+            id=run_id,
+            invoice_id=invoice_id,
+            trigger=trigger,
+            status=AgentRunStatus.COMPLETED,
+            plan_summary=summary,
+            created_at=now,
+            started_at=now,
+            completed_at=now,
+        )
+        self._repository.save_agent_run(run)
+        self._repository.save_agent_tool_call(
+            AgentToolCall(
+                id=f"CALL-{secrets.token_urlsafe(12)}",
+                run_id=run_id,
+                sequence=1,
+                tool_name=tool_name,
+                status=ToolCallStatus.COMPLETED,
+                input_summary="invoice_id only",
+                output_summary=summary,
+                started_at=now,
+                completed_at=now,
+            )
+        )
+        self._repository.save_agent_handoff(
+            AgentHandoff(
+                id=f"HANDOFF-{secrets.token_urlsafe(12)}",
+                run_id=run_id,
+                source_agent=source_agent,
+                target_agent=target_agent,
+                reason=summary,
+                status=ToolCallStatus.COMPLETED,
+                created_at=now,
+                completed_at=now,
+            )
+        )
+
+    def assert_invoice_access(
+        self,
+        invoice: Invoice,
+        identity: AuthenticatedIdentity | None,
+    ) -> None:
+        if not self._can_access_invoice(invoice, identity):
+            raise NotFoundError(f"Invoice {invoice.id}를 찾을 수 없습니다.")
+
+    def assert_wallet_ownership(
+        self,
+        wallet_address: str,
+        identity: AuthenticatedIdentity | None,
+    ) -> None:
+        if (
+            identity is not None
+            and identity.source == "PRIVY"
+            and identity.wallet_address != wallet_address
+        ):
+            raise StateConflictError(
+                "가입한 Privy Embedded Wallet과 요청 지갑 주소가 일치하지 않습니다."
+            )
+
+    @staticmethod
+    def _can_access_invoice(
+        invoice: Invoice,
+        identity: AuthenticatedIdentity | None,
+    ) -> bool:
+        if identity is None or identity.source == "DEMO":
+            return True
+        if identity.role is LoginRole.INVESTOR:
+            return True
+        if identity.company_id is None:
+            return False
+        if identity.role is LoginRole.SUPPLIER:
+            return invoice.supplier.id == identity.company_id
+        if identity.role is LoginRole.BUYER:
+            return invoice.buyer.id == identity.company_id
+        return False
 
     def _invoice(self, invoice_id: str) -> Invoice:
         try:

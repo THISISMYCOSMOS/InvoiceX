@@ -40,19 +40,31 @@ def _gemini_response_json_schema(response_schema: type[BaseModel]) -> dict[str, 
 
 
 class GoogleGeminiClient:
-    """Structured-output Gemini client authenticated with an AI Studio API key."""
+    """Structured-output Gemini client using Vertex AI ADC when configured."""
 
     def __init__(self, settings: AgentSettings | None = None) -> None:
         self._settings = settings or AgentSettings()
+        project_id = self._settings.vertex_ai_project_id
+        if project_id:
+            # Cloud Run supplies Application Default Credentials. No API key is
+            # read or sent in this path.
+            self._client = genai.Client(
+                vertexai=True,
+                project=project_id,
+                location=self._settings.vertex_ai_location,
+                http_options=types.HttpOptions(
+                    timeout=int(self._settings.gemini_timeout_seconds * 1000)
+                ),
+            )
+            return
         api_key = self._settings.gemini_api_key
         if api_key is None or not api_key.get_secret_value().strip():
-            raise AgentConfigurationError("GEMINI_API_KEY is required for the real Gemini client")
-
+            raise AgentConfigurationError(
+                "VERTEX_AI_PROJECT_ID is required for Vertex AI, or GEMINI_API_KEY for local compatibility"
+            )
         self._client = genai.Client(
             api_key=api_key.get_secret_value(),
-            http_options=types.HttpOptions(
-                timeout=int(self._settings.gemini_timeout_seconds * 1000)
-            ),
+            http_options=types.HttpOptions(timeout=int(self._settings.gemini_timeout_seconds * 1000)),
         )
 
     def generate_structured(

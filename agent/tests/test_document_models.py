@@ -159,6 +159,9 @@ def test_numeric_date_and_currency_fields_are_canonicalized() -> None:
     assert extracted.issue_date == "2026-07-29"
     assert extracted.due_date == "2026-10-30"
 
+    usdc = DocumentExtractedData.model_validate({"currency": "usdc"})
+    assert usdc.currency == "USDC"
+
 
 @pytest.mark.parametrize(
     ("field", "value"),

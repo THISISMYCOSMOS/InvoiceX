@@ -19,8 +19,8 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
   );
 
   expect(screen.getByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "1 USDC" })).toBeInTheDocument();
-  expect(screen.getByText("0.06 USDC")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "2 USDC" })).toBeInTheDocument();
+  expect(screen.getByText("0.13 USDC")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Risk Passport" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Decline offer" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
@@ -184,7 +184,7 @@ test("shows the buyer-verification pending summary from the invoice", () => {
 
   expect(screen.getByRole("heading", { name: "Waiting for buyer verification" })).toBeInTheDocument();
   expect(screen.getByText("Prime Mobility")).toBeInTheDocument();
-  expect(screen.getByText("₩3,000")).toBeInTheDocument();
+  expect(screen.getByText("3 USDC")).toBeInTheDocument();
   expect(screen.getByText("Oct 30, 2026")).toBeInTheDocument();
   expect(screen.getByText("Verification requested · Jul 29, 2026 · 10:42")).toBeInTheDocument();
   expect(screen.getByText("Buyer verification")).toHaveAttribute("aria-current", "step");

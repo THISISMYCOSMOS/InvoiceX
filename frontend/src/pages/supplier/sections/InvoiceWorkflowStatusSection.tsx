@@ -33,7 +33,7 @@ function getWorkflowCopy(invoice: Invoice): WorkflowCopy {
     case "REPAYMENT_PENDING":
       return {
         title: ["Waiting for maturity payment", "만기 결제를 기다리고 있습니다"],
-        description: ["The buyer's KRW payment will begin the maturity-settlement process.", "구매기업의 원화 결제가 확인되면 만기 정산을 시작합니다."],
+        description: ["The buyer's USDC payment will begin the maturity-settlement process.", "구매기업의 USDC 결제가 확인되면 만기 정산을 시작합니다."],
         tone: "attention",
       };
     case "SETTLING":

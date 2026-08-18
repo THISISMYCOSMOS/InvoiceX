@@ -19,11 +19,14 @@ npm run dev
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 VITE_USE_MOCK_API=false
+VITE_PRIVY_APP_ID=cms678zqw007k0cjkq4jhxn9q
 VITE_SOLANA_NETWORK=devnet
 ```
 
 - `VITE_USE_MOCK_API=true`: 메모리 기반 해피 패스 데모 상태 머신을 사용합니다.
 - `VITE_USE_MOCK_API=false`: `VITE_API_BASE_URL/api/v1`의 실제 백엔드 API adapter를 사용합니다. 실제 Gemini·Privy·Solana Devnet 테스트는 이 값이어야 합니다.
+- 회원가입은 `http://localhost:5173/signup`으로 접속합니다. Privy에 등록된 로컬 Origin은 `localhost`이므로 `127.0.0.1`은 사용하지 않습니다.
+- `VITE_PRIVY_APP_ID`는 공개 식별자입니다. Privy App Secret은 프론트엔드 환경 변수에 넣지 않습니다.
 
 ## 제공 라우트
 

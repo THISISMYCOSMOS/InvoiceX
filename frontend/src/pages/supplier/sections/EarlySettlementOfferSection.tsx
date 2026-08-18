@@ -1,4 +1,4 @@
-import type { Invoice } from "../../../types/invoice";
+import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 import { useLanguage } from "../../../i18n/LanguageContext";
 
 export function EarlySettlementOfferSection({
@@ -21,7 +21,6 @@ export function EarlySettlementOfferSection({
   const estimatedCost = advanceRate > 0
     ? expectedProceeds * ((100 - advanceRate) / advanceRate)
     : 0;
-  const formatKrw = new Intl.NumberFormat("ko-KR").format(invoice.invoiceAmountKrw);
   const formatUsdc = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
     minimumFractionDigits: estimatedCost > 0 && estimatedCost < 1 ? 2 : 0,
@@ -57,9 +56,9 @@ export function EarlySettlementOfferSection({
           <article className="offer-proceeds-card">
             <span className="expected-proceeds-chip">{t("EXPECTED PROCEEDS", "예상 수령액")}</span>
             <h2>{expectedProceeds.toLocaleString()} USDC</h2>
-            <p>{t("Estimated at ₩1,500 per USDC.", "1 USDC당 ₩1,500을 적용한 예상치입니다.")}</p>
+            <p>{t("The invoice and expected proceeds are denominated in USDC.", "인보이스와 예상 수령액은 USDC 기준입니다.")}</p>
             <dl>
-              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>₩{formatKrw}</dd></div>
+              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency)}</dd></div>
               <div><dt>{t("Advance rate", "선지급률")}</dt><dd>{advanceRate}%</dd></div>
               <div><dt>{t("Estimated total early settlement cost", "예상 조기정산 총비용")}</dt><dd>{formatUsdc} USDC</dd></div>
               <div><dt>{t("Payment method", "지급 방식")}</dt><dd>Circle USDC · Solana Devnet</dd></div>

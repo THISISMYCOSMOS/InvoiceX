@@ -33,7 +33,8 @@ export interface DocumentAnalysis {
   invoiceNumber: ExtractedField<string>;
   supplierName: ExtractedField<string>;
   buyerName: ExtractedField<string>;
-  amountKrw: ExtractedField<number>;
+  amount: ExtractedField<number>;
+  currency: ExtractedField<string>;
   dueDate: ExtractedField<string>;
   contractNumber: ExtractedField<string>;
   purchaseOrderNumber: ExtractedField<string>;

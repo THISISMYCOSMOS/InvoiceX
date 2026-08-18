@@ -3,13 +3,7 @@ import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { getInvoiceDisplayReference, useInvoices } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
-import type { Invoice } from "../../types/invoice";
-
-const krw = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
+import { formatInvoiceAmount, type Invoice } from "../../types/invoice";
 
 function formatDueDate(dueDate: string, locale: "en-US" | "ko-KR") {
   return new Intl.DateTimeFormat(locale, {
@@ -40,7 +34,7 @@ export function BuyerDashboardPage() {
   ));
   const dueSoonTotal = paymentInvoices
     .filter((invoice) => isDueWithin30Days(invoice, new Date()))
-    .reduce((total, invoice) => total + invoice.invoiceAmountKrw, 0);
+    .reduce((total, invoice) => total + invoice.invoiceAmount, 0);
   const completedCount = items.filter((invoice) => invoice.status === "SETTLED").length;
 
   return (
@@ -62,7 +56,7 @@ export function BuyerDashboardPage() {
         </article>
         <article>
           <span>{t("Due in 30 days", "30일 이내 만기")}</span>
-          <strong>{krw.format(dueSoonTotal)}</strong>
+          <strong>{formatInvoiceAmount(dueSoonTotal, paymentInvoices[0]?.currency ?? "USDC", locale)}</strong>
         </article>
         <article>
           <span>{t("Completed invoices", "완료된 인보이스")}</span>
@@ -93,7 +87,7 @@ export function BuyerDashboardPage() {
                 <tr key={invoice.id}>
                   <td><strong>{getInvoiceDisplayReference(invoice)}</strong></td>
                   <td>{invoice.supplier.name}</td>
-                  <td>{krw.format(invoice.invoiceAmountKrw)}</td>
+                  <td>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, locale)}</td>
                   <td>{formatDueDate(invoice.dueDate, locale)}</td>
                   <td>
                     <Link
@@ -140,7 +134,7 @@ export function BuyerDashboardPage() {
                   <tr key={invoice.id}>
                   <td><strong>{getInvoiceDisplayReference(invoice)}</strong></td>
                     <td>{invoice.supplier.name}</td>
-                    <td>{krw.format(invoice.invoiceAmountKrw)}</td>
+                    <td>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, locale)}</td>
                     <td>{formatDueDate(invoice.dueDate, locale)}</td>
                     <td><span className="due-soon-pill">{t(`${daysRemaining} days left`, `${daysRemaining}일 남음`)}</span></td>
                     <td>

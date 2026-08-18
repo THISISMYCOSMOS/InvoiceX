@@ -2,6 +2,8 @@ import { useParams } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useInvoice } from "../../hooks/useInvoice";
+import { useAgentActivity } from "../../hooks/useAgentActivity";
+import { AgentActivityTimeline } from "../../components/AgentActivityTimeline";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { AgentDecision, Invoice } from "../../types/invoice";
 import { investorActivityResult } from "./investorActivityStatus";
@@ -168,6 +170,7 @@ export function InvestorActivityPage() {
   const { t } = useLanguage();
   const { invoiceId = "" } = useParams();
   const invoice = useInvoice(invoiceId);
+  const activity = useAgentActivity(invoiceId, "Investor");
 
   if (invoice.isLoading) return <LoadingState />;
   if (invoice.error || !invoice.data) {
@@ -178,5 +181,5 @@ export function InvestorActivityPage() {
     );
   }
 
-  return <InvestorActivityContent invoice={invoice.data} />;
+  return <><InvestorActivityContent invoice={invoice.data} /><AgentActivityTimeline activity={activity.data} /></>;
 }

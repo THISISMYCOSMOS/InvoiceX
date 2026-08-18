@@ -37,3 +37,23 @@ export interface AgentTrace {
   createdAt: string;
   completedAt?: string;
 }
+
+export interface AgentActivityItem {
+  id: string;
+  kind: "RUN" | "TOOL" | "HANDOFF";
+  status: string;
+  title: string;
+  summary: string;
+  createdAt: string;
+  methodVersion?: string;
+  checks?: Record<string, boolean>;
+  transactionSignature?: string;
+  explorerUrl?: string;
+}
+
+export interface AgentActivityTimeline {
+  invoiceId: string;
+  role: "Supplier" | "Investor";
+  runs: Array<{ id: string; status: string; trigger: string; planSummary: string; createdAt: string }>;
+  timeline: AgentActivityItem[];
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -23,7 +24,10 @@ def test_complete_frontend_contract_workflow(
     assert len(invoice["documents"]) == 4
     assert {document["type"] for document in invoice["documents"]} == set(contract_files)
     assert invoice["analysis"]["status"] == "COMPLETED"
-    assert invoice["analysis"]["amountKrw"]["value"] == 3_000
+    assert invoice["invoiceAmount"] == 3
+    assert invoice["currency"] == "USDC"
+    assert invoice["analysis"]["amount"]["value"] == 3
+    assert invoice["analysis"]["currency"]["value"] == "USDC"
     assert invoice["riskPassport"] is None
     assert invoice["fundingTransaction"] is None
     assert invoice["settlementTransaction"] is None
@@ -206,8 +210,11 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
     schema = client.get("/api/docs-json").json()
     expected_paths = {
         "/api/v1/auth/login",
+        "/api/v1/auth/me",
+        "/api/v1/onboarding/company",
         "/api/v1/invoices",
-        "/api/v1/invoices/{invoiceId}",
+            "/api/v1/invoices/{invoiceId}",
+            "/api/v1/invoices/{invoiceId}/agent-activity",
         "/api/v1/invoices/{invoiceId}/verification-request",
         "/api/v1/verifications",
         "/api/v1/verifications/{verificationId}",
@@ -245,6 +252,17 @@ def test_healthz_is_available_without_api_authentication(client: TestClient) -> 
         response = client.get(path)
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+
+def test_otp_clock_uses_server_time_and_is_not_cached(client: TestClient) -> None:
+    before_ms = int(time.time() * 1000)
+    response = client.get("/api/v1/auth/otp-clock")
+    after_ms = int(time.time() * 1000)
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["expiresInSeconds"] == 300
+    assert before_ms <= response.json()["serverTimeMs"] <= after_ms
 
 
 def test_fixed_demo_accounts_issue_tokens_and_protect_gcp_api(tmp_path: Path) -> None:

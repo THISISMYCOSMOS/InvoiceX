@@ -10,6 +10,7 @@ import {
   saveDemoSession,
   type LoginRole,
 } from "../auth/demoAccounts";
+import { useSignupAuth } from "../auth/SignupAuthContext";
 
 const roleRoutes: Record<LoginRole, string> = {
   Supplier: "/supplier",
@@ -22,6 +23,7 @@ export function LoginPage() {
   const [loginError, setLoginError] = useState<string>();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const privyAuth = useSignupAuth();
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,6 +31,8 @@ export function LoginPage() {
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
     const remember = formData.get("remember") === "on";
+
+    if (privyAuth.authenticated) await privyAuth.logout();
 
     if (isMockApi) {
       const account = authenticateDemoAccount(role, email, password);
@@ -132,6 +136,9 @@ export function LoginPage() {
 
             {loginError && <p className="login-error" role="alert">{loginError}</p>}
             <button className="primary-button login-submit" type="submit">{t("Sign in", "로그인")}</button>
+            <Link className="signup-change-email" to="/signup">
+              {t("Sign in with verified email", "회원가입한 이메일로 로그인")}
+            </Link>
             <p className="login-form__foot">
               {t("New to InvoiceX?", "InvoiceX가 처음이신가요?")}{" "}
               <Link to="/signup">{t("Create a company account", "회사 계정 만들기")}</Link>

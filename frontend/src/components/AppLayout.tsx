@@ -8,8 +8,17 @@ import { useInvoices } from "../hooks/useInvoices";
 import { useLanguage } from "../i18n/LanguageContext";
 import { Brand } from "./Brand";
 import { LanguageToggle } from "./LanguageToggle";
+import type { CurrentPrivyAccount } from "../auth/currentAccount";
 
-export function AppLayout({ children }: { children: ReactNode }) {
+export function AppLayout({
+  children,
+  currentPrivyAccount,
+  onPrivyLogout,
+}: {
+  children: ReactNode;
+  currentPrivyAccount?: CurrentPrivyAccount;
+  onPrivyLogout?: () => Promise<void>;
+}) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -26,13 +35,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [roleSwitchError, setRoleSwitchError] = useState<string>();
   const role = isSupplier ? "SUPPLIER" : isBuyer ? "BUYER" : isInvestor ? "INVESTOR" : "DEMO";
-  const company = isSupplier
-    ? "Alpha Components"
-    : isBuyer
-      ? "Prime Mobility"
-      : isInvestor
-        ? "Nova Capital"
-        : "InvoiceX Demo";
+  const company = currentPrivyAccount?.companyName ?? (
+    isSupplier
+      ? "Alpha Components"
+      : isBuyer
+        ? "Prime Mobility"
+        : isInvestor
+          ? "Nova Capital"
+          : "InvoiceX Demo"
+  );
   const isBuyerPayment = isBuyer && search.includes("section=payment");
   const isSupplierOffer = isSupplier && detailInvoice.data?.status === "OFFER_READY";
   const homePath = isSupplier ? "/supplier" : isBuyer ? "/buyer" : isInvestor ? "/investor" : "/dev/demo";
@@ -76,22 +87,37 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Brand />
           </Link>
           <div className="topbar__user">
-            <label className="role-switcher">
-              <span className="sr-only">{t("Switch role", "역할 변경")}</span>
-              <select
-                aria-label={t("Switch role", "역할 변경")}
-                value={role === "DEMO" ? "" : role}
-                onChange={(event) => void switchRole(event)}
-                disabled={isSwitchingRole}
-              >
-                {role === "DEMO" && <option value="">{t("Switch role", "역할 변경")}</option>}
-                <option value="SUPPLIER">{t("Supplier", "공급기업")}</option>
-                <option value="BUYER">{t("Buyer", "구매기업")}</option>
-                <option value="INVESTOR">{t("Investor", "투자자")}</option>
-              </select>
-            </label>
+            {currentPrivyAccount ? (
+              <span className="role-switcher">
+                {currentPrivyAccount.role === "SUPPLIER"
+                  ? t("Supplier", "공급기업")
+                  : currentPrivyAccount.role === "BUYER"
+                    ? t("Buyer", "구매기업")
+                    : t("Investor", "투자자")}
+              </span>
+            ) : (
+              <label className="role-switcher">
+                <span className="sr-only">{t("Switch role", "역할 변경")}</span>
+                <select
+                  aria-label={t("Switch role", "역할 변경")}
+                  value={role === "DEMO" ? "" : role}
+                  onChange={(event) => void switchRole(event)}
+                  disabled={isSwitchingRole}
+                >
+                  {role === "DEMO" && <option value="">{t("Switch role", "역할 변경")}</option>}
+                  <option value="SUPPLIER">{t("Supplier", "공급기업")}</option>
+                  <option value="BUYER">{t("Buyer", "구매기업")}</option>
+                  <option value="INVESTOR">{t("Investor", "투자자")}</option>
+                </select>
+              </label>
+            )}
             {roleSwitchError && <span className="topbar-role-error" role="status">{roleSwitchError}</span>}
             <LanguageToggle />
+            {onPrivyLogout && (
+              <button type="button" onClick={() => void onPrivyLogout()}>
+                {t("Sign out", "로그아웃")}
+              </button>
+            )}
             {isBuyer && detailInvoiceId && (
               <span className="topbar-status-pill topbar-status-pill--green">
                 {isBuyerPayment

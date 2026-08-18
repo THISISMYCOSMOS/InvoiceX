@@ -23,3 +23,12 @@ class IntegrationError(BackendError):
 
 class MandateRejectedError(BackendError):
     """Treasury mandate rejected an attempted investment."""
+
+
+class OnboardingApiError(BackendError):
+    """Stable, sanitized onboarding error exposed to the frontend."""
+
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
