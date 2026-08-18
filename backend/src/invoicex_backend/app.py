@@ -88,7 +88,7 @@ def create_app(
             {"name": "Verifications", "description": "Buyer verification workflow"},
             {"name": "Funding", "description": "Treasury mandate and funding"},
             {"name": "Investor", "description": "Investor dashboard"},
-            {"name": "Settlement", "description": "Mock KRW payment and USDC settlement"},
+            {"name": "Settlement", "description": "Mock USDC payment and settlement"},
         ],
     )
     app.state.invoice_service = service

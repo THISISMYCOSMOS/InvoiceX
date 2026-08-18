@@ -154,7 +154,8 @@ class SQLiteRwaRepository:
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     company_type TEXT NOT NULL,
-                    business_registration_number TEXT NOT NULL UNIQUE,
+                    country_code TEXT NOT NULL,
+                    registration_number TEXT NOT NULL,
                     kyb_status TEXT NOT NULL,
                     status TEXT NOT NULL
                 );
@@ -189,6 +190,50 @@ class SQLiteRwaRepository:
                 ON users(LOWER(TRIM(email)));
                 """
             )
+            self._migrate_company_schema()
+            self._connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS companies_country_registration_unique
+                ON companies(country_code, registration_number)
+                """
+            )
+
+    def _migrate_company_schema(self) -> None:
+        """Upgrade the local SQLite company identifier without losing demo data."""
+
+        columns = {
+            str(row["name"])
+            for row in self._connection.execute("PRAGMA table_info(companies)").fetchall()
+        }
+        if "country_code" in columns and "registration_number" in columns:
+            return
+        if "business_registration_number" not in columns:
+            raise RuntimeError("Unsupported companies table schema")
+
+        self._connection.executescript(
+            """
+            CREATE TABLE companies_v2 (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                company_type TEXT NOT NULL,
+                country_code TEXT NOT NULL,
+                registration_number TEXT NOT NULL,
+                kyb_status TEXT NOT NULL,
+                status TEXT NOT NULL
+            );
+            INSERT INTO companies_v2 (
+                id, name, company_type, country_code, registration_number,
+                kyb_status, status
+            )
+            SELECT
+                id, name, company_type, 'KR',
+                UPPER(REPLACE(REPLACE(business_registration_number, '-', ''), ' ', '')),
+                kyb_status, status
+            FROM companies;
+            DROP TABLE companies;
+            ALTER TABLE companies_v2 RENAME TO companies;
+            """
+        )
 
     @staticmethod
     def _encode(value: object) -> str:
@@ -437,7 +482,8 @@ class SQLiteRwaRepository:
             id=row["id"],
             name=row["name"],
             type=row["company_type"],
-            business_registration_number=row["business_registration_number"],
+            country_code=row["country_code"],
+            registration_number=row["registration_number"],
             kyb_status=row["kyb_status"],
             status=row["status"],
         )
@@ -579,8 +625,8 @@ class SQLiteRwaRepository:
                 if (
                     existing.name != company.name
                     or existing.type != company.type
-                    or existing.business_registration_number
-                    != company.business_registration_number
+                    or existing.country_code != company.country_code
+                    or existing.registration_number != company.registration_number
                 ):
                     raise OnboardingApiError(
                         409,
@@ -589,28 +635,32 @@ class SQLiteRwaRepository:
                     )
                 return current, existing
             duplicate = self._connection.execute(
-                "SELECT id FROM companies WHERE business_registration_number = ?",
-                (company.business_registration_number,),
+                """
+                SELECT id FROM companies
+                WHERE country_code = ? AND registration_number = ?
+                """,
+                (company.country_code, company.registration_number),
             ).fetchone()
             if duplicate is not None:
                 raise OnboardingApiError(
                     409,
-                    "BUSINESS_REGISTRATION_ALREADY_USED",
-                    "이미 가입에 사용된 사업자등록번호입니다.",
+                    "COMPANY_REGISTRATION_ALREADY_USED",
+                    "해당 국가에서 이미 가입에 사용된 기업 등록번호입니다.",
                 )
             try:
                 self._connection.execute(
                     """
                     INSERT INTO companies (
-                        id, name, company_type, business_registration_number,
+                        id, name, company_type, country_code, registration_number,
                         kyb_status, status
-                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         company.id,
                         company.name,
                         company.type.value,
-                        company.business_registration_number,
+                        company.country_code,
+                        company.registration_number,
                         company.kyb_status,
                         company.status,
                     ),
@@ -635,8 +685,8 @@ class SQLiteRwaRepository:
             except sqlite3.IntegrityError as exc:
                 raise OnboardingApiError(
                     409,
-                    "BUSINESS_REGISTRATION_ALREADY_USED",
-                    "이미 가입에 사용된 사업자등록번호입니다.",
+                    "COMPANY_REGISTRATION_ALREADY_USED",
+                    "해당 국가에서 이미 가입에 사용된 기업 등록번호입니다.",
                 ) from exc
             saved_row = self._connection.execute(
                 "SELECT * FROM users WHERE privy_user_id = ?", (user.privy_user_id,)
@@ -1161,7 +1211,8 @@ class CloudSqlRwaRepository:
             id=str(row[0]),
             name=str(row[1]),
             type=str(row[2]),
-            business_registration_number=str(row[3]),
+            country_code="KR",
+            registration_number=str(row[3]),
             kyb_status=str(row[4]),
             status=str(row[5]),
         )
@@ -1285,7 +1336,7 @@ class CloudSqlRwaRepository:
             if (
                 existing.name != company.name
                 or existing.type != company.type
-                or existing.business_registration_number != company.business_registration_number
+                or existing.registration_number != company.registration_number
             ):
                 raise OnboardingApiError(
                     409,
@@ -1295,13 +1346,13 @@ class CloudSqlRwaRepository:
             return current, existing
         duplicate = self._read_one(
             "SELECT id FROM companies WHERE business_registration_number = %s",
-            (company.business_registration_number,),
+            (company.registration_number,),
         )
         if duplicate is not None:
             raise OnboardingApiError(
                 409,
-                "BUSINESS_REGISTRATION_ALREADY_USED",
-                "이미 가입에 사용된 사업자등록번호입니다.",
+                "COMPANY_REGISTRATION_ALREADY_USED",
+                "해당 국가에서 이미 가입에 사용된 기업 등록번호입니다.",
             )
 
         def write(cursor: object) -> None:
@@ -1315,7 +1366,7 @@ class CloudSqlRwaRepository:
                     company.id,
                     company.name,
                     company.type.value,
-                    company.business_registration_number,
+                    company.registration_number,
                     company.kyb_status,
                     company.status,
                 ),
@@ -1343,13 +1394,13 @@ class CloudSqlRwaRepository:
         except Exception as exc:
             duplicate = self._read_one(
                 "SELECT id FROM companies WHERE business_registration_number = %s",
-                (company.business_registration_number,),
+                (company.registration_number,),
             )
             if duplicate is not None:
                 raise OnboardingApiError(
                     409,
-                    "BUSINESS_REGISTRATION_ALREADY_USED",
-                    "이미 가입에 사용된 사업자등록번호입니다.",
+                    "COMPANY_REGISTRATION_ALREADY_USED",
+                    "해당 국가에서 이미 가입에 사용된 기업 등록번호입니다.",
                 ) from exc
             raise
         saved = self.get_onboarding_user(user.privy_user_id)

@@ -1,12 +1,6 @@
 import { ArrowsClockwise } from "@phosphor-icons/react";
-import type { Invoice } from "../../../types/invoice";
+import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 import { useLanguage } from "../../../i18n/LanguageContext";
-
-const krwFormatter = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
 
 export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
   const { language, t } = useLanguage();
@@ -36,7 +30,7 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
           </div>
           <div>
             <dt>{t("Invoice amount", "인보이스 금액")}</dt>
-            <dd>{krwFormatter.format(invoice.invoiceAmountKrw)}</dd>
+            <dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, language === "ko" ? "ko-KR" : "en-US")}</dd>
           </div>
           <div>
             <dt>{t("Due date", "만기일")}</dt>

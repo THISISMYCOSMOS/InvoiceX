@@ -100,7 +100,8 @@ export interface Invoice {
   supplier: InvoiceParty;
   buyer: InvoiceParty;
   investor: InvoiceParty;
-  invoiceAmountKrw: number;
+  invoiceAmount: number;
+  currency: string;
   issueDate: string;
   dueDate: string;
   deliveryDate: string;
@@ -118,6 +119,14 @@ export interface Invoice {
   rwaAsset?: RwaAsset;
   agentDecision?: AgentDecision;
   agentTraces: AgentTrace[];
+}
+
+export function formatInvoiceAmount(
+  amount: number,
+  currency: string,
+  locale: string = "en-US",
+): string {
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(amount)} ${currency}`;
 }
 
 export interface VerificationRequest {

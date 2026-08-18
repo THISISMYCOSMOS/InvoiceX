@@ -165,13 +165,13 @@ def canonical_date_string(value: object) -> str:
 
 
 def canonical_currency_code(value: object) -> str:
-    """Return a three-letter uppercase currency code."""
+    """Return an uppercase currency or settlement-asset code."""
 
     source = unicodedata.normalize("NFKC", str(value)).strip().upper()
     aliases = {"원": "KRW", "₩": "KRW"}
     source = aliases.get(source, source)
-    if re.fullmatch(r"[A-Z]{3}", source) is None:
-        raise ValueError("currency must be a three-letter ISO-style code")
+    if re.fullmatch(r"(?:[A-Z]{3}|USDC)", source) is None:
+        raise ValueError("currency must be a three-letter code or USDC")
     return source
 
 

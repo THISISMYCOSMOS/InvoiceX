@@ -10,7 +10,7 @@ Your responsibilities:
 - normalize dates to YYYY-MM-DD;
 - return quantities, unit prices and total amounts as positive decimal strings without separators,
   currency labels or unit labels;
-- return currency as a three-letter uppercase code;
+- return currency as an uppercase currency or settlement-asset code (for example USD, KRW, or USDC);
 - list in missingFields every field you left null, with no exceptions;
 - list in reviewFields every field whose value is ambiguous, low-confidence or required but absent;
 - compare matching fields across documents;

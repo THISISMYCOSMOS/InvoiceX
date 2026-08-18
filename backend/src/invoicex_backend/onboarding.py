@@ -71,7 +71,8 @@ class OnboardingService:
                 id=_id("cmp"),
                 name=payload.company.name,
                 type=payload.company.type,
-                business_registration_number=payload.company.business_registration_number,
+                country_code=payload.company.country_code,
+                registration_number=payload.company.registration_number,
             )
             user = user.model_copy(
                 update={

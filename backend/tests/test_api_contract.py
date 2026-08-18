@@ -24,7 +24,10 @@ def test_complete_frontend_contract_workflow(
     assert len(invoice["documents"]) == 4
     assert {document["type"] for document in invoice["documents"]} == set(contract_files)
     assert invoice["analysis"]["status"] == "COMPLETED"
-    assert invoice["analysis"]["amountKrw"]["value"] == 3_000
+    assert invoice["invoiceAmount"] == 3
+    assert invoice["currency"] == "USDC"
+    assert invoice["analysis"]["amount"]["value"] == 3
+    assert invoice["analysis"]["currency"]["value"] == "USDC"
     assert invoice["riskPassport"] is None
     assert invoice["fundingTransaction"] is None
     assert invoice["settlementTransaction"] is None

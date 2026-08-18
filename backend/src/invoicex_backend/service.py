@@ -219,7 +219,8 @@ class InvoiceService:
                 name="Nova Capital",
                 vault_address=self._settings.investor_settlement_wallet_address,
             ),
-            invoice_amount_krw=3_000,
+            invoice_amount=3,
+            currency="USDC",
             issue_date=now.date().isoformat(),
             due_date=(now + timedelta(days=90)).date().isoformat(),
             delivery_date=(now - timedelta(days=5)).date().isoformat(),
@@ -544,7 +545,7 @@ class InvoiceService:
             score_result = self._risk_scoring.evaluate(
                 RiskScoringRequest(
                     invoice_id=invoice.id,
-                    face_value_usdc=invoice.invoice_amount_krw // self._settings.demo_krw_per_usdc,
+                    face_value_usdc=invoice.invoice_amount,
                     has_document_mismatches=bool(agent_analysis.mismatches),
                     buyer_confirmed=True,
                     remaining_term_days=max(
@@ -1093,7 +1094,8 @@ class InvoiceService:
             invoice_number=field("invoice_number", "invoiceNumber"),
             supplier_name=field("supplier_name", "supplierName"),
             buyer_name=field("buyer_name", "buyerName"),
-            amount_krw=field("total_amount", "totalAmount", self._parse_amount),
+            amount=field("total_amount", "totalAmount", self._parse_amount),
+            currency=field("currency", "currency"),
             due_date=field("due_date", "dueDate"),
             contract_number=field("contract_number", "contractNumber"),
             purchase_order_number=field(
@@ -1114,7 +1116,7 @@ class InvoiceService:
         analysis = invoice.analysis
         if analysis is None:
             return
-        invoice.invoice_amount_krw = analysis.amount_krw.value or invoice.invoice_amount_krw
+        invoice.invoice_amount = analysis.amount.value or invoice.invoice_amount
         invoice.due_date = analysis.due_date.value or invoice.due_date
         invoice.contract_number = analysis.contract_number.value or invoice.contract_number
         invoice.purchase_order_number = (

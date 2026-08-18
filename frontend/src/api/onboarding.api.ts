@@ -21,7 +21,8 @@ export type OnboardingResponse = {
     id: string;
     name: string;
     type: CompanyType;
-    businessRegistrationNumber: string;
+    countryCode: string;
+    registrationNumber: string;
     kybStatus: string;
     status: string;
   } | null;
@@ -43,7 +44,8 @@ export type OnboardCompanyInput = {
   company: {
     name: string;
     type: CompanyType;
-    businessRegistrationNumber: string;
+    countryCode: string;
+    registrationNumber: string;
   };
   representative: {
     name: string;

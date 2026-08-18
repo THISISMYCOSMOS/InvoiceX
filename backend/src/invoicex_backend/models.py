@@ -164,7 +164,8 @@ class DocumentAnalysis(ApiModel):
     invoice_number: ExtractedField[str]
     supplier_name: ExtractedField[str]
     buyer_name: ExtractedField[str]
-    amount_krw: ExtractedField[int]
+    amount: ExtractedField[int]
+    currency: ExtractedField[str]
     due_date: ExtractedField[str]
     contract_number: ExtractedField[str]
     purchase_order_number: ExtractedField[str]
@@ -172,6 +173,24 @@ class DocumentAnalysis(ApiModel):
     model_name: str | None = None
     prompt_version: str | None = None
     analyzed_at: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_krw_amount(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        legacy_amount = normalized.pop("amountKrw", normalized.pop("amount_krw", None))
+        if "amount" not in normalized and legacy_amount is not None:
+            normalized["amount"] = legacy_amount
+        if "currency" not in normalized:
+            status = (
+                legacy_amount.get("status", ExtractedFieldStatus.MATCHED)
+                if isinstance(legacy_amount, dict)
+                else ExtractedFieldStatus.MATCHED
+            )
+            normalized["currency"] = {"value": "KRW", "status": status}
+        return normalized
 
 
 class PositiveFactor(ApiModel):
@@ -313,7 +332,8 @@ class Invoice(ApiModel):
     supplier: InvoiceParty
     buyer: InvoiceParty
     investor: InvoiceParty
-    invoice_amount_krw: int
+    invoice_amount: int
+    currency: str
     issue_date: str
     due_date: str
     delivery_date: str
@@ -331,6 +351,28 @@ class Invoice(ApiModel):
     agent_traces: list[AgentTrace]
     rwa_asset: RwaAsset | None = None
     agent_decision: AgentDecision | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_krw_amount(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        legacy_amount = normalized.pop(
+            "invoiceAmountKrw", normalized.pop("invoice_amount_krw", None)
+        )
+        if "invoiceAmount" not in normalized and "invoice_amount" not in normalized:
+            normalized["invoice_amount"] = legacy_amount
+        normalized.setdefault("currency", "KRW")
+        return normalized
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not 3 <= len(normalized) <= 10 or not normalized.isalpha():
+            raise ValueError("통화 코드는 영문 3~10자리여야 합니다.")
+        return normalized
 
 
 class Verification(ApiModel):

@@ -1,5 +1,5 @@
 import { CheckCircle, FileText } from "@phosphor-icons/react";
-import type { Invoice } from "../../../types/invoice";
+import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 import { useLanguage } from "../../../i18n/LanguageContext";
 
 export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
@@ -9,11 +9,6 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
     month: "short",
     day: "2-digit",
     year: "numeric",
-  });
-  const krwFormatter = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US", {
-    style: "currency",
-    currency: "KRW",
-    maximumFractionDigits: 0,
   });
   const advanceRate = invoice.riskPassport?.suggestedAdvanceRateBps;
   const issueTransaction = invoice.rwaAsset?.issueTransaction;
@@ -53,7 +48,7 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
               <div><dt>{t("Invoice ID", "인보이스 ID")}</dt><dd>{invoice.id}</dd></div>
               <div><dt>{t("Supplier", "공급기업")}</dt><dd>{invoice.supplier.name}</dd></div>
               <div><dt>{t("Buyer", "구매기업")}</dt><dd>{invoice.buyer.name}</dd></div>
-              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{krwFormatter.format(invoice.invoiceAmountKrw)}</dd></div>
+              <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, language === "ko" ? "ko-KR" : "en-US")}</dd></div>
               <div><dt>{t("Issue date", "발행일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.issueDate}T00:00:00`))}</dd></div>
               <div><dt>{t("Delivery date", "납품일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.deliveryDate}T00:00:00`))}</dd></div>
               <div><dt>{t("Due date", "만기일")}</dt><dd>{dateFormatter.format(new Date(`${invoice.dueDate}T00:00:00`))}</dd></div>

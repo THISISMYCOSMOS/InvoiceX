@@ -19,12 +19,6 @@ interface DocumentReviewSectionProps {
   isPending?: boolean;
 }
 
-const krwFormatter = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
-
 function ReviewField({
   label,
   field,
@@ -197,8 +191,10 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
           <ReviewField label={t("BUYER", "구매자")} field={analysis.buyerName} value={buyerName} />
           <ReviewField
             label={t("INVOICE AMOUNT", "인보이스 금액")}
-            field={analysis.amountKrw}
-            value={analysis.amountKrw.value === null ? t("Not found", "찾을 수 없음") : krwFormatter.format(analysis.amountKrw.value)}
+            field={analysis.amount}
+            value={analysis.amount.value === null
+              ? t("Not found", "찾을 수 없음")
+              : `${new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US").format(analysis.amount.value)} ${analysis.currency.value ?? invoice.currency}`}
           />
           <ReviewField label={t("DUE DATE", "만기일")} field={analysis.dueDate} value={dueDate} />
           <ReviewField

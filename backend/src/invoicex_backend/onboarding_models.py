@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from enum import StrEnum
 
 from pydantic import Field, field_validator
@@ -26,7 +27,8 @@ class Company(ApiModel):
     id: str
     name: str
     type: CompanyType
-    business_registration_number: str
+    country_code: str
+    registration_number: str
     kyb_status: str = "NOT_PERFORMED"
     status: str = "ACTIVE"
 
@@ -64,7 +66,8 @@ class LogicalVault(ApiModel):
 class CompanyInput(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     type: CompanyType
-    business_registration_number: str
+    country_code: str
+    registration_number: str
 
     @field_validator("name")
     @classmethod
@@ -74,13 +77,22 @@ class CompanyInput(ApiModel):
             raise ValueError("기업명을 입력해 주세요.")
         return normalized
 
-    @field_validator("business_registration_number")
+    @field_validator("country_code")
     @classmethod
-    def normalize_business_number(cls, value: str) -> str:
-        digits = re.sub(r"\D", "", value)
-        if len(digits) != 10:
-            raise ValueError("사업자등록번호는 숫자 10자리여야 합니다.")
-        return f"{digits[:3]}-{digits[3:5]}-{digits[5:]}"
+    def normalize_country_code(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if re.fullmatch(r"[A-Z]{2}", normalized) is None:
+            raise ValueError("국가 코드는 영문 2자리로 입력해 주세요.")
+        return normalized
+
+    @field_validator("registration_number")
+    @classmethod
+    def normalize_registration_number(cls, value: str) -> str:
+        normalized = unicodedata.normalize("NFKC", value).upper()
+        normalized = re.sub(r"[^A-Z0-9]", "", normalized)
+        if not 2 <= len(normalized) <= 50:
+            raise ValueError("기업 등록번호를 2~50자의 영문 또는 숫자로 입력해 주세요.")
+        return normalized
 
 
 class RepresentativeInput(ApiModel):
@@ -100,8 +112,8 @@ class RepresentativeInput(ApiModel):
     @classmethod
     def validate_phone(cls, value: str) -> str:
         normalized = value.strip()
-        if re.fullmatch(r"\d{2,3}-\d{3,4}-\d{4}", normalized) is None:
-            raise ValueError("연락처 형식이 올바르지 않습니다.")
+        if re.fullmatch(r"\+?[0-9][0-9 ()-]{6,24}", normalized) is None:
+            raise ValueError("국가번호를 포함한 국제 전화번호 또는 국내 전화번호를 입력해 주세요.")
         return normalized
 
 

@@ -44,8 +44,12 @@ export function SupplierCompanyWalletPage() {
               <dd>{currentAccount?.companyName ?? "Alpha Components Co., Ltd."}</dd>
             </div>
             <div>
-              <dt>{t("Business registration number", "사업자등록번호")}</dt>
-              <dd>{currentAccount?.businessRegistrationNumber ?? "123-45-67890"}</dd>
+              <dt>{t("Country code", "국가 코드")}</dt>
+              <dd>{currentAccount?.countryCode ?? "KR"}</dd>
+            </div>
+            <div>
+              <dt>{t("Company registration number", "기업 등록번호")}</dt>
+              <dd>{currentAccount?.registrationNumber ?? "1234567890"}</dd>
             </div>
             <div>
               <dt>{t("Representative", "대표자")}</dt>

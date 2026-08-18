@@ -573,7 +573,7 @@ async def investor_dashboard(
     response_model=InvoiceResponse,
     responses=documented_errors(403, 404, 409, 502),
     tags=["Settlement"],
-    summary="KRW Mock 입금 및 Solana 정산",
+    summary="USDC Mock 입금 및 Solana 정산",
 )
 async def settle_mock_payment(
     invoice_id: InvoiceId,

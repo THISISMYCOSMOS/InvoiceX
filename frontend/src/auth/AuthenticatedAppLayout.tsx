@@ -50,7 +50,8 @@ export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
           navigate(rolePath, { replace: true });
         }
         setAccount({
-          businessRegistrationNumber: profile.company.businessRegistrationNumber,
+          countryCode: profile.company.countryCode,
+          registrationNumber: profile.company.registrationNumber,
           companyName: profile.company.name,
           role: profile.company.type as CompanyType,
           userEmail: profile.user.email,

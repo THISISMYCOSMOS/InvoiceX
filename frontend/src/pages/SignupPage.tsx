@@ -57,7 +57,8 @@ export function SignupPage() {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [role, setRole] = useState<CompanyRole>("supplier");
   const [companyName, setCompanyName] = useState("");
-  const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
+  const [countryCode, setCountryCode] = useState("KR");
+  const [registrationNumber, setRegistrationNumber] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactTitle, setContactTitle] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -151,7 +152,8 @@ export function SignupPage() {
       if (authMe.onboardingStatus === "PROVISIONING_EMBEDDED_WALLET" && authMe.company) {
         setRole(companyRoles[authMe.company.type]);
         setCompanyName(authMe.company.name);
-        setBusinessRegistrationNumber(authMe.company.businessRegistrationNumber);
+        setCountryCode(authMe.company.countryCode);
+        setRegistrationNumber(authMe.company.registrationNumber);
         setContactName(authMe.user.name ?? "");
         setContactTitle(authMe.user.title ?? "");
         setContactPhone(authMe.user.phone ?? "");
@@ -183,7 +185,8 @@ export function SignupPage() {
         company: {
           name: companyName,
           type: companyTypes[role],
-          businessRegistrationNumber,
+          countryCode,
+          registrationNumber,
         },
         representative: {
           name: contactName,
@@ -398,10 +401,11 @@ export function SignupPage() {
               </p>
               <div className="signup-company-fields">
                 <label className="signup-field"><span>기업명</span><input aria-label="기업명" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="예: 인보이스엑스 주식회사" readOnly={resumingOnboarding} required /></label>
-                <label className="signup-field"><span>사업자등록번호</span><input aria-label="사업자등록번호" value={businessRegistrationNumber} onChange={(event) => setBusinessRegistrationNumber(event.target.value)} placeholder="000-00-00000" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field"><span>국가 코드</span><input aria-label="국가 코드" value={countryCode} onChange={(event) => setCountryCode(event.target.value.toUpperCase())} placeholder="예: KR, US, SG" maxLength={2} readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field"><span>기업 등록번호</span><input aria-label="기업 등록번호" value={registrationNumber} onChange={(event) => setRegistrationNumber(event.target.value)} placeholder="국가별 기업 등록번호" readOnly={resumingOnboarding} required /></label>
                 <label className="signup-field"><span>담당자명</span><input aria-label="담당자명" value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="예: 홍길동" readOnly={resumingOnboarding} required /></label>
                 <label className="signup-field"><span>담당자 직책</span><input aria-label="담당자 직책" value={contactTitle} onChange={(event) => setContactTitle(event.target.value)} placeholder="예: 재무팀 매니저" readOnly={resumingOnboarding} required /></label>
-                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="010-0000-0000" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="예: +82 10-1234-5678 또는 010-1234-5678" readOnly={resumingOnboarding} required /></label>
               </div>
               <div className="signup-verified-email"><span>인증된 이메일 · {email || "finance@company.com"}</span><strong>인증 완료</strong></div>
               <button className="signup-primary-button" disabled={submitting} type="submit">

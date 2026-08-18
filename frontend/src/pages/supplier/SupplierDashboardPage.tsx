@@ -6,13 +6,7 @@ import { LoadingState } from "../../components/LoadingState";
 import { getInvoiceDisplayReference, useInvoices } from "../../hooks/useInvoices";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
-import type { Invoice, InvoiceStatus } from "../../types/invoice";
-
-const krwFormatter = new Intl.NumberFormat("ko-KR", {
-  style: "currency",
-  currency: "KRW",
-  maximumFractionDigits: 0,
-});
+import { formatInvoiceAmount, type Invoice, type InvoiceStatus } from "../../types/invoice";
 
 const earlySettlementStatuses = new Set<InvoiceStatus>([
   "RISK_ASSESSING",
@@ -143,7 +137,7 @@ export function SupplierDashboardPage() {
                       </Link>
                     </td>
                     <td>{invoice.buyer.name}</td>
-                    <td>{krwFormatter.format(invoice.invoiceAmountKrw)}</td>
+                    <td>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, language === "ko" ? "ko-KR" : "en-US")}</td>
                     <td>{dateFormatter.format(new Date(`${invoice.dueDate}T00:00:00`))}</td>
                     <td><span className={`dashboard-status dashboard-status--${statusTone(invoice.status)}`}>{statusLabel(invoice.status)}</span></td>
                   </tr>

@@ -75,7 +75,9 @@ test("completes signup only after the onboarding API creates the user-owned wall
 
   await user.click(screen.getByRole("button", { name: "다음" }));
   await user.type(screen.getByLabelText("기업명"), "인보이스엑스 주식회사");
-  await user.type(screen.getByLabelText("사업자등록번호"), "123-45-67890");
+  await user.clear(screen.getByLabelText("국가 코드"));
+  await user.type(screen.getByLabelText("국가 코드"), "KR");
+  await user.type(screen.getByLabelText("기업 등록번호"), "123-45-67890");
   await user.type(screen.getByLabelText("담당자명"), "홍길동");
   await user.type(screen.getByLabelText("담당자 직책"), "재무팀 매니저");
   await user.type(screen.getByLabelText("담당자 연락처"), "010-1234-5678");
@@ -85,7 +87,8 @@ test("completes signup only after the onboarding API creates the user-owned wall
     company: {
       name: "인보이스엑스 주식회사",
       type: "SUPPLIER",
-      businessRegistrationNumber: "123-45-67890",
+      countryCode: "KR",
+      registrationNumber: "123-45-67890",
     },
     representative: {
       name: "홍길동",
@@ -144,7 +147,7 @@ test("does not show completion when wallet provisioning is incomplete", async ()
   await user.click(screen.getByRole("button", { name: "인증 완료" }));
   await user.click(screen.getByRole("button", { name: "다음" }));
   await user.type(screen.getByLabelText("기업명"), "인보이스엑스");
-  await user.type(screen.getByLabelText("사업자등록번호"), "123-45-67890");
+  await user.type(screen.getByLabelText("기업 등록번호"), "123-45-67890");
   await user.type(screen.getByLabelText("담당자명"), "홍길동");
   await user.type(screen.getByLabelText("담당자 직책"), "매니저");
   await user.type(screen.getByLabelText("담당자 연락처"), "010-1234-5678");
@@ -250,7 +253,8 @@ test("restores a failed signup and retries its stored company wallet", async () 
     company: {
       name: "인보이스엑스 주식회사",
       type: "BUYER",
-      businessRegistrationNumber: "123-45-67890",
+      countryCode: "US",
+      registrationNumber: "12-3456789",
     },
     embeddedWallet: null,
     onboardingStatus: "PROVISIONING_EMBEDDED_WALLET",
@@ -269,7 +273,8 @@ test("restores a failed signup and retries its stored company wallet", async () 
     .toBeInTheDocument();
   expect(screen.getByLabelText("기업명")).toHaveValue("인보이스엑스 주식회사");
   expect(screen.getByLabelText("기업명")).toHaveAttribute("readonly");
-  expect(screen.getByLabelText("사업자등록번호")).toHaveValue("123-45-67890");
+  expect(screen.getByLabelText("국가 코드")).toHaveValue("US");
+  expect(screen.getByLabelText("기업 등록번호")).toHaveValue("12-3456789");
   expect(screen.queryByRole("radiogroup", { name: "기업 유형" })).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "지갑 생성 다시 시도" }));
@@ -278,7 +283,8 @@ test("restores a failed signup and retries its stored company wallet", async () 
     company: {
       name: "인보이스엑스 주식회사",
       type: "BUYER",
-      businessRegistrationNumber: "123-45-67890",
+      countryCode: "US",
+      registrationNumber: "12-3456789",
     },
     representative: {
       name: "홍길동",

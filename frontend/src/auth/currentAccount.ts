@@ -3,7 +3,8 @@ import type { CompanyType } from "../api/onboarding.api";
 
 export type CurrentPrivyAccount = {
   companyName: string;
-  businessRegistrationNumber: string;
+  countryCode: string;
+  registrationNumber: string;
   role: CompanyType;
   userEmail: string;
   userName: string | null;

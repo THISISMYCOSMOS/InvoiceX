@@ -165,7 +165,7 @@ export function createMockAdapter(): ScenarioAdapter {
     async mockPayment(invoiceId) {
       const current = ensureInvoice(invoiceId);
       if (current.status !== "FUNDED") {
-        return invalidTransition(current, "원화 입금 Mock");
+        return invalidTransition(current, "USDC 입금 Mock");
       }
 
       invoice = { ...current, status: "SETTLING" };

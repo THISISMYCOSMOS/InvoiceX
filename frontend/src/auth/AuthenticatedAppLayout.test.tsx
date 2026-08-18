@@ -45,7 +45,8 @@ beforeEach(() => {
   mocks.getAccessToken.mockReset().mockResolvedValue("privy-token");
   mocks.getAuthMe.mockReset().mockResolvedValue({
     company: {
-      businessRegistrationNumber: "123-45-67890",
+      countryCode: "KR",
+      registrationNumber: "1234567890",
       name: "Supplier One",
       type: "SUPPLIER",
     },

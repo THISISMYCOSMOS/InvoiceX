@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -98,12 +99,17 @@ def headers(private_key: ec.EllipticCurvePrivateKey, user_id: str) -> dict[str, 
     return {"Authorization": f"Bearer {token(private_key, user_id)}"}
 
 
-def company_payload(company_type: str = "SUPPLIER", business_number: str = "123-45-67890"):
+def company_payload(
+    company_type: str = "SUPPLIER",
+    registration_number: str = "123-45-67890",
+    country_code: str = "KR",
+):
     return {
         "company": {
             "name": "에이씨미 주식회사",
             "type": company_type,
-            "businessRegistrationNumber": business_number,
+            "countryCode": country_code,
+            "registrationNumber": registration_number,
         },
         "representative": {
             "name": "홍길동",
@@ -198,7 +204,8 @@ def test_supplier_onboarding_creates_a_user_owned_wallet(tmp_path: Path) -> None
     assert body["onboardingStatus"] == "COMPLETED"
     assert body["nextPath"] == "/supplier"
     assert body["embeddedWallet"]["privyUserId"] == "did:privy:supplier"
-    assert body["company"]["businessRegistrationNumber"] == "123-45-67890"
+    assert body["company"]["countryCode"] == "KR"
+    assert body["company"]["registrationNumber"] == "1234567890"
     assert body["company"]["kybStatus"] == "NOT_PERFORMED"
     assert body["logicalVault"] is None
     assert gateway.wallet_calls[0][0] == "did:privy:supplier"
@@ -362,7 +369,9 @@ def test_wallet_retry_survives_a_backend_restart(tmp_path: Path) -> None:
     assert len(resumed_gateway.wallet_calls) == 1
 
 
-def test_business_number_and_completed_user_cannot_be_reused(tmp_path: Path) -> None:
+def test_country_and_registration_number_pair_and_completed_user_cannot_be_reused(
+    tmp_path: Path,
+) -> None:
     gateway = FakePrivyGateway()
     with onboarding_client(tmp_path, gateway) as (client, private_key, _):
         first_headers = headers(private_key, "did:privy:first")
@@ -376,12 +385,55 @@ def test_business_number_and_completed_user_cannot_be_reused(tmp_path: Path) -> 
         duplicate = client.post(
             "/api/v1/onboarding/company", headers=second_headers, json=company_payload()
         )
+        foreign_payload = company_payload(country_code="US")
+        foreign_payload["representative"]["phone"] = "+1 212-555-0100"
+        different_country = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:third"),
+            json=foreign_payload,
+        )
 
     assert first.status_code == 200
     assert repeated.status_code == 409
     assert repeated.json()["code"] == "ONBOARDING_ALREADY_COMPLETED"
     assert duplicate.status_code == 409
-    assert duplicate.json()["code"] == "BUSINESS_REGISTRATION_ALREADY_USED"
+    assert duplicate.json()["code"] == "COMPANY_REGISTRATION_ALREADY_USED"
+    assert different_country.status_code == 200
+
+
+def test_local_sqlite_migrates_the_legacy_company_identifier(tmp_path: Path) -> None:
+    database_path = tmp_path / "legacy.sqlite3"
+    connection = sqlite3.connect(database_path)
+    connection.execute(
+        """
+        CREATE TABLE companies (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            company_type TEXT NOT NULL,
+            business_registration_number TEXT NOT NULL UNIQUE,
+            kyb_status TEXT NOT NULL,
+            status TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO companies VALUES (
+            'legacy-company', 'Legacy Supplier', 'SUPPLIER',
+            '123-45-67890', 'NOT_PERFORMED', 'ACTIVE'
+        )
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    repository = SQLiteRwaRepository(database_path)
+    company = repository.get_company("legacy-company")
+    repository.close()
+
+    assert company is not None
+    assert company.country_code == "KR"
+    assert company.registration_number == "1234567890"
 
 
 def test_same_email_cannot_create_two_local_accounts(tmp_path: Path) -> None:
