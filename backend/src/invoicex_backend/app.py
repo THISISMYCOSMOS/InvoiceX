@@ -12,15 +12,18 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from invoicex_backend.agents import create_agent_gateway
-from invoicex_backend.api import auth_router, router
+from invoicex_backend.api import auth_router, onboarding_router, router
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     BackendError,
     DocumentValidationError,
     IntegrationError,
     NotFoundError,
+    OnboardingApiError,
     StateConflictError,
 )
+from invoicex_backend.onboarding import OnboardingService
+from invoicex_backend.privy_users import HttpPrivyUserGateway
 from invoicex_backend.repository import CloudSqlRwaRepository, SQLiteRwaRepository
 from invoicex_backend.secrets import load_settings
 from invoicex_backend.service import InvoiceService
@@ -43,6 +46,7 @@ def create_document_storage(settings: BackendSettings):
 def create_app(
     settings: BackendSettings | None = None,
     service: InvoiceService | None = None,
+    onboarding_service: OnboardingService | None = None,
 ) -> FastAPI:
     """Create the API and allow dependency injection for contract tests."""
 
@@ -56,10 +60,16 @@ def create_app(
             storage=storage,
             repository=create_repository(resolved_settings),
         )
+    if onboarding_service is None:
+        onboarding_service = OnboardingService(
+            repository=service.repository,
+            privy=HttpPrivyUserGateway(resolved_settings),
+        )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
+        await onboarding_service.aclose()
         await service.close()
 
     app = FastAPI(
@@ -82,6 +92,7 @@ def create_app(
         ],
     )
     app.state.invoice_service = service
+    app.state.onboarding_service = onboarding_service
     app.state.settings = resolved_settings
 
     @app.get("/healthz", include_in_schema=False)
@@ -104,6 +115,7 @@ def create_app(
         allow_headers=["*"],
     )
     app.include_router(auth_router)
+    app.include_router(onboarding_router)
     app.include_router(router)
     if isinstance(storage, LocalDocumentStorage):
         app.mount(
@@ -131,6 +143,10 @@ def create_app(
     async def integration_handler(_: Request, exc: IntegrationError) -> JSONResponse:
         return _error_response(502, str(exc))
 
+    @app.exception_handler(OnboardingApiError)
+    async def onboarding_handler(_: Request, exc: OnboardingApiError) -> JSONResponse:
+        return _error_response(exc.status_code, str(exc), code=exc.code)
+
     @app.exception_handler(BackendError)
     async def backend_handler(_: Request, exc: BackendError) -> JSONResponse:
         return _error_response(400, str(exc))
@@ -150,7 +166,11 @@ def create_app(
         ]
         return JSONResponse(
             status_code=422,
-            content={"message": "요청 형식이 API 계약과 일치하지 않습니다.", "details": details},
+            content={
+                "code": "VALIDATION_ERROR",
+                "message": "요청 형식이 API 계약과 일치하지 않습니다.",
+                "details": details,
+            },
         )
 
     @app.exception_handler(HTTPException)
@@ -160,5 +180,8 @@ def create_app(
     return app
 
 
-def _error_response(status_code: int, message: str) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content={"message": message})
+def _error_response(status_code: int, message: str, *, code: str | None = None) -> JSONResponse:
+    content = {"message": message}
+    if code is not None:
+        content["code"] = code
+    return JSONResponse(status_code=status_code, content=content)

@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { getAuthMe, onboardCompany, type CompanyType } from "../api/onboarding.api";
+import { useSignupAuth } from "../auth/SignupAuthContext";
 
 type SignupStep = "email" | "verification" | "role" | "company" | "complete";
 type CompanyRole = "supplier" | "buyer" | "investor";
@@ -22,10 +24,10 @@ const roles: Record<CompanyRole, { korean: string; english: string; description:
   },
 };
 
-const dashboardRoutes: Record<CompanyRole, string> = {
-  supplier: "/supplier",
-  buyer: "/buyer",
-  investor: "/investor",
+const companyTypes: Record<CompanyRole, CompanyType> = {
+  supplier: "SUPPLIER",
+  buyer: "BUYER",
+  investor: "INVESTOR",
 };
 
 const sideCopy: Record<SignupStep, string> = {
@@ -38,27 +40,107 @@ const sideCopy: Record<SignupStep, string> = {
 
 export function SignupPage() {
   const navigate = useNavigate();
+  const signupAuth = useSignupAuth();
   const [step, setStep] = useState<SignupStep>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [role, setRole] = useState<CompanyRole>("supplier");
   const [companyName, setCompanyName] = useState("");
+  const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactTitle, setContactTitle] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [nextPath, setNextPath] = useState("/login");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submitEmail = (event: FormEvent<HTMLFormElement>) => {
+  const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStep("verification");
+    setError(null);
+    if (!signupAuth.configured) {
+      setError("Privy App ID가 설정되지 않아 이메일 인증을 시작할 수 없습니다.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await signupAuth.sendCode(email.trim());
+      setStep("verification");
+    } catch (cause) {
+      setError(toErrorMessage(cause, "인증 코드를 보내지 못했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const submitCode = (event: FormEvent<HTMLFormElement>) => {
+  const submitCode = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStep("role");
+    setError(null);
+    const verificationCode = code.join("");
+    if (verificationCode.length !== 6) {
+      setError("6자리 인증 코드를 모두 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await signupAuth.verifyCode(verificationCode);
+      const accessToken = await signupAuth.getAccessToken();
+      if (!accessToken) throw new Error("Privy Access Token을 확인할 수 없습니다.");
+      const authMe = await getAuthMe(accessToken);
+      setEmail(authMe.user.email);
+      if (authMe.onboardingStatus === "COMPLETED") {
+        navigate(authMe.nextPath);
+        return;
+      }
+      setStep("role");
+    } catch (cause) {
+      setError(toErrorMessage(cause, "인증 코드를 확인하지 못했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const submitCompany = (event: FormEvent<HTMLFormElement>) => {
+  const submitCompany = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStep("complete");
+    setError(null);
+    setSubmitting(true);
+    try {
+      const accessToken = await signupAuth.getAccessToken();
+      if (!accessToken) throw new Error("로그인 세션이 만료되었습니다. 이메일 인증부터 다시 진행해 주세요.");
+      const result = await onboardCompany(accessToken, {
+        company: {
+          name: companyName,
+          type: companyTypes[role],
+          businessRegistrationNumber,
+        },
+        representative: {
+          name: contactName,
+          title: contactTitle,
+          phone: contactPhone,
+        },
+      });
+      if (result.onboardingStatus !== "COMPLETED" || !result.embeddedWallet) {
+        throw new Error("사용자 지갑 생성이 완료되지 않았습니다. 다시 시도해 주세요.");
+      }
+      setNextPath(result.nextPath);
+      setStep("complete");
+    } catch (cause) {
+      setError(toErrorMessage(cause, "기업 등록을 완료하지 못했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resendCode = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await signupAuth.sendCode(email.trim());
+      setCode(["", "", "", "", "", ""]);
+    } catch (cause) {
+      setError(toErrorMessage(cause, "인증 코드를 다시 보내지 못했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const goBack = () => {
@@ -66,6 +148,8 @@ export function SignupPage() {
       navigate("/login");
       return;
     }
+
+    setError(null);
 
     const previousStep: Record<Exclude<SignupStep, "email">, SignupStep> = {
       verification: "email",
@@ -106,6 +190,8 @@ export function SignupPage() {
             <p>이미 계정이 있나요? <button type="button" onClick={() => navigate("/login")}>로그인</button></p>
           </header>
 
+          {error && <p className="signup-error" role="alert">{error}</p>}
+
           {step === "email" && (
             <form className="signup-content signup-content--standard" onSubmit={submitEmail}>
               <Progress current="1 / 3 기업 이메일 인증" width="one-third" />
@@ -113,10 +199,12 @@ export function SignupPage() {
               <p className="signup-description">InvoiceX에서 사용할 기업의 업무용 이메일을 입력해주세요. 입력한 이메일로 6자리 인증 코드를 보내드립니다.</p>
               <label className="signup-field signup-field--email">
                 <span>기업 이메일</span>
-                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required />
+                <input aria-label="기업 이메일" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required />
                 <small>기업에서 업무용으로 사용하는 이메일을 입력해주세요.</small>
               </label>
-              <button className="signup-primary-button" type="submit">인증 코드 받기</button>
+              <button className="signup-primary-button" disabled={submitting || !signupAuth.ready} type="submit">
+                {submitting ? "전송 중..." : "인증 코드 받기"}
+              </button>
             </form>
           )}
 
@@ -145,10 +233,12 @@ export function SignupPage() {
                 </div>
                 <div className="signup-code-meta">
                   <span>인증 코드 유효시간 <strong>04:59</strong></span>
-                  <button type="button" onClick={() => setCode(["", "", "", "", "", ""])}>코드를 받지 못하셨나요? <strong>재전송</strong></button>
+                  <button disabled={submitting} type="button" onClick={resendCode}>코드를 받지 못하셨나요? <strong>재전송</strong></button>
                 </div>
               </fieldset>
-              <button className="signup-primary-button" type="submit">인증 완료</button>
+              <button className="signup-primary-button" disabled={submitting} type="submit">
+                {submitting ? "확인 중..." : "인증 완료"}
+              </button>
               <button className="signup-change-email" type="button" onClick={() => setStep("email")}>다른 이메일 사용하기</button>
             </form>
           )}
@@ -187,14 +277,16 @@ export function SignupPage() {
               <h1>기업 정보를 입력해주세요.</h1>
               <p className="signup-description">InvoiceX에서 거래 및 정산에 필요한 기업의 기본정보를 등록합니다.</p>
               <div className="signup-company-fields">
-                <label className="signup-field"><span>기업명</span><input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="예: 인보이스엑스 주식회사" required /></label>
-                <label className="signup-field"><span>사업자등록번호</span><input placeholder="000-00-00000" required /></label>
-                <label className="signup-field"><span>담당자명</span><input value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="예: 홍길동" required /></label>
-                <label className="signup-field"><span>담당자 직책</span><input value={contactTitle} onChange={(event) => setContactTitle(event.target.value)} placeholder="예: 재무팀 매니저" required /></label>
-                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input placeholder="010-0000-0000" required /></label>
+                <label className="signup-field"><span>기업명</span><input aria-label="기업명" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="예: 인보이스엑스 주식회사" required /></label>
+                <label className="signup-field"><span>사업자등록번호</span><input aria-label="사업자등록번호" value={businessRegistrationNumber} onChange={(event) => setBusinessRegistrationNumber(event.target.value)} placeholder="000-00-00000" required /></label>
+                <label className="signup-field"><span>담당자명</span><input aria-label="담당자명" value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="예: 홍길동" required /></label>
+                <label className="signup-field"><span>담당자 직책</span><input aria-label="담당자 직책" value={contactTitle} onChange={(event) => setContactTitle(event.target.value)} placeholder="예: 재무팀 매니저" required /></label>
+                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="010-0000-0000" required /></label>
               </div>
               <div className="signup-verified-email"><span>인증된 이메일 · {email || "finance@company.com"}</span><strong>인증 완료</strong></div>
-              <button className="signup-primary-button" type="submit">기업 등록 완료</button>
+              <button className="signup-primary-button" disabled={submitting} type="submit">
+                {submitting ? "사용자 지갑 생성 중..." : "기업 등록 완료"}
+              </button>
               <p className="signup-company-note">별도의 서류 제출이나 관리자 승인 없이 제출 즉시 계정이 활성화됩니다.</p>
             </form>
           )}
@@ -208,14 +300,18 @@ export function SignupPage() {
                 <div><span>기업 유형</span><b>{roles[role].korean} · {roles[role].english}</b></div>
                 <div><span>{contactName || "홍길동"} · {contactTitle || "재무팀 매니저"}</span></div>
               </div>
-              <span className="signup-role-chip">기업 인증 완료 · 활성화</span>
-              <button className="signup-primary-button" type="button" onClick={() => navigate(dashboardRoutes[role])}>InvoiceX 시작하기</button>
+              <span className="signup-role-chip">가입 완료 · 활성화</span>
+              <button className="signup-primary-button" type="button" onClick={() => navigate(nextPath)}>InvoiceX 시작하기</button>
             </section>
           )}
         </section>
       </main>
     </div>
   );
+}
+
+function toErrorMessage(cause: unknown, fallback: string): string {
+  return cause instanceof Error && cause.message ? cause.message : fallback;
 }
 
 function Progress({ current, width }: { current: string; width: "one-third" | "two-thirds" | "complete" }) {

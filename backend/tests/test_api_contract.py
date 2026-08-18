@@ -206,6 +206,8 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
     schema = client.get("/api/docs-json").json()
     expected_paths = {
         "/api/v1/auth/login",
+        "/api/v1/auth/me",
+        "/api/v1/onboarding/company",
         "/api/v1/invoices",
             "/api/v1/invoices/{invoiceId}",
             "/api/v1/invoices/{invoiceId}/agent-activity",

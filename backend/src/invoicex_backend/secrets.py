@@ -22,6 +22,7 @@ MANAGED_SECRET_KEYS: dict[str, str] = {
     "GEMINI_API_KEY": "gemini-api-key",
     "PRIVY_APP_ID": "privy-app-id",
     "PRIVY_APP_SECRET": "privy-app-secret",
+    "PRIVY_VERIFICATION_KEY": "privy-verification-key",
     "PRIVY_WALLET_ID": "privy-wallet-id",
     "PRIVY_RWA_ISSUER_WALLET_ID": "privy-rwa-issuer-wallet-id",
     "PRIVY_SETTLEMENT_WALLET_ID": "privy-settlement-wallet-id",

@@ -97,6 +97,14 @@
   margin: 0;
 }
 
+.signup-error {
+  width: min(640px, 100%);
+  margin: 18px auto -20px;
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .signup-top-row button,
 .signup-code-meta button,
 .signup-change-email {

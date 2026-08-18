@@ -17,6 +17,7 @@ from fastapi import (
     status,
 )
 
+from invoicex_backend.agent_activity import AgentActivityTimeline
 from invoicex_backend.auth import (
     AuthenticatedIdentity,
     issue_access_token,
@@ -26,7 +27,6 @@ from invoicex_backend.auth import (
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import DocumentValidationError, NotFoundError
 from invoicex_backend.models import (
-    LoginRole,
     ConfirmVaultDepositRequest,
     CreateMandateRequest,
     DocumentType,
@@ -38,6 +38,7 @@ from invoicex_backend.models import (
     InvoiceResponse,
     LoginRequest,
     LoginResponse,
+    LoginRole,
     MandateSigningPayload,
     OfferResponseRequest,
     PrepareMandateRequest,
@@ -50,11 +51,18 @@ from invoicex_backend.models import (
     VerificationListResponse,
     VerificationResponse,
 )
-from invoicex_backend.agent_activity import AgentActivityTimeline
+from invoicex_backend.onboarding import OnboardingService
+from invoicex_backend.onboarding_models import (
+    AuthMeResponse,
+    OnboardCompanyRequest,
+    OnboardingResponse,
+)
+from invoicex_backend.privy_auth import PrivyPrincipalDependency
 from invoicex_backend.seed import INVESTMENT_CRITERIA_BUYERS, authenticate_demo_account
 from invoicex_backend.service import InvoiceService
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
+onboarding_router = APIRouter(prefix="/api/v1/onboarding", tags=["Authentication"])
 router = APIRouter(
     prefix="/api/v1",
     dependencies=[Depends(require_authenticated_identity)],
@@ -92,6 +100,13 @@ def get_settings(request: Request) -> BackendSettings:
 
 
 SettingsDependency = Annotated[BackendSettings, Depends(get_settings)]
+
+
+def get_onboarding_service(request: Request) -> OnboardingService:
+    return cast(OnboardingService, request.app.state.onboarding_service)
+
+
+OnboardingServiceDependency = Annotated[OnboardingService, Depends(get_onboarding_service)]
 InvoiceFile = Annotated[
     UploadFile,
     File(
@@ -155,6 +170,41 @@ async def login(payload: LoginRequest, settings: SettingsDependency) -> LoginRes
         email=account.email,
         expires_at=expires_at,
     )
+
+
+@auth_router.get(
+    "/me",
+    response_model=AuthMeResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Privy token is invalid"},
+        502: {"model": ErrorResponse, "description": "Privy user lookup failed"},
+    },
+    summary="Privy 사용자 가입 상태 조회",
+)
+async def auth_me(
+    principal: PrivyPrincipalDependency,
+    service: OnboardingServiceDependency,
+) -> AuthMeResponse:
+    return await service.auth_me(principal)
+
+
+@onboarding_router.post(
+    "/company",
+    response_model=OnboardingResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Privy token is invalid"},
+        409: {"model": ErrorResponse, "description": "Onboarding uniqueness conflict"},
+        422: {"model": ErrorResponse, "description": "Invalid company profile"},
+        502: {"model": ErrorResponse, "description": "Wallet provisioning failed"},
+    },
+    summary="기업 등록과 사용자 소유 Embedded Wallet 생성",
+)
+async def onboard_company(
+    payload: OnboardCompanyRequest,
+    principal: PrivyPrincipalDependency,
+    service: OnboardingServiceDependency,
+) -> OnboardingResponse:
+    return await service.onboard_company(principal, payload)
 
 
 @router.get(

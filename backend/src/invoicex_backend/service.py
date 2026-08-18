@@ -20,7 +20,6 @@ from invoicex_agents.models.risk import RiskAnalysisRequest, RiskFactorContext
 from solders.pubkey import Pubkey
 from solders.signature import Signature
 
-from invoicex_backend.agents import AgentDocument, AgentGateway
 from invoicex_backend.agent_activity import (
     AgentActivityItem,
     AgentActivityTimeline,
@@ -31,6 +30,7 @@ from invoicex_backend.agent_activity import (
     AgentTrigger,
     ToolCallStatus,
 )
+from invoicex_backend.agents import AgentDocument, AgentGateway
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     DocumentValidationError,
@@ -73,12 +73,12 @@ from invoicex_backend.policy import (
     DeterministicRiskPolicy,
     RiskDecision,
 )
+from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.risk_scoring import (
     DeterministicRiskScoringProvider,
     RiskScoringProvider,
     RiskScoringRequest,
 )
-from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.solana import SolanaGateway
 from invoicex_backend.storage import DocumentStorage
 
@@ -928,6 +928,10 @@ class InvoiceService:
     @property
     def settings(self) -> BackendSettings:
         return self._settings
+
+    @property
+    def repository(self) -> RwaRepository:
+        return self._repository
 
     async def _reserve_invoice_ids(self, document_count: int) -> tuple[str, list[str]]:
         async with self._sequence_lock:

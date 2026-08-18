@@ -161,6 +161,14 @@ class BackendSettings(BaseSettings):
         default=None,
         validation_alias="PRIVY_APP_SECRET",
     )
+    privy_verification_key: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_VERIFICATION_KEY",
+    )
+    privy_jwks_url: str | None = Field(
+        default=None,
+        validation_alias="PRIVY_JWKS_URL",
+    )
     privy_treasury_wallet_id: str | None = Field(
         default=None,
         validation_alias=AliasChoices("PRIVY_TREASURY_WALLET_ID", "PRIVY_WALLET_ID"),
@@ -194,6 +202,12 @@ class BackendSettings(BaseSettings):
     privy_api_base_url: str = Field(
         default="https://api.privy.io",
         validation_alias="PRIVY_API_BASE_URL",
+    )
+    privy_api_timeout_seconds: float = Field(
+        default=15,
+        validation_alias="PRIVY_API_TIMEOUT_SECONDS",
+        gt=0,
+        le=60,
     )
     # Privy's transaction broadcaster may be separate from the configured RPC.
     # The rpc option keeps a Devnet transaction's recent blockhash and broadcast

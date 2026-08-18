@@ -1,0 +1,115 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { beforeEach, expect, test, vi } from "vitest";
+import { SignupPage } from "./SignupPage";
+
+const mocks = vi.hoisted(() => ({
+  getAccessToken: vi.fn(),
+  getAuthMe: vi.fn(),
+  onboardCompany: vi.fn(),
+  sendCode: vi.fn(),
+  verifyCode: vi.fn(),
+}));
+
+vi.mock("../auth/SignupAuthContext", () => ({
+  useSignupAuth: () => ({
+    authenticated: false,
+    configured: true,
+    ready: true,
+    getAccessToken: mocks.getAccessToken,
+    sendCode: mocks.sendCode,
+    verifyCode: mocks.verifyCode,
+  }),
+}));
+
+vi.mock("../api/onboarding.api", () => ({
+  getAuthMe: mocks.getAuthMe,
+  onboardCompany: mocks.onboardCompany,
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.getAccessToken.mockResolvedValue("privy-access-token");
+  mocks.getAuthMe.mockResolvedValue({
+    user: { email: "finance@company.com" },
+    onboardingStatus: "NEEDS_COMPANY_PROFILE",
+    nextPath: "/signup",
+  });
+  mocks.onboardCompany.mockResolvedValue({
+    embeddedWallet: {
+      id: "wal_1",
+      privyUserId: "did:privy:user-1",
+      address: "SolanaAddress",
+    },
+    onboardingStatus: "COMPLETED",
+    nextPath: "/supplier",
+  });
+});
+
+test("completes signup only after the onboarding API creates the user-owned wallet", async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  expect(mocks.sendCode).toHaveBeenCalledWith("finance@company.com");
+
+  for (const [index, digit] of [..."123456"].entries()) {
+    await user.type(screen.getByLabelText(`${index + 1}번째 인증 코드`), digit);
+  }
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+  expect(mocks.verifyCode).toHaveBeenCalledWith("123456");
+  expect(mocks.getAuthMe).toHaveBeenCalledWith("privy-access-token");
+
+  await user.click(screen.getByRole("button", { name: "다음" }));
+  await user.type(screen.getByLabelText("기업명"), "인보이스엑스 주식회사");
+  await user.type(screen.getByLabelText("사업자등록번호"), "123-45-67890");
+  await user.type(screen.getByLabelText("담당자명"), "홍길동");
+  await user.type(screen.getByLabelText("담당자 직책"), "재무팀 매니저");
+  await user.type(screen.getByLabelText("담당자 연락처"), "010-1234-5678");
+  await user.click(screen.getByRole("button", { name: "기업 등록 완료" }));
+
+  expect(mocks.onboardCompany).toHaveBeenCalledWith("privy-access-token", {
+    company: {
+      name: "인보이스엑스 주식회사",
+      type: "SUPPLIER",
+      businessRegistrationNumber: "123-45-67890",
+    },
+    representative: {
+      name: "홍길동",
+      title: "재무팀 매니저",
+      phone: "010-1234-5678",
+    },
+  });
+  expect(await screen.findByRole("heading", { name: "기업 계정 생성이 완료되었습니다!" }))
+    .toBeInTheDocument();
+});
+
+test("does not show completion when wallet provisioning is incomplete", async () => {
+  mocks.onboardCompany.mockResolvedValue({
+    embeddedWallet: null,
+    onboardingStatus: "PROVISIONING_EMBEDDED_WALLET",
+    nextPath: "/signup",
+  });
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "finance@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  for (const [index, digit] of [..."123456"].entries()) {
+    await user.type(screen.getByLabelText(`${index + 1}번째 인증 코드`), digit);
+  }
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+  await user.click(screen.getByRole("button", { name: "다음" }));
+  await user.type(screen.getByLabelText("기업명"), "인보이스엑스");
+  await user.type(screen.getByLabelText("사업자등록번호"), "123-45-67890");
+  await user.type(screen.getByLabelText("담당자명"), "홍길동");
+  await user.type(screen.getByLabelText("담당자 직책"), "매니저");
+  await user.type(screen.getByLabelText("담당자 연락처"), "010-1234-5678");
+  await user.click(screen.getByRole("button", { name: "기업 등록 완료" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("사용자 지갑 생성이 완료되지 않았습니다.");
+  expect(screen.queryByRole("heading", { name: "기업 계정 생성이 완료되었습니다!" }))
+    .not.toBeInTheDocument();
+});

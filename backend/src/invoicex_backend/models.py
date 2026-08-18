@@ -476,6 +476,7 @@ class InvestorDashboard(ApiModel):
 
 class ErrorResponse(ApiModel):
     message: str
+    code: str | None = None
     details: list[dict[str, object]] | None = None
 
 
