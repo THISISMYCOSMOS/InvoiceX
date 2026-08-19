@@ -140,7 +140,7 @@ test("shows the transaction receipt for a funded invoice", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Your USDC early settlement has been paid" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Maturity settlement completed" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "INV-2026-001" })).not.toBeInTheDocument();
 });
@@ -203,7 +203,7 @@ test("shows Agent policy evaluation details while funding is in progress", () =>
   expect(screen.getAllByText("Passed")).toHaveLength(2);
 });
 
-test("labels a capped live Devnet payment as a demo transfer", () => {
+test("shows maturity settlement copy for a capped live Devnet payment", () => {
   render(
     <SupplierInvoiceDetailContent
       invoice={{
@@ -222,8 +222,11 @@ test("labels a capped live Devnet payment as a demo transfer", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Devnet demo transfer confirmed" })).toBeInTheDocument();
-  expect(screen.getByText("Demo transfer only · Offer amount 2 USDC")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Maturity settlement completed" })).toBeInTheDocument();
+  expect(screen.getByText("Settlement received")).toBeInTheDocument();
+  expect(screen.queryByText("A small USDC transfer verified the connected payout wallet on Solana Devnet.")).not.toBeInTheDocument();
+  expect(screen.queryByText("Demo transfer only · Offer amount 2 USDC")).not.toBeInTheDocument();
+  expect(screen.queryByText("DEMO VERIFIED")).not.toBeInTheDocument();
 });
 
 test("shows extracted information and requests verification after confirmation", async () => {
