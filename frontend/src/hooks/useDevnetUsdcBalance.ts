@@ -11,22 +11,28 @@ function rawAmountToUsdc(rawAmount: bigint): number {
   return Number(rawAmount) / 10 ** usdcDecimals;
 }
 
-/** Reads the configured Devnet USDC token accounts for the currently connected browser wallet. */
-export function useDevnetUsdcBalance() {
+/** Reads configured Devnet USDC token accounts for a supplied or browser-connected wallet. */
+export function useDevnetUsdcBalance(walletAddress?: string | null) {
   const { connection } = useConnection();
-  const { connected, publicKey } = useWallet();
-  const address = publicKey?.toBase58();
+  const { publicKey } = useWallet();
+  const address = walletAddress ?? publicKey?.toBase58() ?? null;
+  let owner: PublicKey | null = null;
+  try {
+    owner = address ? new PublicKey(address) : null;
+  } catch {
+    owner = null;
+  }
 
   const query = useQuery({
     queryKey: ["solana", "devnet-usdc-balance", address, usdcMintAddress],
-    enabled: Boolean(connected && publicKey),
+    enabled: Boolean(owner),
     staleTime: 10_000,
     refetchInterval: 15_000,
     retry: 1,
     queryFn: async () => {
-      if (!publicKey) throw new Error("Connected wallet public key is unavailable.");
+      if (!owner) throw new Error("Wallet public key is unavailable.");
 
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(owner, {
         mint: new PublicKey(usdcMintAddress),
       });
       const rawBalance = tokenAccounts.value.reduce(

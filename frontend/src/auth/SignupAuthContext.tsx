@@ -4,6 +4,7 @@ import {
   useLoginWithEmail,
   usePrivy,
 } from "@privy-io/react-auth";
+import { useSignMessage as usePrivySolanaSignMessage, useWallets as usePrivySolanaWallets } from "@privy-io/react-auth/solana";
 import { createContext, useContext, type ReactNode } from "react";
 
 type SignupAuthContextValue = {
@@ -14,6 +15,8 @@ type SignupAuthContextValue = {
   logout: () => Promise<void>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (code: string) => Promise<void>;
+  embeddedSolanaWalletReady: boolean;
+  signEmbeddedSolanaMessage: (walletAddress: string, message: Uint8Array) => Promise<Uint8Array>;
 };
 
 const disabledContext: SignupAuthContextValue = {
@@ -28,6 +31,10 @@ const disabledContext: SignupAuthContextValue = {
   verifyCode: async () => {
     throw new Error("Privy App ID가 설정되지 않았습니다.");
   },
+  embeddedSolanaWalletReady: false,
+  signEmbeddedSolanaMessage: async () => {
+    throw new Error("Privy 임베디드 지갑을 사용할 수 없습니다.");
+  },
 };
 
 const SignupAuthContext = createContext<SignupAuthContextValue>(disabledContext);
@@ -35,6 +42,8 @@ const SignupAuthContext = createContext<SignupAuthContextValue>(disabledContext)
 function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
   const { authenticated, logout, ready } = usePrivy();
   const { loginWithCode, sendCode } = useLoginWithEmail();
+  const { ready: embeddedSolanaWalletReady, wallets: embeddedSolanaWallets } = usePrivySolanaWallets();
+  const { signMessage: signWithEmbeddedSolanaWallet } = usePrivySolanaSignMessage();
 
   return (
     <SignupAuthContext.Provider
@@ -46,6 +55,13 @@ function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
         logout,
         sendCode: async (email) => sendCode({ email }),
         verifyCode: async (code) => loginWithCode({ code }),
+        embeddedSolanaWalletReady,
+        signEmbeddedSolanaMessage: async (walletAddress, message) => {
+          const wallet = embeddedSolanaWallets.find((candidate) => candidate.address === walletAddress);
+          if (!wallet) throw new Error("현재 계정의 Privy 임베디드 지갑을 찾을 수 없습니다.");
+          const { signature } = await signWithEmbeddedSolanaWallet({ wallet, message });
+          return signature;
+        },
       }}
     >
       {children}

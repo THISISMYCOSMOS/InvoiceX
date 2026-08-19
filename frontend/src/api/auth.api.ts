@@ -1,8 +1,9 @@
-import type { LoginRole } from "../auth/demoAccounts";
+import type { LoginRole, SessionAuthMode } from "../auth/demoAccounts";
 
 export interface LoginResult {
   accessToken: string;
   tokenType: "bearer";
+  authMode: SessionAuthMode;
   role: LoginRole;
   email: string;
   expiresAt: string;

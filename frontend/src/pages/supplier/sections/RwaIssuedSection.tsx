@@ -5,6 +5,8 @@ import { useLanguage } from "../../../i18n/LanguageContext";
 export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
   const { language, t } = useLanguage();
   const amount = invoice.agentDecision?.amountUsdc ?? invoice.riskPassport?.suggestedAdvanceAmountUsdc;
+  const faceValueUsdc = invoice.rwaAsset?.faceValueUsdc ?? invoice.riskPassport?.invoiceFaceValueUsdc;
+  const issuancePriceUsdc = invoice.rwaAsset?.issuancePriceUsdc ?? amount;
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "2-digit",
@@ -62,6 +64,8 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
               <div><dt>{t("Eligibility", "적격 여부")}</dt><dd>{invoice.riskPassport?.eligibility ?? "—"}</dd></div>
               <div><dt>{t("Risk Passport score", "Risk Passport 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
               <div><dt>{t("Advance rate", "조기정산 비율")}</dt><dd>{advanceRate === null || advanceRate === undefined ? "—" : `${advanceRate / 100}%`}</dd></div>
+              <div><dt>{t("RWA face value", "RWA 기준 채권가치")}</dt><dd>{faceValueUsdc?.toLocaleString() ?? "—"} USDC</dd></div>
+              <div><dt>{t("RWA issuance price", "RWA 발행 가격")}</dt><dd>{issuancePriceUsdc?.toLocaleString() ?? "—"} USDC</dd></div>
               <div><dt>{t("Expected settlement", "조기정산 예정 금액")}</dt><dd>{amount?.toLocaleString() ?? "—"} USDC</dd></div>
               <div><dt>{t("Policy version", "정책 버전")}</dt><dd>{invoice.riskPassport?.policyVersion ?? "—"}</dd></div>
               <div><dt>{t("Analysis documents", "분석 문서")}</dt><dd>{invoice.documents.length} {t("files", "개")}</dd></div>

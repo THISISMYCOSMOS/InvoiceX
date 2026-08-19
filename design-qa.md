@@ -1,140 +1,194 @@
-# Design QA
+# Supplier dashboard navigation and notification update — QA
 
-- Source visual truth: Browser annotation screenshots and the captured Supplier dashboard at `http://127.0.0.1:4173/supplier`.
-- Implementation: `http://127.0.0.1:4173/supplier/company-wallet`.
-- Viewport: 1402 × 794 CSS px.
-- Source pixels: 1402 × 794, device pixel ratio 1.
-- Implementation pixels: 1402 × 794, device pixel ratio 1.
-- Density normalization: Not required; both captures use the same browser, viewport, and density.
-- State: Korean locale, Supplier role, settlement wallet connected.
+## Comparison target
 
-## Full-view comparison evidence
+- Source visual truth: `C:/Users/tjsvu/AppData/Local/Temp/codex-clipboard-192338fd-e691-4200-8614-c7bdb2d2313e.png`
+- Implementation: supplier dashboard at `http://localhost:5173/supplier`
+- Source pixels: 1919 × 942.
+- Implementation viewport: 1421 × 912 CSS pixels at device pixel ratio 1.
+- State: Korean supplier dashboard, no registered invoice, notification panel closed.
+- Density normalization: not required; both captures were evaluated at CSS-pixel density.
 
-The source dashboard and implementation were captured in the same in-app browser and emitted together for direct comparison. The implementation preserves the existing 64 px header, 200 px Supplier sidebar, main-content padding, blue Supplier accent, white bordered cards, typography hierarchy, and compact information density.
+## Evidence checked
 
-## Focused region comparison evidence
-
-- Header: brand, role switcher, language toggle, avatar, and company name retain the source order and spacing. The Supplier wallet label is intentionally removed per annotation.
-- Sidebar: `회사 및 지갑` uses the same link dimensions, active blue treatment, radius, type size, and alignment as `개요`.
-- Content: company and wallet cards reuse the dashboard border, radius, muted label color, blue/green semantic states, and spacing rhythm. Text and controls remain fully visible without horizontal overflow.
+- Full view: rendered browser capture confirms the existing centered shell, top bar, left navigation, dashboard cards, and recent-invoice empty state remain intact.
+- Focused regions: the top-right action area confirms the log-out text has been replaced with the bell control; the left navigation confirms `대시보드`, `인보이스 등록`, and `프로필` copy. The profile route confirms the new log-out section is visible.
+- Primary interactions: opening the bell displays the empty notification state, and profile navigation exposes the new log-out control. The bell closes automatically on route navigation.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: Existing Inter stack, weights, compact labels, heading hierarchy, and line heights are preserved.
-- Spacing and layout rhythm: Page heading, 24 px section gap, 16 px card gap, card headers, and internal field spacing align with the Supplier dashboard rhythm.
-- Colors and visual tokens: Existing navy text, slate secondary text, blue Supplier accents, green verification states, and neutral borders are reused.
-- Image quality and asset fidelity: No raster imagery is required. All functional icons use the existing Phosphor icon library; no custom SVG or placeholder artwork was introduced.
-- Copy and content: Company verification, public wallet address, network, balance, connection state, and security copy support the requested company-and-wallet task in both English and Korean.
-
-## Interaction verification
-
-- Supplier sidebar link navigates to the new page and receives the correct active state.
-- Wallet disconnect reveals the empty connection state.
-- Wallet connect restores the address, metrics, and connected status.
-- Role and language controls remain available.
-- Browser console errors: none.
-- Horizontal overflow: none at the captured desktop viewport.
+- Fonts and typography: existing Inter-based typography, hierarchy, and compact header sizing are preserved.
+- Spacing and layout rhythm: the bell keeps the original 28px header-control footprint; the sidebar retains its prior vertical rhythm. The notification popover is anchored below the bell and does not alter the header layout.
+- Colors and visual tokens: existing slate, blue, green, and red semantic tokens are used. The profile log-out section uses a contained low-emphasis danger treatment.
+- Image quality and asset fidelity: no image-bearing UI was changed. Existing brand assets remain unchanged; Phosphor icons are used for new controls.
+- Copy and content: the greeting now consumes the authenticated onboarding contact name; navigation and notification text match the requested Korean terminology.
 
 ## Findings
 
-No actionable P0, P1, or P2 visual or interaction issues were found.
+- No actionable P0, P1, or P2 visual issues found for the requested changes.
+- [P3] Completed notifications are data-driven, so an empty invoice list correctly shows an empty state. The two requested completion messages appear when the matching invoice statuses exist.
+
+## Implementation checklist
+
+- [x] Use onboarding contact name in supplier greeting.
+- [x] Rename supplier navigation labels.
+- [x] Replace header log-out with an interactive notification control.
+- [x] Show invoice-review and early-settlement completion notifications from invoice state.
+- [x] Add profile log-out control.
+- [x] Verify typecheck, tests, lint, and local browser interactions.
 
 ## Comparison history
 
-- Initial comparison: passed with no P0/P1/P2 findings; no corrective visual iteration was required.
+1. Initial implementation revealed that the notification popover could remain open after route navigation.
+   - Fix: close it whenever `pathname` changes.
+   - Post-fix evidence: profile navigation no longer keeps the notification panel open.
 
-## Follow-up polish
+## Invoice registration progress consistency — QA
 
-- P3: A future real-wallet integration may replace the demo timestamp and connection state with provider data.
+### Comparison target
 
-## Buyer verification annotation QA
+- Source visual truth: the existing `2 / 3 추출 정보 확인` progress treatment on `http://localhost:5173/supplier/invoices/INV-2026-004`.
+- Implementation captures: `F:/De-Butler/InvoiceX/.codex-stage-1.png`, `F:/De-Butler/InvoiceX/.codex-stage-2.png`, and `F:/De-Butler/InvoiceX/.codex-stage-3.png`.
+- Viewport: 1421 × 912 CSS pixels for all three states.
+- States: initial document upload, extraction review, and buyer review requested.
 
-- Source visual truth: Browser annotation on `http://127.0.0.1:4173/buyer/invoices/INV-2026-001?section=verification`.
-- Implementation: Same route with the new top-left back control.
-- Viewport and density: 1402 × 794 CSS px, device pixel ratio 1.
-- State: Korean locale, Buyer verification request.
-- Full-view evidence: The control sits above the breadcrumb and heading without shifting the two-column verification grid or introducing horizontal overflow.
-- Focused evidence: The 28 px control uses the existing neutral border, compact type, 7 px radius, Phosphor arrow icon, and green Buyer hover/focus treatment.
-- Primary interaction: Selecting `뒤로 가기` navigates to `/buyer`; verified in the in-app browser.
-- Browser console errors: none.
-- Findings: No actionable P0, P1, or P2 issues.
+### Evidence checked
 
-## Buyer payment queue annotation QA
-
-- Source visual truth: Browser annotation on `http://127.0.0.1:4173/buyer`.
-- Implementation: Same route with the new `결제 필요` queue below `새 확인 요청`.
-- Viewport and density: 1402 × 794 CSS px, device pixel ratio 1.
-- State: Korean locale, Buyer dashboard, one priority payment.
-- Full-view evidence: The new card follows the existing table width, border, radius, header height, column rhythm, and Buyer green action treatment. Both queues remain visible above the fold without horizontal overflow.
-- Focused evidence: The amber priority and remaining-day pills provide a distinct due-date signal without competing with the green primary action.
-- Primary interaction: Selecting `결제하기` navigates to `/buyer/invoices/INV-2026-001?section=payment` and renders the maturity-payment screen.
-- Browser console errors: none.
-- Findings: No actionable P0, P1, or P2 issues.
-
-## Buyer payment navigation annotation QA
-
-- Source visual truth: Browser annotation on the Buyer maturity-payment screen.
-- Implementation: The inactive `완료` item is removed; the sidebar now contains only `개요`, `확인 요청`, and `결제 일정`.
-- State and viewport: Korean locale, payment schedule active, 1402 × 794 CSS px at device pixel ratio 1.
-- Evidence: Active navigation styling and sidebar spacing remain unchanged, with no overflow or console errors.
-- Findings: No actionable P0, P1, or P2 issues.
-
-## Investor topbar annotation QA
-
-- Source visual truth: Browser annotation on `http://127.0.0.1:4173/investor`.
-- Implementation: The `Vault · 7VB...0Qe` label is removed from the topbar.
-- State and viewport: Korean locale, Investor dashboard, 1402 × 794 CSS px at device pixel ratio 1.
-- Evidence: Role switcher, language toggle, auto-invest status, avatar, and company name remain aligned without overflow or console errors.
-- Findings: No actionable P0, P1, or P2 issues.
-
-final result: passed
-
-## Company sign-up flow QA — 2026-08-18
-
-- Source visual truth: Figma nodes `123:1104`, `123:1143`, `123:1191`, `123:1252`, and `123:1302` from `https://www.figma.com/design/Gmn4FDxT8sXnW45RWWkgL1/GxS`.
-- Implementation: browser-rendered `http://127.0.0.1:5173/signup` (email entry, code, role, company details, and completion states).
-- Viewport: 1440 × 900 CSS px, device pixel ratio 1; comparison focused on the centered 1280 × 800 application shell.
-- Source and implementation pixels: Figma source frame 1280 × 800; implementation browser capture 1440 × 900 with the same 1280 × 800 shell at native CSS size. No density scaling was applied.
-- State: Korean sign-up flow; verification used mock inputs only (`finance@company.com`, six-digit code, Investor role, dummy company information).
-
-### Full-view comparison evidence
-
-The Figma email-entry capture and the browser-rendered email-entry capture were opened together in the same visual QA pass. The split layout, 480 px gradient brand panel, 800 px form panel, header actions, 560/640 px content widths, progress treatment, form controls, and primary CTA were compared at the desktop shell size. The remaining four Figma states were also checked against their corresponding interactive implementation states.
-
-### Focused region comparison evidence
-
-- Email and code states: Input heights, six-cell OTP layout, timer/re-send row, CTA, and alternate-email action match the target structure.
-- Company-role state: The completion toast, Supplier/Buyer/Investor card hierarchy, semantic role rails, selected radio state, and 2/3 progress state are present.
-- Company-details and completion states: The two-column form, verified-email strip, completion summary, activation chip, and role-aware dashboard CTA match the Figma composition.
+- Full view: the three browser captures preserve the existing InvoiceX shell, navigation, typography, spacing, and page-specific content.
+- Focused region: all three pages render the shared `.review-progress` component with the same 29.5px height and identical label hierarchy.
+- Progress values: stage 1 fills 330.33px of 991px, stage 2 fills 660.66px of 991px, and stage 3 fills the full 950px available in its workflow container.
+- Primary interaction: no new interaction was introduced; direct route checks confirmed the correct step state for each workflow status.
+- Browser diagnostics: no console errors were reported after visiting all three states.
 
 ### Required fidelity surfaces
 
-- Fonts and typography: The existing Inter stack is used with matching bold display headings, compact labels, muted helper copy, and Korean line wrapping.
-- Spacing and layout rhythm: The desktop 1280 × 800 shell preserves the Figma panel split, panel padding, content widths, 50 px CTA height, 76 px role rows, and form grid rhythm.
-- Colors and visual tokens: The navy-to-violet brand panel, cyan/blue/violet progress fill, blue primary actions, pale verification banner, neutral borders, and role accents follow the source.
-- Image quality and asset fidelity: The source contains no raster imagery or custom icon assets. The wordmark and UI controls remain text/CSS interface elements, with no placeholder artwork introduced.
-- Copy and content: Figma Korean labels and supporting copy are preserved. Completion values reflect the locally entered mock data.
-
-### Interaction verification
-
-- Login's `Create a company account` link routes to `/signup`.
-- Email submission advances to OTP; six code fields accept digits and advance focus; resend clears the fields; alternate-email returns to the first state.
-- Role selection supports all three roles and the selected role routes the completion CTA to its corresponding dashboard.
-- Company details submission renders the completion card; the tested Investor flow navigated to `/investor`.
-- The top-left action routes only the email-entry screen to `/login`; each later state returns to its immediately preceding sign-up state, including completion back to company details.
-- Browser console errors: none.
+- Fonts and typography: the existing progress summary typography is reused unchanged.
+- Spacing and layout rhythm: the shared component keeps the same summary-to-track spacing on every screen and respects each page container width.
+- Colors and visual tokens: the existing cyan-to-violet progress gradient and slate track are reused.
+- Image quality and asset fidelity: no image assets were added or modified.
+- Copy and content: the visible steps are `1 / 3 문서 업로드`, `2 / 3 추출 정보 확인`, and `3 / 3 구매기업 검토 요청`.
 
 ### Findings
 
-No actionable P0, P1, or P2 visual or interaction mismatches were found.
+- No actionable P0, P1, or P2 visual issues found for the requested progress-state unification.
+- Follow-up width check: the buyer-review card and the `3 / 3` progress bar now share the same 950px rendered width and x-position at the 1421 × 912 viewport.
 
-### Comparison history
+### Implementation checklist
 
-- Initial comparison: the selected role control showed the browser's default dark focus outline. The component style was updated to use the intended blue focus treatment.
-- Post-fix comparison: no actionable P0, P1, or P2 findings remain.
+- [x] Add the progress treatment to the initial upload screen.
+- [x] Reuse the same component on extraction review.
+- [x] Replace the disconnected buyer-review status list with the `3 / 3` treatment.
+- [x] Verify targeted tests, TypeScript compilation, browser rendering, and console output.
 
-### Follow-up polish
+final result: passed
 
-- P3: The company-information progress text deliberately remains `1 / 3 기업 이메일 인증` to match the provided Figma node, despite its fully filled progress bar.
+---
+
+# Supplier Risk Passport / early-settlement / RWA flow — QA
+
+## Comparison target
+
+- Source visual truth: the supplier invoice lifecycle screenshot attached to the current browser comment.
+- Product specification: `C:/Users/tjsvu/.codex/attachments/3bc43ac0-2c62-47ce-a9e4-c623cbf66bd1/pasted-text.txt`.
+- Implementation: `http://localhost:5173/supplier/invoices/INV-2026-005`.
+- Implementation viewport: 1421 × 912 CSS pixels at device pixel ratio 1.
+- State: authenticated Supplier, invoice `INV-2026-005`, buyer confirmation complete, RWA offer ready.
+- Density normalization: not required; the source browser evidence and implementation were evaluated at the same CSS-pixel viewport.
+
+## Evidence checked
+
+- Full-view Risk Passport capture: `F:/De-Butler/InvoiceX/.codex-artifacts/risk-passport-stage-v2.png`.
+- Full-view early-settlement terms capture: `F:/De-Butler/InvoiceX/.codex-artifacts/settlement-terms-stage-v2.png`.
+- Full-view final RWA issuance capture: `F:/De-Butler/InvoiceX/.codex-artifacts/rwa-issuance-stage.png`.
+- Focused regions: signup-style lifecycle progress, score/data-coverage panel, sourced factor rows, Discount/Reserve breakdown, and final issuance summary.
+
+## Interaction verification
+
+- [x] Risk Passport → early-settlement terms.
+- [x] Early-settlement terms → Risk Passport (back navigation).
+- [x] Early-settlement terms → final RWA issuance review.
+- [x] Final RWA issuance review → early-settlement terms (back navigation).
+- [x] Progress changes from `3 / 7` to `4 / 7` to `5 / 7` with the corresponding stage.
+- [x] Browser console contains no errors during the verified flow.
+- [x] Final RWA issuance mutation was intentionally not executed in browser QA; its handler and request flow are covered by component and route tests.
+
+## Findings history
+
+### Iteration 1
+
+- P2: previously persisted Risk Passport records did not contain the newly introduced face-value/terms fields, which made the terms view unavailable. Resolved with a currency-safe legacy derivation that preserves the existing 94% advance policy.
+- P2: the Risk Passport score sat inline with the card content and weakened hierarchy. Resolved by stacking and vertically centering the score block.
+
+### Iteration 2
+
+- No actionable P0, P1, or P2 visual issues found.
+- Signup-style single-stage progress is consistent across Risk Passport, terms, and issuance review.
+- Discount and Reserve are visually and semantically separated, while the final RWA amount remains equal to the existing initial advance amount.
+
+## Verification checklist
+
+- [x] Backend focused tests: 11 passed.
+- [x] Backend full regression: passed.
+- [x] Frontend targeted route/component tests: 34 passed.
+- [x] Changed frontend files: ESLint passed.
+- [x] Frontend TypeScript compilation: passed.
+- [x] `git diff --check`: no whitespace errors (line-ending warnings only).
+
+final result: passed
+
+---
+
+# Supplier company-profile editing — QA
+
+## Comparison target
+
+- Source visual truth: `browser:` capture from User Comment 1 on `http://localhost:5173/supplier/company-wallet` at 1421 × 912.
+- Implementation route: `http://localhost:5173/supplier/company-wallet`.
+- Read-state screenshot: `F:/De-Butler/InvoiceX/.codex-artifacts/company-profile-read.png`.
+- Edit-state screenshot: `F:/De-Butler/InvoiceX/.codex-artifacts/company-profile-edit.png`.
+- Source and implementation size: 1421 × 912 pixels; CSS viewport 1421 × 912 at device pixel ratio 1.
+- Density normalization: not required.
+- State: authenticated Korean Supplier with an existing embedded settlement wallet and an invalid legacy eight-digit registration number.
+
+## Full-view and focused comparison
+
+- Full view preserves the source app shell, two-column company/wallet grid, card radii, border tokens, navigation, logout, and account-deletion sections.
+- Focused company-card comparison confirms the new `정보 수정` affordance fits the existing header without changing card hierarchy.
+- Focused edit-state comparison confirms six fields use the existing input height, blue focus token, two-column rhythm, and responsive one-column fallback.
+- No image assets were added or replaced; existing Phosphor icons remain sharp and consistent.
+
+## Required fidelity surfaces
+
+- Typography: existing family, weights, small-label hierarchy, and truncation behavior retained.
+- Spacing/layout: profile and wallet cards remain aligned; edit controls use the source 8–10px radius and compact density.
+- Colors/tokens: existing blue action, green verification, neutral read-only, and red validation tokens reused.
+- Image quality/assets: no raster or custom illustration changes; the existing icon library is reused.
+- Copy/content: editable fields are clearly separated from immutable email, country code, and account role.
+
+## Findings history
+
+### Iteration 1
+
+- P2: the source screen exposed company information as read-only, blocking demo correction of invalid legacy registration data. Fixed with an explicit header edit action and inline edit mode.
+- P2: country code, email, and role could be mistaken for editable identity fields. Fixed by presenting country as read-only and grouping email/role in a neutral immutable-information panel.
+
+### Iteration 2
+
+- No actionable P0, P1, or P2 visual issues remain.
+- The invalid legacy registration number now produces a clear inline ten-digit validation message before any API request.
+
+## Interaction and engineering verification
+
+- [x] Open company-information edit mode.
+- [x] Verify current company/representative values populate the form.
+- [x] Verify invalid Korean registration number is blocked client-side.
+- [x] Cancel editing and return to the read state.
+- [x] Verify save request, response synchronization, and success state with synthetic component data.
+- [x] Verify database persistence by saving and reloading through `/api/v1/auth/me` in backend tests.
+- [x] Browser console errors: none.
+- [x] Frontend full regression: 31 files / 95 tests passed.
+- [x] Frontend full ESLint and TypeScript checks passed.
+- [x] Backend full regression passed after updating the OpenAPI contract.
+- [x] `git diff --check`: no whitespace errors (line-ending warnings only).
 
 final result: passed

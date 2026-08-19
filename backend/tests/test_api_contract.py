@@ -67,6 +67,15 @@ def test_complete_frontend_contract_workflow(
     assert offered["riskPassport"]["riskScore"] == 86
     assert offered["riskPassport"]["suggestedAdvanceRateBps"] == 9_400
     assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 2
+    assert offered["riskPassport"]["invoiceFaceValueUsdc"] == 3
+    assert offered["riskPassport"]["sourceCurrencyToUsdcRate"] == 1
+    assert offered["riskPassport"]["dataCoverageBps"] == 10_000
+    assert len(offered["riskPassport"]["scoreFactors"]) == 6
+    assert sum(factor["score"] for factor in offered["riskPassport"]["scoreFactors"]) == 86
+    assert offered["riskPassport"]["earlySettlementTerms"]["initialAdvanceUsdc"] == 2
+    assert offered["riskPassport"]["earlySettlementTerms"]["discountAmountUsdc"] == 1
+    assert offered["riskPassport"]["earlySettlementTerms"]["reserveAmountUsdc"] == 0
+    assert isinstance(offered["verificationConfirmedAt"], str)
 
     duplicate_confirm = client.post(f"/api/v1/verifications/{verification_id}/confirm")
     assert duplicate_confirm.json()["invoice"]["status"] == "OFFER_READY"
@@ -79,6 +88,8 @@ def test_complete_frontend_contract_workflow(
     issued = accepted.json()["invoice"]
     assert issued["status"] == "RWA_ISSUED"
     assert issued["rwaAsset"]["status"] == "ISSUED"
+    assert issued["rwaAsset"]["faceValueUsdc"] == 3
+    assert issued["rwaAsset"]["issuancePriceUsdc"] == 2
     assert issued["fundingTransaction"] is None
 
     investor = Keypair()
@@ -210,7 +221,10 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
     schema = client.get("/api/docs-json").json()
     expected_paths = {
         "/api/v1/auth/login",
-        "/api/v1/auth/me",
+            "/api/v1/auth/me",
+            "/api/v1/auth/company-profile",
+            "/api/v1/auth/settlement-wallet",
+        "/api/v1/auth/account",
         "/api/v1/onboarding/company",
         "/api/v1/invoices",
             "/api/v1/invoices/{invoiceId}",

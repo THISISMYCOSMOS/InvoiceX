@@ -37,8 +37,12 @@ separate Privy user-owned Solana wallet. Logging in with the same email against
 the same Privy app reuses that user's existing Privy wallet, while InvoiceX
 company/profile data remains local until a shared backend database is deployed.
 
-`AGENT_MODE=auto` uses the real Gemini agents only when `GEMINI_API_KEY` is
-configured. For the shared Devnet flow, set `SOLANA_MODE=privy` explicitly so
+Set `AGENT_MODE=real`, `VERTEX_AI_PROJECT_ID`, and `VERTEX_AI_LOCATION` to use
+Gemini through Vertex AI and Application Default Credentials. Without a Vertex
+AI project, document analysis returns a configuration error instead of
+fabricated Demo extraction data. Use `AGENT_MODE=mock` explicitly only for
+deterministic tests and demos.
+For the shared Devnet flow, set `SOLANA_MODE=privy` explicitly so
 the server fails during startup when Privy configuration is missing rather than
 falling back to mock execution. The older `direct` adapter remains only for
 isolated local tests with developer-managed keypairs.

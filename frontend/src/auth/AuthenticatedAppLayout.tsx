@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getAuthMe, type CompanyType } from "../api/onboarding.api";
 import { isMockApi } from "../api/client";
 import { AppLayout } from "../components/AppLayout";
-import { type CurrentPrivyAccount } from "./currentAccount";
+import { type CurrentPrivyAccount, type CurrentPrivyAccountUpdate } from "./currentAccount";
 import { CurrentAccountProvider } from "./CurrentAccountProvider";
-import { getDemoSession } from "./demoAccounts";
+import { clearDemoSession, getDemoSession } from "./demoAccounts";
 import { useSignupAuth } from "./SignupAuthContext";
 
 export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
@@ -13,14 +13,61 @@ export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [account, setAccount] = useState<CurrentPrivyAccount>();
-  const [checking, setChecking] = useState(!isMockApi && !getDemoSession()?.accessToken);
+  const [checking, setChecking] = useState(() => {
+    const session = getDemoSession();
+    return !isMockApi && (!session?.accessToken || session.authMode === "MEMBER");
+  });
+  const updateAccount = useCallback((update: CurrentPrivyAccountUpdate) => {
+    setAccount((current) => current ? { ...current, ...update } : current);
+  }, []);
 
   useEffect(() => {
     let active = true;
     const demoSession = getDemoSession();
-    if (isMockApi || demoSession?.accessToken) {
+    if (isMockApi || (demoSession?.accessToken && demoSession.authMode !== "MEMBER")) {
       setChecking(false);
       setAccount(undefined);
+      return () => { active = false; };
+    }
+    if (demoSession?.accessToken && demoSession.authMode === "MEMBER") {
+      setChecking(true);
+      void (async () => {
+        try {
+          const profile = await getAuthMe(demoSession.accessToken!);
+          if (!active) return;
+          if (
+            profile.onboardingStatus !== "COMPLETED"
+            || !profile.company
+            || !profile.embeddedWallet
+          ) {
+            clearDemoSession();
+            navigate("/login", { replace: true });
+            return;
+          }
+          const rolePath = profile.nextPath;
+          if (!location.pathname.startsWith(rolePath)) {
+            navigate(rolePath, { replace: true });
+          }
+          setAccount({
+            countryCode: profile.company.countryCode,
+            registrationNumber: profile.company.registrationNumber,
+            companyName: profile.company.name,
+            role: profile.company.type as CompanyType,
+            userEmail: profile.user.email,
+            userName: profile.user.name,
+            userPhone: profile.user.phone,
+            userTitle: profile.user.title,
+            walletAddress: profile.embeddedWallet.address,
+          });
+        } catch {
+          if (active) {
+            clearDemoSession();
+            navigate("/login", { replace: true });
+          }
+        } finally {
+          if (active) setChecking(false);
+        }
+      })();
       return () => { active = false; };
     }
     if (!auth.ready) return () => { active = false; };
@@ -56,6 +103,7 @@ export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
           role: profile.company.type as CompanyType,
           userEmail: profile.user.email,
           userName: profile.user.name,
+          userPhone: profile.user.phone,
           userTitle: profile.user.title,
           walletAddress: profile.embeddedWallet.address,
         });
@@ -72,16 +120,9 @@ export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
     return <main className="screen-stage"><p>로그인 정보를 확인하는 중입니다...</p></main>;
   }
 
-  const logout = account
-    ? async () => {
-        await auth.logout();
-        navigate("/login", { replace: true });
-      }
-    : undefined;
-
   return (
-    <CurrentAccountProvider account={account}>
-      <AppLayout currentPrivyAccount={account} onPrivyLogout={logout}>
+    <CurrentAccountProvider account={account} onAccountChange={updateAccount}>
+      <AppLayout currentPrivyAccount={account}>
         {children}
       </AppLayout>
     </CurrentAccountProvider>

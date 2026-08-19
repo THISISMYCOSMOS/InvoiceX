@@ -1,0 +1,78 @@
+- generic [ref=e38]:
+  - banner [ref=e39]:
+    - link "InvoiceX home" [ref=e40] [cursor=pointer]:
+      - /url: /investor
+      - generic [ref=e41]: InvoiceX
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]: Switch role
+        - combobox "Switch role" [ref=e45] [cursor=pointer]:
+          - option "Supplier"
+          - option "Buyer"
+          - option "Investor" [selected]
+      - button "한국어로 전환" [ref=e46] [cursor=pointer]:
+        - generic [ref=e49]: 한국어
+      - button "Notifications" [ref=e51] [cursor=pointer]
+      - strong [ref=e54]: Nova Capital
+  - generic [ref=e55]:
+    - complementary [ref=e56]:
+      - generic [ref=e57]: INVESTOR
+      - navigation "Investor navigation" [ref=e58]:
+        - link "Dashboard" [ref=e59] [cursor=pointer]:
+          - /url: /investor
+        - link "Agent Activity" [ref=e60] [cursor=pointer]:
+          - /url: /investor/activities
+        - link "Investment Policy" [active] [ref=e61] [cursor=pointer]:
+          - /url: /investor/investment-policy
+        - link "Funds conversion" [ref=e62] [cursor=pointer]:
+          - /url: /investor/funds-conversion
+        - link "Vault" [ref=e63] [cursor=pointer]:
+          - /url: /investor/vault
+        - link "Profile" [ref=e64] [cursor=pointer]:
+          - /url: /investor/profile
+    - main [ref=e65]:
+      - generic [ref=e101]:
+        - generic [ref=e103]:
+          - paragraph [ref=e104]: Investor / Investment Policy
+          - heading "Investment Policy" [level=1] [ref=e105]
+          - paragraph [ref=e106]: Define the conditions Treasury Agent must meet before investing from your Vault.
+        - tablist "Investment Policy sections" [ref=e107]:
+          - tab "Mandate" [ref=e108] [cursor=pointer]
+          - tab "Investment conditions" [selected] [ref=e109] [cursor=pointer]
+        - tabpanel "Investment conditions" [ref=e111]:
+          - generic [ref=e116]:
+            - heading "Investment Conditions" [level=2] [ref=e117]
+            - paragraph [ref=e118]: Treasury Agent evaluates each invoice against the conditions you sign.
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - generic [ref=e122]: Total investment limit
+                - generic [ref=e123]:
+                  - textbox "Total investment limit USDC" [ref=e124]: "1"
+                  - generic [ref=e125]: USDC
+              - generic [ref=e126]:
+                - generic [ref=e127]: Maximum per invoice
+                - generic [ref=e128]:
+                  - textbox "Maximum per invoice USDC" [ref=e129]: "1"
+                  - generic [ref=e130]: USDC
+              - generic [ref=e131]:
+                - generic [ref=e132]: Buyer allowlist
+                - button "Buyer allowlist" [ref=e133] [cursor=pointer]:
+                  - generic [ref=e136]: Prime Mobility
+                - generic [ref=e139]: Select one or more buyer companies.
+              - generic [ref=e140]:
+                - generic [ref=e141]: Minimum Risk Score
+                - generic [ref=e142]:
+                  - textbox "Minimum Risk Score / 100" [ref=e143]: "80"
+                  - generic [ref=e144]: / 100
+              - generic [ref=e145]:
+                - generic [ref=e146]: Maximum remaining term
+                - generic [ref=e147]:
+                  - textbox "Maximum remaining term days" [ref=e148]: "120"
+                  - generic [ref=e149]: days
+              - generic [ref=e150]:
+                - generic [ref=e151]: Policy expiry
+                - textbox "Policy expiry" [ref=e153]: 2026-12-31
+            - generic [ref=e154]:
+              - paragraph [ref=e155]: Saving asks your connected wallet to sign the current Investment Policy.
+              - button "Sign & save policy" [disabled] [ref=e158] [cursor=pointer]

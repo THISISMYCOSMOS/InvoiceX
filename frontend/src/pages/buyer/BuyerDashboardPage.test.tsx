@@ -31,7 +31,24 @@ test("renders the Figma buyer dashboard summary and verification table", async (
     "href",
     "/buyer/invoices/INV-2026-001?section=verification",
   );
-  expect(screen.getByText("1 requests")).toBeInTheDocument();
-  expect(screen.getByText("0 payment items")).toBeInTheDocument();
   expect(screen.getByText("No payments are due right now.")).toBeInTheDocument();
+});
+
+test("shows confirmed invoices with a link to their details", async () => {
+  await scenarioAdapter.confirmVerification("VER-2026-001");
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <BuyerDashboardPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(await screen.findByRole("heading", { name: "Recently confirmed invoices" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "View details for INV-2026-001" })).toHaveAttribute(
+    "href",
+    "/buyer/invoices/INV-2026-001?section=verification",
+  );
 });

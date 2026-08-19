@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 import unicodedata
 from enum import StrEnum
+from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from invoicex_backend.models import ApiModel
 
@@ -21,6 +22,7 @@ class OnboardingStatus(StrEnum):
     NEEDS_COMPANY_PROFILE = "NEEDS_COMPANY_PROFILE"
     PROVISIONING_EMBEDDED_WALLET = "PROVISIONING_EMBEDDED_WALLET"
     COMPLETED = "COMPLETED"
+    WITHDRAWN = "WITHDRAWN"
 
 
 class Company(ApiModel):
@@ -56,6 +58,21 @@ class CompanyWallet(ApiModel):
     status: str = "ACTIVE"
 
 
+class SettlementWallet(ApiModel):
+    wallet_type: Literal["EMBEDDED", "EXTERNAL"]
+    address: str
+    embedded_wallet_address: str
+
+
+class UpdateSettlementWalletRequest(ApiModel):
+    wallet_type: Literal["EMBEDDED", "EXTERNAL"]
+    address: str | None = None
+
+
+class DeleteAccountResponse(ApiModel):
+    onboarding_status: Literal["WITHDRAWN"] = "WITHDRAWN"
+
+
 class LogicalVault(ApiModel):
     id: str
     investor_company_id: str
@@ -81,8 +98,8 @@ class CompanyInput(ApiModel):
     @classmethod
     def normalize_country_code(cls, value: str) -> str:
         normalized = value.strip().upper()
-        if re.fullmatch(r"[A-Z]{2}", normalized) is None:
-            raise ValueError("국가 코드는 영문 2자리로 입력해 주세요.")
+        if normalized not in {"KR", "US"}:
+            raise ValueError("현재 지원하는 국가 코드는 KR 또는 US입니다.")
         return normalized
 
     @field_validator("registration_number")
@@ -93,6 +110,19 @@ class CompanyInput(ApiModel):
         if not 2 <= len(normalized) <= 50:
             raise ValueError("기업 등록번호를 2~50자의 영문 또는 숫자로 입력해 주세요.")
         return normalized
+
+    @model_validator(mode="after")
+    def validate_registration_number_for_country_and_role(self) -> CompanyInput:
+        required_country_code = "KR" if self.type == CompanyType.SUPPLIER else "US"
+        if self.country_code != required_country_code:
+            if self.type == CompanyType.SUPPLIER:
+                raise ValueError("공급기업은 국내 사업자등록번호(KR)로 등록해 주세요.")
+            raise ValueError("구매기업 및 투자기관은 미국 EIN(US)으로 등록해 주세요.")
+        if self.country_code == "KR" and re.fullmatch(r"\d{10}", self.registration_number) is None:
+            raise ValueError("국내 사업자등록번호는 숫자 10자리(000-00-00000)로 입력해 주세요.")
+        if self.country_code == "US" and re.fullmatch(r"\d{9}", self.registration_number) is None:
+            raise ValueError("미국 EIN은 숫자 9자리(00-0000000)로 입력해 주세요.")
+        return self
 
 
 class RepresentativeInput(ApiModel):
@@ -118,6 +148,12 @@ class RepresentativeInput(ApiModel):
 
 
 class OnboardCompanyRequest(ApiModel):
+    company: CompanyInput
+    representative: RepresentativeInput
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class UpdateCompanyProfileRequest(ApiModel):
     company: CompanyInput
     representative: RepresentativeInput
 

@@ -1,0 +1,39 @@
+- generic [ref=f2e4]:
+  - region "InvoiceX introduction" [ref=f2e5]:
+    - generic [ref=f2e6]: InvoiceX
+    - generic [ref=f2e7]:
+      - paragraph [ref=f2e8]: Connect verified invoices to funding and investment opportunities.
+      - paragraph [ref=f2e9]: Connect supplier funding with automated investment through Buyer Verification and AI-powered risk assessment, with settlement executed transparently on Solana.
+    - paragraph [ref=f2e10]: Solana-based supply chain finance platform
+  - generic [ref=f2e11]:
+    - button "한국어로 전환" [ref=f2e12] [cursor=pointer]:
+      - generic [ref=f2e15]: 한국어
+    - generic [ref=f2e16]:
+      - generic [ref=f2e17]: WELCOME BACK
+      - heading "Sign in to InvoiceX" [level=1] [ref=f2e18]
+      - paragraph [ref=f2e19]: Select your company role and sign in.
+      - generic "Company role" [ref=f2e20]:
+        - button "Supplier" [pressed] [ref=f2e21] [cursor=pointer]
+        - button "Buyer" [ref=f2e22] [cursor=pointer]
+        - button "Investor" [ref=f2e23] [cursor=pointer]
+      - generic [ref=f2e24]:
+        - text: Company email
+        - textbox "Company email" [ref=f2e25]:
+          - /placeholder: name@company.com
+      - generic [ref=f2e26]:
+        - text: Password
+        - textbox "Password" [ref=f2e27]:
+          - /placeholder: ••••••••••••
+      - generic [ref=f2e28]:
+        - generic [ref=f2e29]:
+          - checkbox "Keep me signed in" [ref=f2e30]
+          - generic [ref=f2e31]: Keep me signed in
+        - link "Forgot password?" [ref=f2e32] [cursor=pointer]:
+          - /url: "#forgot-password"
+      - button "Sign in" [ref=f2e33] [cursor=pointer]
+      - link "Sign in with verified email" [ref=f2e34] [cursor=pointer]:
+        - /url: /signup
+      - paragraph [ref=f2e35]:
+        - text: New to InvoiceX?
+        - link "Create a company account" [ref=f2e36] [cursor=pointer]:
+          - /url: /signup

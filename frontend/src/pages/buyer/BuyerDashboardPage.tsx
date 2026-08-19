@@ -13,6 +13,15 @@ function formatDueDate(dueDate: string, locale: "en-US" | "ko-KR") {
   }).format(new Date(`${dueDate}T00:00:00`));
 }
 
+function formatConfirmationTime(value: string | undefined, locale: "en-US" | "ko-KR") {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 function isDueWithin30Days(invoice: Invoice, now: Date) {
   const dueAt = new Date(`${invoice.dueDate}T00:00:00`).getTime();
   const difference = dueAt - now.getTime();
@@ -29,9 +38,15 @@ export function BuyerDashboardPage() {
   const items = invoices.data ?? [];
   const locale = language === "ko" ? "ko-KR" : "en-US";
   const verificationRequests = items.filter((invoice) => invoice.status === "BUYER_REVIEW");
+  const confirmedVerificationInvoices = items.filter((invoice) => (
+    Boolean(invoice.verificationId) && invoice.status !== "BUYER_REVIEW"
+  ));
   const paymentInvoices = items.filter((invoice) => (
     invoice.status === "FUNDED" || invoice.status === "REPAYMENT_PENDING" || invoice.status === "SETTLING"
   ));
+  const recentVerificationRequests = verificationRequests.slice(0, 3);
+  const recentConfirmedVerificationInvoices = confirmedVerificationInvoices.slice(0, 3);
+  const recentPaymentInvoices = paymentInvoices.slice(0, 3);
   const dueSoonTotal = paymentInvoices
     .filter((invoice) => isDueWithin30Days(invoice, new Date()))
     .reduce((total, invoice) => total + invoice.invoiceAmount, 0);
@@ -56,7 +71,7 @@ export function BuyerDashboardPage() {
         </article>
         <article>
           <span>{t("Due in 30 days", "30일 이내 만기")}</span>
-          <strong>{formatInvoiceAmount(dueSoonTotal, paymentInvoices[0]?.currency ?? "USDC", locale)}</strong>
+          <strong>{formatInvoiceAmount(dueSoonTotal, "USD", locale)}</strong>
         </article>
         <article>
           <span>{t("Completed invoices", "완료된 인보이스")}</span>
@@ -67,7 +82,9 @@ export function BuyerDashboardPage() {
       <section className="buyer-request-card">
         <header>
           <h2>{t("New verification requests", "새 확인 요청")}</h2>
-          <span className="buyer-due-summary">{t(`${verificationRequests.length} requests`, `${verificationRequests.length}건 요청`)}</span>
+          <Link className="secondary-button buyer-view-all" to="/buyer/verification">
+            {t("View all", "전체 목록 보기")}
+          </Link>
         </header>
         <div className="table-scroll">
           <table aria-label={t("New verification requests", "새 확인 요청")}>
@@ -83,7 +100,7 @@ export function BuyerDashboardPage() {
             <tbody>
               {verificationRequests.length === 0 ? (
                 <tr><td colSpan={5} className="buyer-empty-row">{t("No verification requests are waiting.", "대기 중인 확인 요청이 없습니다.")}</td></tr>
-              ) : verificationRequests.map((invoice) => (
+              ) : recentVerificationRequests.map((invoice) => (
                 <tr key={invoice.id}>
                   <td><strong>{getInvoiceDisplayReference(invoice)}</strong></td>
                   <td>{invoice.supplier.name}</td>
@@ -105,13 +122,58 @@ export function BuyerDashboardPage() {
         </div>
       </section>
 
+      <section className="buyer-request-card buyer-confirmed-request-card">
+        <header>
+          <h2>{t("Recently confirmed invoices", "최근 확인 완료 인보이스")}</h2>
+          <Link className="secondary-button buyer-view-all" to="/buyer/verification">
+            {t("View all", "전체 목록 보기")}
+          </Link>
+        </header>
+        <div className="table-scroll">
+          <table aria-label={t("Recently confirmed invoices", "최근 확인 완료 인보이스")}>
+            <thead>
+              <tr>
+                <th>{t("Invoice", "인보이스")}</th>
+                <th>{t("Supplier", "공급기업")}</th>
+                <th>{t("Amount", "금액")}</th>
+                <th>{t("Confirmed at", "확인 일시")}</th>
+                <th>{t("Action", "작업")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {confirmedVerificationInvoices.length === 0 ? (
+                <tr><td colSpan={5} className="buyer-empty-row">{t("No invoices have been confirmed yet.", "아직 확인 완료된 인보이스가 없습니다.")}</td></tr>
+              ) : recentConfirmedVerificationInvoices.map((invoice) => (
+                <tr key={invoice.id}>
+                  <td><strong>{getInvoiceDisplayReference(invoice)}</strong></td>
+                  <td>{invoice.supplier.name}</td>
+                  <td>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, locale)}</td>
+                  <td>{formatConfirmationTime(invoice.verificationConfirmedAt ?? invoice.riskPassport?.generatedAt, locale)}</td>
+                  <td>
+                    <Link
+                      className="buyer-review-link"
+                      to={`/buyer/invoices/${invoice.id}?section=verification`}
+                      aria-label={t(`View details for ${getInvoiceDisplayReference(invoice)}`, `${getInvoiceDisplayReference(invoice)} 상세 보기`)}
+                    >
+                      {t("View details", "상세 보기")}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section className="buyer-request-card buyer-payment-due-card">
         <header>
           <div>
             <h2>{t("Payments due soon", "결제 필요")}</h2>
             <p>{t("Invoices approaching their contractual due date", "계약상 만기일이 가까워진 인보이스")}</p>
           </div>
-          <span className="buyer-due-summary">{t(`${paymentInvoices.length} payment items`, `결제 필요 ${paymentInvoices.length}건`)}</span>
+          <Link className="secondary-button buyer-view-all" to="/buyer/payment">
+            {t("View all", "전체 목록 보기")}
+          </Link>
         </header>
         <div className="table-scroll">
           <table aria-label={t("Payments due soon", "결제 필요")}>
@@ -128,7 +190,7 @@ export function BuyerDashboardPage() {
             <tbody>
               {paymentInvoices.length === 0 ? (
                 <tr><td colSpan={6} className="buyer-empty-row">{t("No payments are due right now.", "현재 결제가 필요한 인보이스가 없습니다.")}</td></tr>
-              ) : paymentInvoices.map((invoice) => {
+              ) : recentPaymentInvoices.map((invoice) => {
                 const daysRemaining = Math.max(0, Math.ceil((new Date(`${invoice.dueDate}T00:00:00`).getTime() - new Date().getTime()) / (24 * 60 * 60 * 1_000)));
                 return (
                   <tr key={invoice.id}>

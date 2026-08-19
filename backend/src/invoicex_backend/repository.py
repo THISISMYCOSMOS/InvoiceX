@@ -65,12 +65,23 @@ class RwaRepository(Protocol):
     def save_agent_handoff(self, handoff: AgentHandoff) -> None: ...
     def list_agent_handoffs(self, run_id: str) -> list[AgentHandoff]: ...
     def get_onboarding_user(self, privy_user_id: str) -> OnboardingUser | None: ...
+    def get_onboarding_user_by_email(self, email: str) -> OnboardingUser | None: ...
+    def get_user_password_hash(self, privy_user_id: str) -> str | None: ...
+    def save_user_password_hash(self, privy_user_id: str, password_hash: str) -> None: ...
     def ensure_onboarding_user(self, user: OnboardingUser) -> OnboardingUser: ...
     def get_company(self, company_id: str) -> Company | None: ...
     def find_company_by_name(self, name: str, company_type: str) -> Company | None: ...
     def get_company_wallet(self, company_id: str) -> CompanyWallet | None: ...
+    def get_company_settlement_wallet(self, company_id: str) -> tuple[str, str] | None: ...
+    def save_company_settlement_wallet(
+        self, company_id: str, wallet_type: str, wallet_address: str
+    ) -> None: ...
+    def clear_company_settlement_wallet(self, company_id: str) -> None: ...
     def get_company_vault(self, company_id: str) -> LogicalVault | None: ...
     def save_company_profile(
+        self, user: OnboardingUser, company: Company
+    ) -> tuple[OnboardingUser, Company]: ...
+    def update_company_profile(
         self, user: OnboardingUser, company: Company
     ) -> tuple[OnboardingUser, Company]: ...
     def complete_onboarding(
@@ -80,6 +91,7 @@ class RwaRepository(Protocol):
         vault: LogicalVault | None,
     ) -> OnboardingUser: ...
     def rotate_wallet_idempotency_key(self, privy_user_id: str, value: str) -> None: ...
+    def delete_onboarding_user(self, privy_user_id: str) -> None: ...
 
 
 class SQLiteRwaRepository:
@@ -168,7 +180,8 @@ class SQLiteRwaRepository:
                     phone TEXT,
                     company_id TEXT UNIQUE REFERENCES companies(id),
                     onboarding_status TEXT NOT NULL,
-                    wallet_idempotency_key TEXT
+                    wallet_idempotency_key TEXT,
+                    password_hash TEXT
                 );
                 CREATE TABLE IF NOT EXISTS wallets (
                     id TEXT PRIMARY KEY,
@@ -179,6 +192,11 @@ class SQLiteRwaRepository:
                     chain TEXT NOT NULL,
                     address TEXT NOT NULL UNIQUE,
                     status TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS company_settlement_wallets (
+                    company_id TEXT PRIMARY KEY REFERENCES companies(id),
+                    wallet_type TEXT NOT NULL,
+                    wallet_address TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS company_vaults (
                     id TEXT PRIMARY KEY,
@@ -191,6 +209,7 @@ class SQLiteRwaRepository:
                 """
             )
             self._migrate_company_schema()
+            self._migrate_user_schema()
             self._connection.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS companies_country_registration_unique
@@ -234,6 +253,14 @@ class SQLiteRwaRepository:
             ALTER TABLE companies_v2 RENAME TO companies;
             """
         )
+
+    def _migrate_user_schema(self) -> None:
+        columns = {
+            str(row["name"])
+            for row in self._connection.execute("PRAGMA table_info(users)").fetchall()
+        }
+        if "password_hash" not in columns:
+            self._connection.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
 
     @staticmethod
     def _encode(value: object) -> str:
@@ -517,6 +544,27 @@ class SQLiteRwaRepository:
             ).fetchone()
         return self._onboarding_user(row) if row is not None else None
 
+    def get_onboarding_user_by_email(self, email: str) -> OnboardingUser | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))", (email,)
+            ).fetchone()
+        return self._onboarding_user(row) if row is not None else None
+
+    def get_user_password_hash(self, privy_user_id: str) -> str | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT password_hash FROM users WHERE privy_user_id = ?", (privy_user_id,)
+            ).fetchone()
+        return str(row["password_hash"]) if row and row["password_hash"] is not None else None
+
+    def save_user_password_hash(self, privy_user_id: str, password_hash: str) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "UPDATE users SET password_hash = ? WHERE privy_user_id = ?",
+                (password_hash, privy_user_id),
+            )
+
     def ensure_onboarding_user(self, user: OnboardingUser) -> OnboardingUser:
         with self._lock, self._connection:
             existing_email = self._connection.execute(
@@ -590,6 +638,38 @@ class SQLiteRwaRepository:
             ).fetchone()
         return self._company_wallet(row) if row is not None else None
 
+    def get_company_settlement_wallet(self, company_id: str) -> tuple[str, str] | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT wallet_type, wallet_address
+                FROM company_settlement_wallets WHERE company_id = ?
+                """,
+                (company_id,),
+            ).fetchone()
+        return (str(row["wallet_type"]), str(row["wallet_address"])) if row else None
+
+    def save_company_settlement_wallet(
+        self, company_id: str, wallet_type: str, wallet_address: str
+    ) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO company_settlement_wallets (company_id, wallet_type, wallet_address)
+                VALUES (?, ?, ?)
+                ON CONFLICT(company_id) DO UPDATE SET
+                    wallet_type = excluded.wallet_type,
+                    wallet_address = excluded.wallet_address
+                """,
+                (company_id, wallet_type, wallet_address),
+            )
+
+    def clear_company_settlement_wallet(self, company_id: str) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                "DELETE FROM company_settlement_wallets WHERE company_id = ?", (company_id,)
+            )
+
     def get_company_vault(self, company_id: str) -> LogicalVault | None:
         with self._lock:
             row = self._connection.execute(
@@ -633,6 +713,28 @@ class SQLiteRwaRepository:
                         "ONBOARDING_ALREADY_IN_PROGRESS",
                         "이미 다른 기업 정보로 가입이 진행 중입니다.",
                     )
+                if current.onboarding_status is OnboardingStatus.WITHDRAWN:
+                    self._connection.execute(
+                        """
+                        UPDATE users
+                        SET name = ?, title = ?, phone = ?,
+                            onboarding_status = ?, wallet_idempotency_key = ?
+                        WHERE privy_user_id = ?
+                        """,
+                        (
+                            user.name,
+                            user.title,
+                            user.phone,
+                            OnboardingStatus.PROVISIONING_EMBEDDED_WALLET.value,
+                            user.wallet_idempotency_key,
+                            user.privy_user_id,
+                        ),
+                    )
+                    rejoined_row = self._connection.execute(
+                        "SELECT * FROM users WHERE privy_user_id = ?", (user.privy_user_id,)
+                    ).fetchone()
+                    assert rejoined_row is not None
+                    return self._onboarding_user(rejoined_row), existing
                 return current, existing
             duplicate = self._connection.execute(
                 """
@@ -693,6 +795,53 @@ class SQLiteRwaRepository:
             ).fetchone()
         assert saved_row is not None
         return self._onboarding_user(saved_row), company
+
+    def update_company_profile(
+        self, user: OnboardingUser, company: Company
+    ) -> tuple[OnboardingUser, Company]:
+        with self._lock, self._connection:
+            current_user_row = self._connection.execute(
+                "SELECT * FROM users WHERE privy_user_id = ?", (user.privy_user_id,)
+            ).fetchone()
+            if current_user_row is None or self._onboarding_user(current_user_row).company_id != company.id:
+                raise OnboardingApiError(
+                    409, "COMPANY_PROFILE_NOT_FOUND", "수정할 기업 정보를 찾을 수 없습니다."
+                )
+            duplicate = self._connection.execute(
+                """
+                SELECT id FROM companies
+                WHERE country_code = ? AND registration_number = ? AND id != ?
+                """,
+                (company.country_code, company.registration_number, company.id),
+            ).fetchone()
+            if duplicate is not None:
+                raise OnboardingApiError(
+                    409,
+                    "COMPANY_REGISTRATION_ALREADY_USED",
+                    "해당 국가에서 이미 가입에 사용된 기업 등록번호입니다.",
+                )
+            try:
+                self._connection.execute(
+                    "UPDATE companies SET name = ?, registration_number = ? WHERE id = ?",
+                    (company.name, company.registration_number, company.id),
+                )
+                self._connection.execute(
+                    """
+                    UPDATE users SET name = ?, title = ?, phone = ?
+                    WHERE privy_user_id = ?
+                    """,
+                    (user.name, user.title, user.phone, user.privy_user_id),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise OnboardingApiError(
+                    409,
+                    "COMPANY_REGISTRATION_ALREADY_USED",
+                    "해당 국가에서 이미 가입에 사용된 기업 등록번호입니다.",
+                ) from exc
+        saved_user = self.get_onboarding_user(user.privy_user_id)
+        saved_company = self.get_company(company.id)
+        assert saved_user is not None and saved_company is not None
+        return saved_user, saved_company
 
     def complete_onboarding(
         self,
@@ -780,6 +929,30 @@ class SQLiteRwaRepository:
                     OnboardingStatus.PROVISIONING_EMBEDDED_WALLET.value,
                 ),
             )
+
+    def delete_onboarding_user(self, privy_user_id: str) -> None:
+        with self._lock, self._connection:
+            user_row = self._connection.execute(
+                "SELECT company_id FROM users WHERE privy_user_id = ?", (privy_user_id,)
+            ).fetchone()
+            if user_row is None:
+                return
+            company_id = user_row["company_id"]
+            if company_id is not None:
+                self._connection.execute(
+                    "DELETE FROM company_settlement_wallets WHERE company_id = ?", (company_id,)
+                )
+                self._connection.execute(
+                    "DELETE FROM company_vaults WHERE investor_company_id = ?", (company_id,)
+                )
+                self._connection.execute(
+                    "DELETE FROM wallets WHERE company_id = ?", (company_id,)
+                )
+            self._connection.execute(
+                "DELETE FROM users WHERE privy_user_id = ?", (privy_user_id,)
+            )
+            if company_id is not None:
+                self._connection.execute("DELETE FROM companies WHERE id = ?", (company_id,))
 
 
 class CloudSqlRwaRepository:
@@ -894,9 +1067,11 @@ class CloudSqlRwaRepository:
             phone TEXT,
             company_id TEXT UNIQUE REFERENCES companies(id),
             onboarding_status TEXT NOT NULL,
-            wallet_idempotency_key TEXT
+            wallet_idempotency_key TEXT,
+            password_hash TEXT
         )
         """,
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT",
         """
         CREATE TABLE IF NOT EXISTS wallets (
             id TEXT PRIMARY KEY,
@@ -907,6 +1082,13 @@ class CloudSqlRwaRepository:
             chain TEXT NOT NULL,
             address TEXT NOT NULL UNIQUE,
             status TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS company_settlement_wallets (
+            company_id TEXT PRIMARY KEY REFERENCES companies(id),
+            wallet_type TEXT NOT NULL,
+            wallet_address TEXT NOT NULL
         )
         """,
         """
@@ -1228,6 +1410,32 @@ class CloudSqlRwaRepository:
         )
         return self._onboarding_user(row) if row else None
 
+    def get_onboarding_user_by_email(self, email: str) -> OnboardingUser | None:
+        row = self._read_one(
+            """
+            SELECT id, privy_user_id, email, name, title, phone, company_id,
+                   onboarding_status, wallet_idempotency_key
+            FROM users WHERE LOWER(BTRIM(email)) = LOWER(BTRIM(%s))
+            """,
+            (email,),
+        )
+        return self._onboarding_user(row) if row else None
+
+    def get_user_password_hash(self, privy_user_id: str) -> str | None:
+        row = self._read_one(
+            "SELECT password_hash FROM users WHERE privy_user_id = %s",
+            (privy_user_id,),
+        )
+        return str(row[0]) if row and row[0] is not None else None
+
+    def save_user_password_hash(self, privy_user_id: str, password_hash: str) -> None:
+        self._write(
+            lambda cursor: cursor.execute(  # type: ignore[attr-defined]
+                "UPDATE users SET password_hash = %s WHERE privy_user_id = %s",
+                (password_hash, privy_user_id),
+            )
+        )
+
     def ensure_onboarding_user(self, user: OnboardingUser) -> OnboardingUser:
         self._write(
             lambda cursor: cursor.execute(
@@ -1298,6 +1506,39 @@ class CloudSqlRwaRepository:
             status=str(row[7]),
         )
 
+    def get_company_settlement_wallet(self, company_id: str) -> tuple[str, str] | None:
+        row = self._read_one(
+            """
+            SELECT wallet_type, wallet_address
+            FROM company_settlement_wallets WHERE company_id = %s
+            """,
+            (company_id,),
+        )
+        return (str(row[0]), str(row[1])) if row else None
+
+    def save_company_settlement_wallet(
+        self, company_id: str, wallet_type: str, wallet_address: str
+    ) -> None:
+        self._write(
+            lambda cursor: cursor.execute(  # type: ignore[attr-defined]
+                """
+                INSERT INTO company_settlement_wallets (company_id, wallet_type, wallet_address)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (company_id) DO UPDATE SET
+                    wallet_type = EXCLUDED.wallet_type,
+                    wallet_address = EXCLUDED.wallet_address
+                """,
+                (company_id, wallet_type, wallet_address),
+            )
+        )
+
+    def clear_company_settlement_wallet(self, company_id: str) -> None:
+        self._write(
+            lambda cursor: cursor.execute(  # type: ignore[attr-defined]
+                "DELETE FROM company_settlement_wallets WHERE company_id = %s", (company_id,)
+            )
+        )
+
     def get_company_vault(self, company_id: str) -> LogicalVault | None:
         row = self._read_one(
             """
@@ -1343,6 +1584,29 @@ class CloudSqlRwaRepository:
                     "ONBOARDING_ALREADY_IN_PROGRESS",
                     "이미 다른 기업 정보로 가입이 진행 중입니다.",
                 )
+            if current.onboarding_status is OnboardingStatus.WITHDRAWN:
+                def reactivate(cursor: object) -> None:
+                    cursor.execute(  # type: ignore[attr-defined]
+                        """
+                        UPDATE users
+                        SET name = %s, title = %s, phone = %s,
+                            onboarding_status = %s, wallet_idempotency_key = %s
+                        WHERE privy_user_id = %s
+                        """,
+                        (
+                            user.name,
+                            user.title,
+                            user.phone,
+                            OnboardingStatus.PROVISIONING_EMBEDDED_WALLET.value,
+                            user.wallet_idempotency_key,
+                            user.privy_user_id,
+                        ),
+                    )
+
+                self._write(reactivate)
+                saved = self.get_onboarding_user(user.privy_user_id)
+                assert saved is not None
+                return saved, existing
             return current, existing
         duplicate = self._read_one(
             "SELECT id FROM companies WHERE business_registration_number = %s",
@@ -1406,6 +1670,67 @@ class CloudSqlRwaRepository:
         saved = self.get_onboarding_user(user.privy_user_id)
         assert saved is not None
         return saved, company
+
+    def update_company_profile(
+        self, user: OnboardingUser, company: Company
+    ) -> tuple[OnboardingUser, Company]:
+        current = self.get_onboarding_user(user.privy_user_id)
+        if current is None or current.company_id != company.id:
+            raise OnboardingApiError(
+                409, "COMPANY_PROFILE_NOT_FOUND", "수정할 기업 정보를 찾을 수 없습니다."
+            )
+        duplicate = self._read_one(
+            """
+            SELECT id FROM companies
+            WHERE business_registration_number = %s AND id != %s
+            """,
+            (company.registration_number, company.id),
+        )
+        if duplicate is not None:
+            raise OnboardingApiError(
+                409,
+                "COMPANY_REGISTRATION_ALREADY_USED",
+                "이미 가입에 사용된 기업 등록번호입니다.",
+            )
+
+        def write(cursor: object) -> None:
+            cursor.execute(  # type: ignore[attr-defined]
+                """
+                UPDATE companies
+                SET name = %s, business_registration_number = %s
+                WHERE id = %s
+                """,
+                (company.name, company.registration_number, company.id),
+            )
+            cursor.execute(  # type: ignore[attr-defined]
+                """
+                UPDATE users SET name = %s, title = %s, phone = %s
+                WHERE privy_user_id = %s
+                """,
+                (user.name, user.title, user.phone, user.privy_user_id),
+            )
+
+        try:
+            self._write(write)
+        except Exception as exc:
+            duplicate = self._read_one(
+                """
+                SELECT id FROM companies
+                WHERE business_registration_number = %s AND id != %s
+                """,
+                (company.registration_number, company.id),
+            )
+            if duplicate is not None:
+                raise OnboardingApiError(
+                    409,
+                    "COMPANY_REGISTRATION_ALREADY_USED",
+                    "이미 가입에 사용된 기업 등록번호입니다.",
+                ) from exc
+            raise
+        saved_user = self.get_onboarding_user(user.privy_user_id)
+        saved_company = self.get_company(company.id)
+        assert saved_user is not None and saved_company is not None
+        return saved_user, saved_company
 
     def complete_onboarding(
         self,
@@ -1502,6 +1827,35 @@ class CloudSqlRwaRepository:
                 ),
             )
         )
+
+    def delete_onboarding_user(self, privy_user_id: str) -> None:
+        current = self.get_onboarding_user(privy_user_id)
+        if current is None:
+            return
+
+        def delete(cursor: object) -> None:
+            if current.company_id is not None:
+                cursor.execute(  # type: ignore[attr-defined]
+                    "DELETE FROM company_settlement_wallets WHERE company_id = %s",
+                    (current.company_id,),
+                )
+                cursor.execute(  # type: ignore[attr-defined]
+                    "DELETE FROM company_vaults WHERE investor_company_id = %s",
+                    (current.company_id,),
+                )
+                cursor.execute(  # type: ignore[attr-defined]
+                    "DELETE FROM wallets WHERE company_id = %s",
+                    (current.company_id,),
+                )
+            cursor.execute(  # type: ignore[attr-defined]
+                "DELETE FROM users WHERE privy_user_id = %s", (privy_user_id,)
+            )
+            if current.company_id is not None:
+                cursor.execute(  # type: ignore[attr-defined]
+                    "DELETE FROM companies WHERE id = %s", (current.company_id,)
+                )
+
+        self._write(delete)
 
     def _upsert_document(self, table: str, key: str, value: str, document: object) -> None:
         self._write(

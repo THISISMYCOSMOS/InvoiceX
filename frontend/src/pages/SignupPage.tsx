@@ -4,6 +4,7 @@ import {
   getAuthMe,
   getOtpClock,
   onboardCompany,
+  OnboardingApiError,
   withPrivyAccessTokenRetry,
   type CompanyType,
 } from "../api/onboarding.api";
@@ -53,6 +54,39 @@ const sideCopy: Record<SignupStep, string> = {
   complete: "기업 계정이 즉시 활성화되었어요. 이제 역할별 대시보드에서 시작해보세요.",
 };
 
+function formatKoreanBusinessRegistration(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
+function formatUsEin(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 9);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+}
+
+function formatKoreanPhone(value: string) {
+  const rawDigits = value.replace(/\D/g, "");
+  const normalizedDigits = rawDigits.startsWith("82")
+    ? `0${rawDigits.slice(2)}`
+    : rawDigits;
+  const digits = normalizedDigits.slice(0, 11);
+
+  if (digits.startsWith("02")) {
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `02-${digits.slice(2)}`;
+    if (digits.length <= 9) return `02-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    return `02-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 export function SignupPage() {
   const navigate = useNavigate();
   const signupAuth = useSignupAuth();
@@ -63,11 +97,13 @@ export function SignupPage() {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [role, setRole] = useState<CompanyRole>("supplier");
   const [companyName, setCompanyName] = useState("");
-  const [countryCode, setCountryCode] = useState("KR");
+  const [countryCode, setCountryCode] = useState<"KR" | "US">("KR");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactTitle, setContactTitle] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [resumingOnboarding, setResumingOnboarding] = useState(false);
   const [nextPath, setNextPath] = useState("/login");
   const [submitting, setSubmitting] = useState(false);
@@ -159,7 +195,7 @@ export function SignupPage() {
       if (authMe.onboardingStatus === "PROVISIONING_EMBEDDED_WALLET" && authMe.company) {
         setRole(companyRoles[authMe.company.type]);
         setCompanyName(authMe.company.name);
-        setCountryCode(authMe.company.countryCode);
+        setCountryCode(authMe.company.countryCode === "US" ? "US" : "KR");
         setRegistrationNumber(authMe.company.registrationNumber);
         setContactName(authMe.user.name ?? "");
         setContactTitle(authMe.user.title ?? "");
@@ -184,6 +220,22 @@ export function SignupPage() {
   const submitCompany = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    if (!resumingOnboarding && password.length < 8) {
+      setError("비밀번호는 8자 이상으로 입력해 주세요.");
+      return;
+    }
+    if (!resumingOnboarding && password !== passwordConfirmation) {
+      setError("비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+    const registrationDigits = registrationNumber.replace(/\D/g, "");
+    const requiredRegistrationLength = countryCode === "KR" ? 10 : 9;
+    if (!resumingOnboarding && registrationDigits.length !== requiredRegistrationLength) {
+      setError(countryCode === "KR"
+        ? "국내 사업자등록번호는 10자리(000-00-00000)로 입력해 주세요."
+        : "미국 EIN은 9자리(00-0000000)로 입력해 주세요.");
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await withPrivyAccessTokenRetry(
@@ -200,6 +252,7 @@ export function SignupPage() {
             title: contactTitle,
             phone: contactPhone,
           },
+          password: resumingOnboarding ? undefined : password,
         }),
       );
       if (result.onboardingStatus !== "COMPLETED" || !result.embeddedWallet) {
@@ -208,6 +261,18 @@ export function SignupPage() {
       setNextPath(result.nextPath);
       setStep("complete");
     } catch (cause) {
+      if (
+        cause instanceof OnboardingApiError
+        && cause.code === "ACCOUNT_DELETION_FINALIZED"
+      ) {
+        await signupAuth.logout();
+        setResumingOnboarding(false);
+        setPassword("");
+        setPasswordConfirmation("");
+        setStep("email");
+        setError("기존 탈퇴 정보를 완전히 삭제했습니다. 이메일 인증부터 다시 진행해 주세요.");
+        return;
+      }
       setError(toErrorMessage(cause, "기업 등록을 완료하지 못했습니다."));
     } finally {
       setSubmitting(false);
@@ -382,7 +447,14 @@ export function SignupPage() {
                     aria-checked={role === item}
                     className={`signup-role-option signup-role-option--${item}`}
                     key={item}
-                    onClick={() => setRole(item)}
+                    onClick={() => {
+                      setRole(item);
+                      const nextCountryCode = item === "supplier" ? "KR" : "US";
+                      setCountryCode(nextCountryCode);
+                      setRegistrationNumber(nextCountryCode === "KR"
+                        ? formatKoreanBusinessRegistration(registrationNumber)
+                        : formatUsEin(registrationNumber));
+                    }}
                     role="radio"
                     type="button"
                   >
@@ -409,11 +481,20 @@ export function SignupPage() {
               </p>
               <div className="signup-company-fields">
                 <label className="signup-field"><span>기업명</span><input aria-label="기업명" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="예: 인보이스엑스 주식회사" readOnly={resumingOnboarding} required /></label>
-                <label className="signup-field"><span>국가 코드</span><input aria-label="국가 코드" value={countryCode} onChange={(event) => setCountryCode(event.target.value.toUpperCase())} placeholder="예: KR, US, SG" maxLength={2} readOnly={resumingOnboarding} required /></label>
-                <label className="signup-field"><span>기업 등록번호</span><input aria-label="기업 등록번호" value={registrationNumber} onChange={(event) => setRegistrationNumber(event.target.value)} placeholder="국가별 기업 등록번호" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field">
+                  <span>국가 코드</span>
+                  <output className="signup-field__fixed" aria-label="국가 코드">{countryCode}</output>
+                </label>
+                <label className="signup-field"><span>{countryCode === "US" ? "미국 EIN" : "기업 등록번호"}</span><input aria-label="기업 등록번호" inputMode="numeric" maxLength={countryCode === "US" ? 10 : 12} value={registrationNumber} onChange={(event) => setRegistrationNumber(countryCode === "US" ? formatUsEin(event.target.value) : formatKoreanBusinessRegistration(event.target.value))} placeholder={countryCode === "US" ? "예: 12-3456789" : "예: 123-45-67890"} readOnly={resumingOnboarding} required /></label>
                 <label className="signup-field"><span>담당자명</span><input aria-label="담당자명" value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="예: 홍길동" readOnly={resumingOnboarding} required /></label>
                 <label className="signup-field"><span>담당자 직책</span><input aria-label="담당자 직책" value={contactTitle} onChange={(event) => setContactTitle(event.target.value)} placeholder="예: 재무팀 매니저" readOnly={resumingOnboarding} required /></label>
-                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="예: +82 10-1234-5678 또는 010-1234-5678" readOnly={resumingOnboarding} required /></label>
+                <label className="signup-field signup-field--full"><span>담당자 연락처</span><input aria-label="담당자 연락처" inputMode="tel" maxLength={13} value={contactPhone} onChange={(event) => setContactPhone(formatKoreanPhone(event.target.value))} placeholder="예: 010-1234-5678" readOnly={resumingOnboarding} required /></label>
+                {!resumingOnboarding && (
+                  <>
+                    <label className="signup-field"><span>비밀번호</span><input aria-label="비밀번호" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="8자 이상 입력" required /></label>
+                    <label className="signup-field"><span>비밀번호 확인</span><input aria-label="비밀번호 확인" type="password" autoComplete="new-password" minLength={8} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} placeholder="비밀번호를 다시 입력" required /></label>
+                  </>
+                )}
               </div>
               <div className="signup-verified-email"><span>인증된 이메일 · {email || "finance@company.com"}</span><strong>인증 완료</strong></div>
               <button className="signup-primary-button" disabled={submitting} type="submit">

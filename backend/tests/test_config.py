@@ -8,17 +8,26 @@ from solders.pubkey import Pubkey
 from invoicex_backend.config import BackendSettings
 
 
-def test_auto_modes_use_mock_without_external_credentials() -> None:
+def test_auto_agent_mode_does_not_silently_use_demo_without_credentials() -> None:
     settings = BackendSettings(
         _env_file=None,
         AGENT_MODE="auto",
         SOLANA_MODE="auto",
-        GEMINI_API_KEY="",
+        VERTEX_AI_PROJECT_ID="",
         PRIVY_APP_ID="",
         PRIVY_APP_SECRET="",
     )
-    assert settings.resolved_agent_mode() == "mock"
+    assert settings.resolved_agent_mode() == "unavailable"
     assert settings.resolved_solana_mode() == "mock"
+
+
+def test_auto_agent_mode_uses_real_gemini_when_vertex_project_is_configured() -> None:
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="auto",
+        VERTEX_AI_PROJECT_ID="test-project",
+    )
+    assert settings.resolved_agent_mode() == "real"
 
 
 def test_auto_mode_prefers_complete_privy_configuration() -> None:
@@ -34,12 +43,12 @@ def test_auto_mode_prefers_complete_privy_configuration() -> None:
     assert settings.resolved_solana_mode() == "privy"
 
 
-def test_explicit_real_agent_requires_gemini_key() -> None:
-    with pytest.raises(ValidationError, match="GEMINI_API_KEY"):
+def test_explicit_real_agent_requires_vertex_configuration() -> None:
+    with pytest.raises(ValidationError, match="VERTEX_AI_PROJECT_ID"):
         BackendSettings(
             _env_file=None,
             AGENT_MODE="real",
-            GEMINI_API_KEY="",
+            VERTEX_AI_PROJECT_ID="",
         )
 
 

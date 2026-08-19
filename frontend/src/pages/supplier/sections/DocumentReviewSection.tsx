@@ -5,6 +5,7 @@ import {
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import invoicePreview from "../../../assets/invoice-preview.png";
+import { InvoiceRegistrationProgress } from "../../../components/InvoiceRegistrationProgress";
 import { useLanguage } from "../../../i18n/LanguageContext";
 import type { DocumentType, ExtractedField } from "../../../types/documents";
 import type { Invoice } from "../../../types/invoice";
@@ -33,7 +34,7 @@ function ReviewField({
   note?: string;
 }) {
   const { t } = useLanguage();
-  const needsReview = field.status === "REVIEW_REQUIRED" || field.status === "MISMATCH";
+  const needsReview = field.status !== "MATCHED";
   return (
     <section className={`review-field ${needsReview ? "needs-review" : ""}`}>
       <div className="review-field__meta">
@@ -47,11 +48,7 @@ function ReviewField({
           ) : (
             <>
               <CheckCircle aria-hidden="true" size={11} weight="fill" />
-              {label === "INVOICE AMOUNT" || label === "인보이스 금액"
-                ? t("Matches PO-89341", "PO-89341과 일치")
-                : label === "DELIVERY STATUS" || label === "납품 상태"
-                  ? t("Evidence matched", "증빙 일치")
-                  : t("Auto verified", "자동 검증")}
+              {t("Found in document", "문서에서 확인")}
             </>
           )}
         </span>
@@ -102,14 +99,28 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
     day: "numeric",
     year: "numeric",
   });
-  const buyerName =
-    analysis.buyerName.value === "Prime Mobility"
-      ? "Prime Mobility Co., Ltd."
-      : String(analysis.buyerName.value ?? "Not found");
-  const dueDate = analysis.dueDate.value
-    ? longDateFormatter.format(new Date(`${analysis.dueDate.value}T00:00:00`))
-    : t("Not found", "찾을 수 없음");
-  const deliveryDate = longDateFormatter.format(new Date(`${invoice.deliveryDate}T00:00:00`));
+  const notFound = t("Not found", "찾을 수 없음");
+  const formatExtractedDate = (value: string | null) => {
+    if (!value) return notFound;
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : longDateFormatter.format(date);
+  };
+  const currency = analysis.currency.value;
+  const amountField: ExtractedField<unknown> = (
+    analysis.amount.status === "MATCHED" && analysis.currency.status === "MATCHED"
+  ) ? analysis.amount : { ...analysis.amount, status: "REVIEW_REQUIRED" };
+  const displayedFields = [
+    analysis.invoiceNumber,
+    analysis.buyerName,
+    analysis.amount,
+    analysis.currency,
+    analysis.dueDate,
+    analysis.contractNumber,
+    analysis.purchaseOrderNumber,
+    analysis.deliveryCompleted,
+  ];
+  const reviewRequiredCount = displayedFields.filter((field) => field.status !== "MATCHED").length;
+  const verifiedCount = displayedFields.length - reviewRequiredCount;
 
   return (
     <section className="document-review-page">
@@ -119,16 +130,12 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
           <h1>{t("Review extracted information", "추출 정보 확인")}</h1>
           <p>{t("Compare the original document with the values found by Document Agent.", "원본 문서와 Document Agent가 찾은 값을 비교하세요.")}</p>
         </div>
-        <span className="verification-count">{t("9 of 10 verified", "10개 중 9개 검증")}</span>
+        <span className="verification-count">
+          {t(`${verifiedCount} of ${displayedFields.length} verified`, `${displayedFields.length}개 중 ${verifiedCount}개 검증`)}
+        </span>
       </header>
 
-      <div className="review-progress" aria-label={t("Invoice verification progress", "인보이스 확인 진행 상황")}>
-        <div className="review-progress__summary">
-          <strong>{t("2 / 3 Review extraction", "2 / 3 추출 정보 확인")}</strong>
-          <span>{t("Invoice verification", "인보이스 확인")}</span>
-        </div>
-        <div className="review-progress__track" aria-hidden="true"><span /></div>
-      </div>
+      <InvoiceRegistrationProgress step={2} />
 
       <div className="review-layout">
         <section className="document-review-preview" aria-label={t("Uploaded document preview", "업로드 문서 미리보기")}>
@@ -176,32 +183,51 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
         </section>
 
         <div className="review-fields">
-          <ReviewField label={t("INVOICE ID", "인보이스 ID")} field={analysis.invoiceNumber} value={String(analysis.invoiceNumber.value ?? t("Not found", "찾을 수 없음"))} />
-          <ReviewField label={t("BUYER", "구매자")} field={analysis.buyerName} value={buyerName} />
+          <ReviewField label={t("INVOICE ID", "인보이스 ID")} field={analysis.invoiceNumber} value={analysis.invoiceNumber.value ?? notFound} />
+          <ReviewField label={t("BUYER", "구매자")} field={analysis.buyerName} value={analysis.buyerName.value ?? notFound} />
           <ReviewField
             label={t("INVOICE AMOUNT", "인보이스 금액")}
-            field={analysis.amount}
+            field={amountField}
             value={analysis.amount.value === null
-              ? t("Not found", "찾을 수 없음")
-              : `${new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US").format(analysis.amount.value)} ${analysis.currency.value ?? invoice.currency}`}
+              ? notFound
+              : `${new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US").format(analysis.amount.value)}${currency ? ` ${currency}` : ""}`}
           />
-          <ReviewField label={t("DUE DATE", "만기일")} field={analysis.dueDate} value={dueDate} />
+          <ReviewField label={t("DUE DATE", "만기일")} field={analysis.dueDate} value={formatExtractedDate(analysis.dueDate.value)} />
           <ReviewField
-            label={t("CONTRACT REFERENCE", "계약 참조")}
+            label={t("CONTRACT NUMBER", "계약번호")}
             field={analysis.contractNumber}
-            value={String(analysis.contractNumber.value ?? t("Not found", "찾을 수 없음"))}
-            note={t("Two reference candidates were found. Confirm the correct value.", "참조 후보가 두 개 발견되었습니다. 올바른 값을 확인하세요.")}
+            value={analysis.contractNumber.value ?? notFound}
+            note={analysis.contractNumber.status === "MATCHED" ? undefined : t(
+              "The contract number differs between documents or could not be confirmed. Compare the invoice and contract before continuing.",
+              "계약번호가 문서 간 다르거나 명확히 확인되지 않았습니다. 인보이스와 계약서 원문을 비교해 확인하세요.",
+            )}
+          />
+          <ReviewField
+            label={t("PO NUMBER", "발주번호")}
+            field={analysis.purchaseOrderNumber}
+            value={analysis.purchaseOrderNumber.value ?? notFound}
+            note={analysis.purchaseOrderNumber.status === "MATCHED" ? undefined : t(
+              "The purchase-order number differs between documents or could not be confirmed. Compare the invoice, PO and delivery proof.",
+              "발주번호가 문서 간 다르거나 명확히 확인되지 않았습니다. 인보이스·발주서·납품증빙 원문을 비교해 확인하세요.",
+            )}
           />
           <ReviewField
             label={t("DELIVERY STATUS", "납품 상태")}
             field={analysis.deliveryCompleted}
-            value={`${analysis.deliveryCompleted.value ? t("Completed", "완료") : t("Not completed", "미완료")} · ${deliveryDate}`}
+            value={analysis.deliveryCompleted.value === null
+              ? notFound
+              : analysis.deliveryCompleted.value ? t("Completed", "완료") : t("Not completed", "미완료")}
           />
         </div>
       </div>
 
       <footer className="review-actions">
-        <p>{t("1 item needs your confirmation before sending to the buyer.", "구매자에게 보내기 전에 1개 항목을 확인해야 합니다.")}</p>
+        <p>{reviewRequiredCount > 0
+          ? t(
+            `${reviewRequiredCount} extracted field(s) need confirmation before sending to the buyer.`,
+            `구매자에게 보내기 전에 추출 항목 ${reviewRequiredCount}개를 확인해야 합니다.`,
+          )
+          : t("All extracted fields were verified against the uploaded documents.", "모든 추출 항목이 업로드 문서에서 확인되었습니다.")}</p>
         <button className="primary-button review-confirm" type="button" onClick={onConfirm} disabled={isPending}>
           {isPending ? t("Requesting verification...", "검증 요청 중...") : t("Confirm and continue", "확인 후 계속")}
           {!isPending && <ArrowRight aria-hidden="true" size={14} weight="bold" />}

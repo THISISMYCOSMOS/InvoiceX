@@ -13,8 +13,11 @@ class BackendSettings(BaseSettings):
     """Runtime configuration with explicit real/mock integration modes."""
 
     model_config = SettingsConfigDict(
+        # Backend development uses Vertex AI configuration from backend/.env;
+        # it never imports legacy Agent API-key settings.
         env_file=("../.env", ".env"),
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         extra="ignore",
         case_sensitive=True,
     )
@@ -113,7 +116,7 @@ class BackendSettings(BaseSettings):
         validation_alias=AliasChoices("VERTEX_AI_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT_ID"),
     )
     vertex_ai_location: str = Field(
-        default="us-central1",
+        default="global",
         validation_alias="VERTEX_AI_LOCATION",
         min_length=1,
     )
@@ -131,16 +134,12 @@ class BackendSettings(BaseSettings):
     cloud_tasks_service_account_email: str | None = Field(
         default=None, validation_alias="CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL"
     )
-    gemini_api_key: str | None = Field(
-        default=None,
-        validation_alias="GEMINI_API_KEY",
-    )
     gemini_model: str = Field(
         default="gemini-3.6-flash",
         validation_alias="GEMINI_MODEL",
     )
     gemini_timeout_seconds: float = Field(
-        default=60,
+        default=180,
         validation_alias="GEMINI_TIMEOUT_SECONDS",
         gt=0,
         le=300,
@@ -353,8 +352,8 @@ class BackendSettings(BaseSettings):
                     raise ValueError(
                         "GCP mock settlement requires configuration: " + ", ".join(absent)
                     )
-        if self.agent_mode == "real" and not self._non_blank(self.gemini_api_key):
-            raise ValueError("AGENT_MODE=real requires GEMINI_API_KEY")
+        if self.agent_mode == "real" and not self._non_blank(self.vertex_ai_project_id):
+            raise ValueError("AGENT_MODE=real requires VERTEX_AI_PROJECT_ID")
         if self.solana_mode == "privy":
             missing = self.missing_privy_configuration()
             if missing:
@@ -371,9 +370,13 @@ class BackendSettings(BaseSettings):
                 raise ValueError("GASLESS_ENABLED requires configuration: " + ", ".join(missing))
         return self
 
-    def resolved_agent_mode(self) -> Literal["real", "mock"]:
+    def resolved_agent_mode(self) -> Literal["real", "mock", "unavailable"]:
         if self.agent_mode == "auto":
-            return "real" if self._non_blank(self.vertex_ai_project_id) else "mock"
+            if self._non_blank(self.vertex_ai_project_id):
+                return "real"
+            # Auto mode must never fabricate extraction data. Demo analysis is
+            # available only when AGENT_MODE=mock is selected explicitly.
+            return "unavailable"
         return self.agent_mode
 
     def resolved_solana_mode(self) -> Literal["direct", "privy", "mock"]:

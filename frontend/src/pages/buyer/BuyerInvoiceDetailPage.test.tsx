@@ -55,3 +55,24 @@ test("shows the Figma maturity-payment screen for a funded invoice", () => {
   expect(screen.getByRole("button", { name: "Copy address" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Download payment guide" })).not.toBeInTheDocument();
 });
+
+test("shows the detailed two-step confirmation record after buyer confirmation", () => {
+  render(
+    <MemoryRouter>
+      <BuyerInvoiceDetailContent
+        invoice={{
+          ...DEMO_INVOICE,
+          status: "OFFER_READY",
+          verificationConfirmedAt: "2026-08-19T07:14:00.000Z",
+        }}
+        onConfirm={() => undefined}
+      />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByText("2 / 2 Buyer confirmation complete")).toBeInTheDocument();
+  expect(screen.getByText("Original invoice number")).toBeInTheDocument();
+  expect(screen.getByText("Transaction evidence")).toBeInTheDocument();
+  expect(screen.getByText("Confirmation record")).toBeInTheDocument();
+  expect(screen.getByText("Buyer Confirmed")).toBeInTheDocument();
+});

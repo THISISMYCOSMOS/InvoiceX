@@ -1,10 +1,8 @@
-"""Regression test for buyer-allowlist matching against the registered buyer
-identity rather than the Document Agent's (Gemini) extracted buyer name.
+"""Regression test for buyer-allowlist matching against extracted documents.
 
-See service.py `_apply_extracted_metadata` / `_evaluate_mandate`: mandate
-policy decisions must key off the pre-registered buyer party (BUYER_PRIME /
-"Prime Mobility"), because AGENT_MODE=real can extract a Korean company name
-that will never exact-match an English allowlist entry.
+An uploaded buyer name must not be silently replaced with the old Demo buyer
+identity. A genuinely different buyer therefore requires a matching mandate
+allowlist entry instead of inheriting Prime Mobility's approval.
 """
 
 from __future__ import annotations
@@ -62,7 +60,7 @@ def _create_signed_mandate(client: TestClient, *, policy: dict[str, object]) -> 
     return investor
 
 
-def test_mandate_approves_korean_buyer_name_extraction(
+def test_mandate_rejects_unlisted_extracted_buyer_name(
     tmp_path,
     contract_files: dict[str, tuple[str, bytes, str]],
 ) -> None:
@@ -116,5 +114,6 @@ def test_mandate_approves_korean_buyer_name_extraction(
         assert response.status_code == 200
 
         final = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
-        assert final["agentDecision"]["checks"]["buyerAllowlist"] is True
-        assert final["status"] == "FUNDED"
+        assert final["buyer"]["name"] == "(주)프라임모빌리티"
+        assert final["agentDecision"]["checks"]["buyerAllowlist"] is False
+        assert final["status"] == "RWA_ISSUED"

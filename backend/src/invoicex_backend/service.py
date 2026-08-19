@@ -9,7 +9,7 @@ import logging
 import re
 import secrets
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
@@ -39,6 +39,7 @@ from invoicex_backend.errors import (
     NotFoundError,
     StateConflictError,
 )
+from invoicex_backend.early_settlement import calculate_early_settlement_breakdown
 from invoicex_backend.models import (
     AgentDecision,
     AgentTrace,
@@ -50,6 +51,7 @@ from invoicex_backend.models import (
     CreateMandateRequest,
     DocumentAnalysis,
     DocumentType,
+    EarlySettlementTerms,
     ExtractedFieldStatus,
     InvestorDashboard,
     InvestorMandate,
@@ -62,6 +64,7 @@ from invoicex_backend.models import (
     PositiveFactor,
     RiskFactor,
     RiskPassport,
+    RiskScoreFactor,
     RwaAsset,
     Settlement,
     SponsorVaultDepositRequest,
@@ -83,6 +86,7 @@ from invoicex_backend.risk_scoring import (
 )
 from invoicex_backend.solana import SolanaGateway
 from invoicex_backend.storage import DocumentStorage
+from invoicex_backend.valuation import value_invoice_in_usdc
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +155,7 @@ class InvoiceService:
         for verification in self._repository.list_verifications():
             self._verifications[verification.id] = verification
         self._agent_analyses = self._repository.list_analyses()
+        self._reconcile_registered_buyer_companies()
 
         self._invoice_sequence = self._max_id_suffix(self._invoices.keys(), "INV-")
         self._verification_sequence = self._max_id_suffix(self._verifications.keys(), "VER-")
@@ -162,6 +167,14 @@ class InvoiceService:
             trace.id for invoice in self._invoices.values() for trace in invoice.agent_traces
         ]
         self._trace_sequence = self._max_id_suffix(trace_ids, "TRACE-")
+
+    def _reconcile_registered_buyer_companies(self) -> None:
+        for invoice in self._invoices.values():
+            company = self._repository.find_company_by_name(invoice.buyer.name, "BUYER")
+            if company is None or invoice.buyer.id == company.id:
+                continue
+            invoice.buyer = invoice.buyer.model_copy(update={"id": company.id})
+            self._save_invoice(invoice)
 
     @staticmethod
     def _max_id_suffix(ids: Iterable[str], prefix: str) -> int:
@@ -196,7 +209,6 @@ class InvoiceService:
         self._validate_uploads(uploads)
         invoice_id, document_ids = await self._reserve_invoice_ids(len(uploads))
         now = datetime.now(UTC)
-        invoice_number = int(invoice_id[-3:])
         supplier = InvoiceParty(
             id="SUPPLIER_ALPHA",
             name="Alpha Components",
@@ -213,22 +225,25 @@ class InvoiceService:
         invoice = Invoice(
             id=invoice_id,
             supplier=supplier,
-            buyer=InvoiceParty(id="BUYER_PRIME", name="Prime Mobility"),
+            buyer=InvoiceParty(id="BUYER_PRIME", name="확인 필요"),
             investor=InvoiceParty(
                 id="INVESTOR_NOVA",
                 name="Nova Capital",
                 vault_address=self._settings.investor_settlement_wallet_address,
             ),
-            invoice_amount=3,
-            currency="USDC",
+            invoice_amount=0,
+            # This provisional value is never used as extracted data. It only
+            # satisfies the Invoice schema until Document Agent returns.
+            currency="UNKNOWN",
             issue_date=now.date().isoformat(),
             due_date=(now + timedelta(days=90)).date().isoformat(),
             delivery_date=(now - timedelta(days=5)).date().isoformat(),
-            contract_number=f"PM-SUPPLY-{now.year}-04",
-            purchase_order_number=f"PO-{89340 + invoice_number}",
+            contract_number="",
+            purchase_order_number="",
             status=InvoiceStatus.DOCUMENT_ANALYZING,
             verification_id=None,
             verification_requested_at=None,
+            verification_confirmed_at=None,
             documents=[],
             analysis=None,
             risk_passport=None,
@@ -304,6 +319,7 @@ class InvoiceService:
         self,
         identity: AuthenticatedIdentity | None = None,
     ) -> list[Invoice]:
+        self._reconcile_buyer_invoices(identity)
         return [
             self._copy_invoice(invoice)
             for invoice in sorted(
@@ -319,6 +335,7 @@ class InvoiceService:
         invoice_id: str,
         identity: AuthenticatedIdentity | None = None,
     ) -> Invoice:
+        self._reconcile_buyer_invoices(identity)
         invoice = self._invoice(invoice_id)
         self.assert_invoice_access(invoice, identity)
         return self._copy_invoice(invoice)
@@ -539,13 +556,23 @@ class InvoiceService:
             ):
                 raise StateConflictError("현재 상태에서는 Buyer 검증을 확정할 수 없습니다.")
 
-            verification.status = VerificationStatus.CONFIRMED
-            invoice.status = InvoiceStatus.RISK_ASSESSING
             agent_analysis = self._agent_analyses[invoice.id]
+            try:
+                valuation = value_invoice_in_usdc(
+                    invoice_amount=invoice.invoice_amount,
+                    currency=invoice.currency,
+                )
+            except ValueError as exc:
+                raise StateConflictError(
+                    "RWA 발행은 현재 USD 또는 USDC 인보이스만 USDC 기준으로 산정할 수 있습니다."
+                ) from exc
+            verification.status = VerificationStatus.CONFIRMED
+            invoice.verification_confirmed_at = datetime.now(UTC).isoformat()
+            invoice.status = InvoiceStatus.RISK_ASSESSING
             score_result = self._risk_scoring.evaluate(
                 RiskScoringRequest(
                     invoice_id=invoice.id,
-                    face_value_usdc=invoice.invoice_amount,
+                    face_value_usdc=valuation.face_value_usdc,
                     has_document_mismatches=bool(agent_analysis.mismatches),
                     buyer_confirmed=True,
                     remaining_term_days=max(
@@ -572,6 +599,14 @@ class InvoiceService:
                 reason.factor_code: reason.explanation for reason in risk_result.risk_reasons
             }
             positive_codes = {"BUYER_CONFIRMED", "DOCUMENT_CONSISTENCY"}
+            early_terms = (
+                calculate_early_settlement_breakdown(
+                    face_value_usdc=valuation.face_value_usdc,
+                    advance_amount_usdc=decision.advance_amount_usdc,
+                )
+                if decision.advance_amount_usdc is not None
+                else None
+            )
             invoice.risk_passport = RiskPassport(
                 invoice_id=invoice.id,
                 eligibility=decision.eligibility,
@@ -595,6 +630,24 @@ class InvoiceService:
                 ],
                 suggested_advance_rate_bps=decision.advance_rate_bps,
                 suggested_advance_amount_usdc=decision.advance_amount_usdc,
+                invoice_face_value_usdc=valuation.face_value_usdc,
+                source_currency_to_usdc_rate=valuation.source_currency_to_usdc_rate,
+                data_coverage_bps=score_result.data_coverage_bps,
+                score_factors=[
+                    RiskScoreFactor(
+                        key=factor.key,
+                        label=factor.label,
+                        score=factor.score,
+                        max_score=factor.max_score,
+                        source=factor.source,
+                        detail=factor.detail,
+                        synthetic=factor.synthetic,
+                    )
+                    for factor in score_result.factors
+                ],
+                early_settlement_terms=(
+                    EarlySettlementTerms(**asdict(early_terms)) if early_terms is not None else None
+                ),
                 model_name=self._agents.model_name,
                 policy_version=score_result.method_version,
                 generated_at=datetime.now(UTC).isoformat(),
@@ -669,6 +722,10 @@ class InvoiceService:
                     result=issued.transaction,
                     amount_usdc=0,
                     to_address=issued.escrow_token_account,
+                ),
+                face_value_usdc=invoice.risk_passport.invoice_face_value_usdc if invoice.risk_passport else None,
+                issuance_price_usdc=(
+                    invoice.risk_passport.suggested_advance_amount_usdc if invoice.risk_passport else None
                 ),
             )
             self._repository.save_rwa_asset(asset)
@@ -1052,8 +1109,17 @@ class InvoiceService:
             attribute: str,
             alias: str,
             converter: Callable[[object], object] | None = None,
+            preferred_types: tuple[DocumentType, ...] = (),
         ) -> dict[str, object]:
-            for document in result.documents:
+            preference = {document_type: index for index, document_type in enumerate(preferred_types)}
+            ordered_documents = sorted(
+                result.documents,
+                key=lambda document: preference.get(
+                    document_types[document.document_id],
+                    len(preference),
+                ),
+            )
+            for document in ordered_documents:
                 value = getattr(document.extracted_data, attribute)
                 if value is None:
                     continue
@@ -1091,18 +1157,44 @@ class InvoiceService:
         return DocumentAnalysis(
             invoice_id=invoice_id,
             status=AnalysisStatus.COMPLETED,
-            invoice_number=field("invoice_number", "invoiceNumber"),
-            supplier_name=field("supplier_name", "supplierName"),
-            buyer_name=field("buyer_name", "buyerName"),
-            amount=field("total_amount", "totalAmount", self._parse_amount),
-            currency=field("currency", "currency"),
-            due_date=field("due_date", "dueDate"),
-            contract_number=field("contract_number", "contractNumber"),
+            invoice_number=field(
+                "invoice_number", "invoiceNumber", preferred_types=(DocumentType.INVOICE,)
+            ),
+            supplier_name=field(
+                "supplier_name", "supplierName", preferred_types=(DocumentType.INVOICE,)
+            ),
+            buyer_name=field(
+                "buyer_name", "buyerName", preferred_types=(DocumentType.INVOICE,)
+            ),
+            amount=field(
+                "total_amount",
+                "totalAmount",
+                self._parse_amount,
+                (DocumentType.INVOICE, DocumentType.PURCHASE_ORDER),
+            ),
+            currency=field(
+                "currency", "currency", preferred_types=(DocumentType.INVOICE,)
+            ),
+            due_date=field("due_date", "dueDate", preferred_types=(DocumentType.INVOICE,)),
+            contract_number=field(
+                "contract_number",
+                "contractNumber",
+                preferred_types=(DocumentType.CONTRACT, DocumentType.INVOICE),
+            ),
             purchase_order_number=field(
                 "purchase_order_number",
                 "purchaseOrderNumber",
+                preferred_types=(
+                    DocumentType.PURCHASE_ORDER,
+                    DocumentType.INVOICE,
+                    DocumentType.DELIVERY_PROOF,
+                ),
             ),
-            delivery_completed=field("delivery_completed", "deliveryCompleted"),
+            delivery_completed=field(
+                "delivery_completed",
+                "deliveryCompleted",
+                preferred_types=(DocumentType.DELIVERY_PROOF, DocumentType.INVOICE),
+            ),
             model_name=self._agents.model_name,
             prompt_version="document-agent.v1",
             analyzed_at=datetime.now(UTC).isoformat(),
@@ -1116,15 +1208,21 @@ class InvoiceService:
         analysis = invoice.analysis
         if analysis is None:
             return
-        invoice.invoice_amount = analysis.amount.value or invoice.invoice_amount
-        invoice.due_date = analysis.due_date.value or invoice.due_date
-        invoice.contract_number = analysis.contract_number.value or invoice.contract_number
-        invoice.purchase_order_number = (
-            analysis.purchase_order_number.value or invoice.purchase_order_number
-        )
-        invoice.supplier.name = analysis.supplier_name.value or invoice.supplier.name
+        if analysis.amount.value is not None:
+            invoice.invoice_amount = analysis.amount.value
+        if analysis.currency.value is not None:
+            invoice.currency = analysis.currency.value
+        if analysis.due_date.value is not None:
+            invoice.due_date = analysis.due_date.value
+        if analysis.contract_number.value is not None:
+            invoice.contract_number = analysis.contract_number.value
+        if analysis.purchase_order_number.value is not None:
+            invoice.purchase_order_number = analysis.purchase_order_number.value
+        if analysis.supplier_name.value is not None:
+            invoice.supplier.name = analysis.supplier_name.value
         buyer_name = analysis.buyer_name.value
         if buyer_name:
+            invoice.buyer.name = buyer_name
             buyer_company = self._repository.find_company_by_name(buyer_name, "BUYER")
             if buyer_company is not None:
                 invoice.buyer.id = buyer_company.id
@@ -1287,6 +1385,30 @@ class InvoiceService:
         if not self._can_access_invoice(invoice, identity):
             raise NotFoundError(f"Invoice {invoice.id}를 찾을 수 없습니다.")
 
+    def _reconcile_buyer_invoices(
+        self,
+        identity: AuthenticatedIdentity | None,
+    ) -> None:
+        if (
+            identity is None
+            or identity.source != "PRIVY"
+            or identity.role is not LoginRole.BUYER
+            or identity.company_id is None
+            or not identity.company_name
+        ):
+            return
+
+        company_name = identity.company_name.strip().casefold()
+        for invoice in self._invoices.values():
+            if (
+                invoice.buyer.id != identity.company_id
+                and invoice.buyer.name.strip().casefold() == company_name
+            ):
+                invoice.buyer = invoice.buyer.model_copy(
+                    update={"id": identity.company_id}
+                )
+                self._save_invoice(invoice)
+
     def assert_wallet_ownership(
         self,
         wallet_address: str,
@@ -1362,11 +1484,15 @@ class InvoiceService:
             and self._repository.committed_for_mandate(mandate.id) + amount
             <= policy.total_investment_limit_usdc
         )
+        registered_buyer = self._repository.get_company(invoice.buyer.id)
+        mandate_buyer_name = (
+            registered_buyer.name if registered_buyer is not None else invoice.buyer.name
+        )
         checks = {
             "policyActive": is_policy_active,
             "riskEligible": bool(passport and passport.eligibility.value == "ELIGIBLE"),
             "minimumRiskScore": is_minimum_risk_score,
-            "buyerAllowlist": invoice.buyer.name in policy.buyer_allowlist,
+            "buyerAllowlist": mandate_buyer_name in policy.buyer_allowlist,
             "maximumRemainingTerm": remaining_days <= policy.maximum_remaining_term_days,
             "perInvoiceLimit": bool(amount is not None and amount <= policy.per_invoice_limit_usdc),
             "totalInvestmentLimit": is_total_investment_within_limit,

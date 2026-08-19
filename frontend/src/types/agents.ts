@@ -11,6 +11,32 @@ export interface RiskPassport {
   }>;
   suggestedAdvanceRateBps: number | null;
   suggestedAdvanceAmountUsdc: number | null;
+  invoiceFaceValueUsdc?: number | null;
+  sourceCurrencyToUsdcRate?: number | null;
+  dataCoverageBps: number;
+  scoreFactors: Array<{
+    key: string;
+    label: string;
+    score: number | null;
+    maxScore: number;
+    source: "SYNTHETIC_DEMO_DATA" | "INVOICE_DATA" | "INVOICEX_DATA" | "DOCUMENT_AGENT";
+    detail?: string;
+    synthetic: boolean;
+  }>;
+  earlySettlementTerms?: {
+    faceValueUsdc: number;
+    discountAmountUsdc: number;
+    discountRateBps: number;
+    investorRequiredReturnUsdc: number;
+    platformFeeUsdc: number;
+    reserveAmountUsdc: number;
+    reserveRateBps: number;
+    initialAdvanceUsdc: number;
+    expectedReserveReturnUsdc: number;
+    expectedFinalProceedsUsdc: number;
+    settlementAsset: "USDC";
+    network: "SOLANA_DEVNET";
+  } | null;
   modelName?: string;
   policyVersion?: string;
   generatedAt?: string;

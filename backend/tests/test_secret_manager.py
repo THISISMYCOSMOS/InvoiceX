@@ -73,7 +73,6 @@ def test_enabled_injects_missing_keys_from_secret_manager(
 
     fake_client = _FakeSecretManagerClient(
         {
-            "gemini-api-key": "sm-gemini-value",
             "solana-rpc-url": "https://sm.example.com/rpc",
             "privy-app-id": "sm-privy-app-id",
             "privy-app-secret": "sm-privy-app-secret",
@@ -85,7 +84,6 @@ def test_enabled_injects_missing_keys_from_secret_manager(
 
     settings = load_settings(client_factory=lambda: fake_client)
 
-    assert settings.gemini_api_key == "sm-gemini-value"
     assert settings.solana_rpc_url == "https://sm.example.com/rpc"
     assert settings.privy_app_id == "sm-privy-app-id"
 
@@ -98,13 +96,13 @@ def test_enabled_does_not_overwrite_existing_env_value(
     monkeypatch.setenv("SECRET_MANAGER_ENABLED", "true")
     monkeypatch.setenv("GCP_PROJECT_ID", "demo-project")
     monkeypatch.setenv("SECRET_NAME_PREFIX", "")
-    monkeypatch.setenv("GEMINI_API_KEY", "env-value-must-survive")
+    monkeypatch.setenv("PRIVY_APP_ID", "env-value-must-survive")
 
-    fake_client = _FakeSecretManagerClient({"gemini-api-key": "sm-value-should-be-ignored"})
+    fake_client = _FakeSecretManagerClient({"privy-app-id": "sm-value-should-be-ignored"})
 
     settings = load_settings(client_factory=lambda: fake_client)
 
-    assert settings.gemini_api_key == "env-value-must-survive"
+    assert settings.privy_app_id == "env-value-must-survive"
 
 
 def test_secret_manager_failure_falls_back_without_raising(
@@ -123,5 +121,4 @@ def test_secret_manager_failure_falls_back_without_raising(
     # naturally inside BackendSettings without this test asserting on real
     # root .env contents).
     assert isinstance(settings, BackendSettings)
-    assert "GEMINI_API_KEY" not in os.environ
     assert "SOLANA_RPC_URL" not in os.environ

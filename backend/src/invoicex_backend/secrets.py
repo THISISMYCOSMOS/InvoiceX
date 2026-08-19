@@ -17,9 +17,6 @@ logger = logging.getLogger(__name__)
 # Env var name -> Secret Manager secret id (kebab-case). Wallet addresses are public
 # and intentionally excluded.
 MANAGED_SECRET_KEYS: dict[str, str] = {
-    # Retained only for local backwards compatibility. Cloud Run's production
-    # deployment deliberately does not bind this secret and uses Vertex ADC.
-    "GEMINI_API_KEY": "gemini-api-key",
     "PRIVY_APP_ID": "privy-app-id",
     "PRIVY_APP_SECRET": "privy-app-secret",
     "PRIVY_VERIFICATION_KEY": "privy-verification-key",

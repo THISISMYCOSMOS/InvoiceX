@@ -24,6 +24,8 @@ test("navigates to the returned invoice from the mock quick-registration action"
     </QueryClientProvider>,
   );
 
+  expect(screen.getByText("1 / 3 Upload documents")).toHaveAttribute("aria-current", "step");
+
   await user.click(screen.getByRole("button", { name: "Register demo invoice" }));
 
   expect(await screen.findByText("Invoice detail route")).toBeInTheDocument();

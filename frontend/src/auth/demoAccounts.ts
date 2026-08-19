@@ -1,4 +1,5 @@
 export type LoginRole = "Supplier" | "Buyer" | "Investor";
+export type SessionAuthMode = "DEMO" | "MEMBER";
 
 export interface DemoAccount {
   role: LoginRole;
@@ -11,6 +12,7 @@ export interface DemoSession {
   email: string;
   authenticatedAt: string;
   accessToken?: string;
+  authMode?: SessionAuthMode;
 }
 
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
@@ -39,12 +41,14 @@ export function saveDemoSession(
   account: Pick<DemoAccount, "role" | "email">,
   remember: boolean,
   accessToken?: string,
+  authMode: SessionAuthMode = "DEMO",
 ) {
   const session: DemoSession = {
     role: account.role,
     email: account.email,
     authenticatedAt: new Date().toISOString(),
     accessToken,
+    authMode,
   };
   const target = remember ? window.localStorage : window.sessionStorage;
   const other = remember ? window.sessionStorage : window.localStorage;

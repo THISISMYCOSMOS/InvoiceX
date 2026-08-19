@@ -1,0 +1,69 @@
+- generic [ref=e38]:
+  - banner [ref=e39]:
+    - link "InvoiceX home" [ref=e40] [cursor=pointer]:
+      - /url: /investor
+      - generic [ref=e41]: InvoiceX
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]: Switch role
+        - combobox "Switch role" [ref=e45] [cursor=pointer]:
+          - option "Supplier"
+          - option "Buyer"
+          - option "Investor" [selected]
+      - button "한국어로 전환" [ref=e46] [cursor=pointer]:
+        - generic [ref=e49]: 한국어
+      - button "Notifications" [ref=e51] [cursor=pointer]
+      - strong [ref=e54]: Nova Capital
+  - generic [ref=e55]:
+    - complementary [ref=e56]:
+      - generic [ref=e57]: INVESTOR
+      - navigation "Investor navigation" [ref=e58]:
+        - link "Dashboard" [ref=e59] [cursor=pointer]:
+          - /url: /investor
+        - link "Agent Activity" [ref=e60] [cursor=pointer]:
+          - /url: /investor/activities
+        - link "Investment Policy" [ref=e61] [cursor=pointer]:
+          - /url: /investor/investment-policy
+        - link "Funds conversion" [ref=e62] [cursor=pointer]:
+          - /url: /investor/funds-conversion
+        - link "Vault" [ref=e63] [cursor=pointer]:
+          - /url: /investor/vault
+        - link "Profile" [ref=e64] [cursor=pointer]:
+          - /url: /investor/profile
+    - main [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - heading "Dashboard" [level=1] [ref=e69]
+            - paragraph [ref=e70]: Monitor available capital, outstanding positions, and exceptions requiring action.
+            - generic [ref=e71]: Auto-invest inactive · Mandate draft
+          - link "Manage Investment Policy" [ref=e72] [cursor=pointer]:
+            - /url: /investor/investment-policy
+        - generic "Treasury summary" [ref=e73]:
+          - article [ref=e74]:
+            - generic [ref=e75]: Available to invest
+            - strong [ref=e76]: 0 USDC
+          - article [ref=e77]:
+            - generic [ref=e78]: Total profit
+            - strong [ref=e79]: 0 USDC
+          - article [ref=e80]:
+            - generic [ref=e81]: Auto-invested RWA
+            - strong [ref=e82]: 0 invoices
+          - article [ref=e83]:
+            - generic [ref=e84]: Overdue receivables
+            - strong [ref=e85]: 0 invoices
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - heading "Recent Agent decisions" [level=2] [ref=e88]
+            - link "View all Agent Activity" [ref=e89] [cursor=pointer]:
+              - /url: /investor/activities
+          - table "Recent Agent decisions" [ref=e91]:
+            - rowgroup [ref=e92]:
+              - row [ref=e93]:
+                - columnheader "Invoice" [ref=e94]
+                - columnheader "Decision" [ref=e95]
+                - columnheader "Amount" [ref=e96]
+                - columnheader "Time" [ref=e97]
+            - rowgroup [ref=e98]:
+              - row [ref=e99]:
+                - cell "No Agent decisions yet. Review all activity when decisions begin." [ref=e100]

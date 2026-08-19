@@ -1,9 +1,10 @@
 import { CaretDown, CheckCircle, Info, MagnifyingGlass, ShieldCheck, Signature, SlidersHorizontal, SquaresFour } from "@phosphor-icons/react";
 import bs58 from "bs58";
-import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { rwaApi, type InvestorMandate, type MandatePolicyInput } from "../../api/rwa.api";
+import { useCurrentPrivyAccount } from "../../auth/currentAccount";
+import { useSignupAuth } from "../../auth/SignupAuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const fallbackBuyerCompanies = ["Prime Mobility", "Orbit Components", "Daon Logistics", "Vertex Retail"] as const;
@@ -16,6 +17,8 @@ interface InvestmentPolicyDraft {
   maximumTerm: string;
   policyTerm: string;
 }
+
+type PolicyTab = "mandate" | "conditions";
 
 const defaultPolicy: InvestmentPolicyDraft = {
   totalLimit: "1",
@@ -43,7 +46,8 @@ function policyFromMandate(policy: MandatePolicyInput): InvestmentPolicyDraft {
 
 export function InvestorInvestmentPolicyPage() {
   const { t } = useLanguage();
-  const { connected, publicKey, signMessage } = useWallet();
+  const currentAccount = useCurrentPrivyAccount();
+  const { embeddedSolanaWalletReady, signEmbeddedSolanaMessage } = useSignupAuth();
   const [policy, setPolicy] = useState(defaultPolicy);
   const [buyerCompanies, setBuyerCompanies] = useState<readonly string[]>(fallbackBuyerCompanies);
   const [activeMandateId, setActiveMandateId] = useState<string | null>(null);
@@ -53,6 +57,11 @@ export function InvestorInvestmentPolicyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<PolicyTab>("conditions");
+  const embeddedWalletAddress = currentAccount?.walletAddress ?? null;
+  const ownerWalletAddress = embeddedWalletAddress;
+  const hasEmbeddedWallet = Boolean(embeddedWalletAddress);
+  const canSignWithEmbeddedWallet = Boolean(embeddedSolanaWalletReady && embeddedWalletAddress);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,12 +74,12 @@ export function InvestorInvestmentPolicyPage() {
   }, []);
 
   useEffect(() => {
-    if (!publicKey) {
+    if (!ownerWalletAddress) {
       setActiveMandateId(null);
       return;
     }
     let cancelled = false;
-    void rwaApi.getActiveMandate(publicKey.toBase58())
+    void rwaApi.getActiveMandate(ownerWalletAddress)
       .then((mandate: InvestorMandate | null) => {
         if (cancelled || mandate === null) return;
         setPolicy(policyFromMandate(mandate.policy));
@@ -81,7 +90,7 @@ export function InvestorInvestmentPolicyPage() {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "저장된 투자 권한을 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [publicKey]);
+  }, [ownerWalletAddress]);
 
   const updatePolicy = <Key extends keyof InvestmentPolicyDraft>(key: Key, value: InvestmentPolicyDraft[Key]) => {
     setPolicy((current) => ({ ...current, [key]: value }));
@@ -99,10 +108,11 @@ export function InvestorInvestmentPolicyPage() {
   };
 
   const activateMandate = async () => {
-    if (!publicKey || !signMessage) {
-      setError(t("Connect a wallet that supports message signing first.", "메시지 서명을 지원하는 기관 지갑을 먼저 연결해 주세요."));
+    if (!embeddedWalletAddress || !embeddedSolanaWalletReady) {
+      setError(t("Your embedded wallet is not ready for signing yet.", "임베디드 지갑을 아직 서명에 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."));
       return;
     }
+    const signingWalletAddress = embeddedWalletAddress;
     if (policy.buyerAllowlist.length === 0) {
       setError(t("Select at least one buyer company before signing.", "서명하기 전에 구매기업을 하나 이상 선택해 주세요."));
       return;
@@ -119,10 +129,9 @@ export function InvestorInvestmentPolicyPage() {
         maximumRemainingTermDays: parseAmount(policy.maximumTerm),
         expiresAt: policy.policyTerm,
       };
-      const ownerWalletAddress = publicKey.toBase58();
-      const { canonicalMessage } = await rwaApi.prepareMandate(ownerWalletAddress, policyInput);
-      const signature = await signMessage(new TextEncoder().encode(canonicalMessage));
-      const mandate = await rwaApi.createMandate(ownerWalletAddress, policyInput, bs58.encode(signature));
+      const { canonicalMessage } = await rwaApi.prepareMandate(signingWalletAddress, policyInput);
+      const signature = await signEmbeddedSolanaMessage(signingWalletAddress, new TextEncoder().encode(canonicalMessage));
+      const mandate = await rwaApi.createMandate(signingWalletAddress, policyInput, bs58.encode(signature));
       setActiveMandateId(mandate.id);
       setHasPolicyChanges(false);
       setSuccess(t("Investment Policy is signed and active.", "Investment Policy가 서명되어 활성화되었습니다."));
@@ -147,37 +156,64 @@ export function InvestorInvestmentPolicyPage() {
     <section className="investor-setup-page">
       <header className="investor-page-heading investor-setup-heading">
         <div>
-          <p className="investor-breadcrumb">{t("Investor / Investment Policy", "투자자 / Investment Policy")}</p>
-          <h1>{t("Investment Policy", "Investment Policy")}</h1>
+          <p className="investor-breadcrumb">{t("Investor / Investment Policy", "투자자 / 투자 정책")}</p>
+          <h1>{t("Investment Policy", "투자 정책")}</h1>
           <p>{t("Define the conditions Treasury Agent must meet before investing from your Vault.", "Treasury Agent가 Vault 자금으로 투자하기 전에 충족해야 할 조건을 관리하세요.")}</p>
         </div>
       </header>
 
+      <div className="investor-activity-filters investor-policy-tabs" role="tablist" aria-label={t("Investment Policy sections", "투자 정책 구분")}>
+        <button
+          id="investment-conditions-tab"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "conditions"}
+          aria-controls="investment-conditions-panel"
+          className={activeTab === "conditions" ? "is-active" : ""}
+          onClick={() => setActiveTab("conditions")}
+        >
+          {t("Investment conditions", "투자 조건")}
+        </button>
+        <button
+          id="investment-mandate-tab"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "mandate"}
+          aria-controls="investment-mandate-panel"
+          className={activeTab === "mandate" ? "is-active" : ""}
+          onClick={() => setActiveTab("mandate")}
+        >
+          {t("Mandate", "Mandate")}
+        </button>
+      </div>
+
       <div className="investor-setup-stack">
-        <section className="investor-setup-policy-card">
+        {activeTab === "mandate" ? (
+          <section id="investment-mandate-panel" className="investor-setup-policy-card" role="tabpanel" aria-labelledby="investment-mandate-tab">
           <header>
             <span className="investor-setup-icon" aria-hidden="true"><ShieldCheck size={18} weight="bold" /></span>
             <div>
-              <h2>{t("Investment Mandate", "Investment Mandate")}</h2>
-              <p>{t("A wallet-signed authorization for Treasury Agent to invest within the policy below.", "아래 정책 범위에서 Treasury Agent가 투자하도록 승인하는 지갑 서명 권한입니다.")}</p>
+              <h2>{t("Investment Mandate", "투자 Mandate")}</h2>
+              <p>{t("An embedded-wallet-signed authorization for Treasury Agent to invest within the policy below.", "아래 정책 범위에서 Treasury Agent가 투자하도록 승인하는 임베디드 지갑 서명 권한입니다.")}</p>
             </div>
             <span className={`investor-setup-draft ${mandateState === "ACTIVE" ? "is-active" : mandateState === "CHANGES_REQUIRE_SIGNATURE" ? "is-resign-required" : ""}`}>{mandateStateLabel}</span>
           </header>
           <div className="investor-authorization-card__body">
             <dl className="investor-authorization-summary">
-              <div><dt>{t("Authorization", "자동 투자 권한")}</dt><dd>{t("Wallet-signed Mandate", "지갑 서명 Mandate")}</dd></div>
+              <div><dt>{t("Authorization", "자동 투자 권한")}</dt><dd>{t("Embedded wallet-signed Mandate", "임베디드 지갑 서명 Mandate")}</dd></div>
               <div><dt>{t("Authorized agent", "실행 에이전트")}</dt><dd>Treasury Agent</dd></div>
               <div><dt>{t("Payment source", "결제 재원")}</dt><dd>Vault · USDC</dd></div>
               <div><dt>{t("Mandate status", "Mandate 상태")}</dt><dd>{mandateStateLabel}</dd></div>
             </dl>
             <footer>
-              <p><Info size={15} weight="fill" aria-hidden="true" />{t("Policy changes apply only after you sign them.", "정책 변경사항은 지갑으로 서명한 뒤에만 적용됩니다.")}</p>
-              {!connected && <Link className="investor-secondary-button" to="/investor/profile">{t("Connect wallet in Profile", "Profile에서 지갑 연결")}</Link>}
+              <p><Info size={15} weight="fill" aria-hidden="true" />{t("Policy changes apply only after your embedded wallet signs them.", "정책 변경사항은 임베디드 지갑으로 서명한 뒤에만 적용됩니다.")}</p>
+              {hasEmbeddedWallet ? <span className="investor-setup-draft is-active">{t("Embedded wallet active", "임베디드 지갑 사용 중")}</span> : <Link className="investor-secondary-button" to="/investor/profile">{t("Review embedded wallet in Profile", "Profile에서 임베디드 지갑 확인")}</Link>}
             </footer>
           </div>
-        </section>
+          </section>
+        ) : (
 
-        <section className="investor-setup-policy-card investor-investment-criteria-card">
+          <section id="investment-conditions-panel" className="investor-setup-policy-card investor-investment-criteria-card" role="tabpanel" aria-labelledby="investment-conditions-tab">
           <header>
             <span className="investor-setup-icon" aria-hidden="true"><SlidersHorizontal size={18} weight="bold" /></span>
             <div>
@@ -214,13 +250,14 @@ export function InvestorInvestmentPolicyPage() {
               <label htmlFor="policyTerm"><span>{t("Policy expiry", "정책 만료일")}</span><div><input id="policyTerm" type="date" value={policy.policyTerm} onChange={(event) => updatePolicy("policyTerm", event.target.value)} /></div></label>
             </div>
             <footer>
-              <p><Info size={15} weight="fill" aria-hidden="true" />{t("Saving asks your connected wallet to sign the current Investment Policy.", "저장하면 연결된 지갑으로 현재 Investment Policy의 서명을 요청합니다.")}</p>
-              <button className="investor-primary-button" type="button" disabled={!connected || isSubmitting} onClick={() => void activateMandate()}>
+              <p><Info size={15} weight="fill" aria-hidden="true" />{t("Saving asks your embedded wallet to sign the current Investment Policy.", "저장하면 임베디드 지갑으로 현재 Investment Policy의 서명을 요청합니다.")}</p>
+              <button className="investor-primary-button" type="button" disabled={!canSignWithEmbeddedWallet || isSubmitting} onClick={() => void activateMandate()}>
                 {isSubmitting ? t("Waiting for signature...", "지갑 서명 대기 중...") : <><Signature size={15} weight="fill" aria-hidden="true" />{mandateActionLabel}</>}
               </button>
             </footer>
           </div>
-        </section>
+          </section>
+        )}
         {success ? <p className="investor-setup-success" role="status"><CheckCircle size={15} weight="fill" aria-hidden="true" />{success}</p> : null}
         {error ? <p className="wallet-error" role="alert">{error}</p> : null}
       </div>

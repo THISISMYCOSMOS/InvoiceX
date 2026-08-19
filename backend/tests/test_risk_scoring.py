@@ -28,3 +28,12 @@ def test_deterministic_provider_preserves_existing_68_86_policy() -> None:
         RiskEligibility.REVIEW_REQUIRED,
         None,
     )
+    assert sum(factor.score or 0 for factor in eligible.factors) == eligible.score
+    assert sum(factor.score or 0 for factor in review.factors) == review.score
+    assert eligible.data_coverage_bps == 10_000
+    assert {factor.source for factor in eligible.factors} == {
+        "SYNTHETIC_DEMO_DATA",
+        "INVOICE_DATA",
+        "INVOICEX_DATA",
+        "DOCUMENT_AGENT",
+    }

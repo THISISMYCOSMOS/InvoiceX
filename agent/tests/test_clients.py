@@ -20,11 +20,11 @@ from invoicex_agents.exceptions import (
 from invoicex_agents.models.document import DocumentAnalysisResult
 
 
-def test_real_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    settings = AgentSettings(_env_file=None, GEMINI_API_KEY=None)
+def test_real_client_requires_vertex_project(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("VERTEX_AI_PROJECT_ID", raising=False)
+    settings = AgentSettings(_env_file=None, VERTEX_AI_PROJECT_ID=None)
 
-    with pytest.raises(AgentConfigurationError, match="GEMINI_API_KEY"):
+    with pytest.raises(AgentConfigurationError, match="VERTEX_AI_PROJECT_ID"):
         GoogleGeminiClient(settings)
 
 
@@ -79,7 +79,8 @@ def test_real_client_builds_structured_media_request(
     )
     settings = AgentSettings(
         _env_file=None,
-        GEMINI_API_KEY="test-key",
+        VERTEX_AI_PROJECT_ID="test-project",
+        VERTEX_AI_LOCATION="asia-northeast3",
         GEMINI_MODEL="test-model",
     )
     client = GoogleGeminiClient(settings)
@@ -103,7 +104,12 @@ def test_real_client_builds_structured_media_request(
     assert captured["config"].response_mime_type == "application/json"
     assert captured["config"].response_schema is None
     assert captured["config"].response_json_schema is not None
-    assert captured["client_kwargs"]["api_key"] == "test-key"
+    assert captured["client_kwargs"] == {
+        "vertexai": True,
+        "project": "test-project",
+        "location": "asia-northeast3",
+        "http_options": captured["client_kwargs"]["http_options"],
+    }
 
 
 def test_gemini_schema_normalizes_unsupported_keywords() -> None:
@@ -135,7 +141,7 @@ def test_real_client_wraps_transport_error_without_raw_detail(
         "invoicex_agents.clients.gemini.genai.Client",
         lambda **kwargs: SimpleNamespace(models=FailingModels()),
     )
-    settings = AgentSettings(_env_file=None, GEMINI_API_KEY="test-key")
+    settings = AgentSettings(_env_file=None, VERTEX_AI_PROJECT_ID="test-project")
     client = GoogleGeminiClient(settings)
 
     with pytest.raises(GeminiInvocationError, match="TransportError") as caught:
@@ -172,7 +178,7 @@ def test_real_client_retries_only_retryable_status(
     monkeypatch.setattr("invoicex_agents.clients.gemini.time.sleep", lambda _: None)
     settings = AgentSettings(
         _env_file=None,
-        GEMINI_API_KEY="test-key",
+        VERTEX_AI_PROJECT_ID="test-project",
         GEMINI_MAX_ATTEMPTS=2,
     )
     client = GoogleGeminiClient(settings)

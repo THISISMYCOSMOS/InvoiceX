@@ -120,6 +120,7 @@ class LoginRequest(ApiModel):
 class LoginResponse(ApiModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
+    auth_mode: Literal["DEMO", "MEMBER"]
     role: LoginRole
     email: str
     expires_at: str
@@ -204,6 +205,36 @@ class RiskFactor(ApiModel):
     description: str
 
 
+class RiskScoreFactor(ApiModel):
+    key: str
+    label: str
+    score: int | None = Field(default=None, ge=0)
+    max_score: int = Field(gt=0)
+    source: Literal[
+        "SYNTHETIC_DEMO_DATA",
+        "INVOICE_DATA",
+        "INVOICEX_DATA",
+        "DOCUMENT_AGENT",
+    ]
+    detail: str | None = None
+    synthetic: bool = False
+
+
+class EarlySettlementTerms(ApiModel):
+    face_value_usdc: int = Field(ge=0)
+    discount_amount_usdc: int = Field(ge=0)
+    discount_rate_bps: int = Field(ge=0, le=10_000)
+    investor_required_return_usdc: int = Field(ge=0)
+    platform_fee_usdc: int = Field(ge=0)
+    reserve_amount_usdc: int = Field(ge=0)
+    reserve_rate_bps: int = Field(ge=0, le=10_000)
+    initial_advance_usdc: int = Field(ge=0)
+    expected_reserve_return_usdc: int = Field(ge=0)
+    expected_final_proceeds_usdc: int = Field(ge=0)
+    settlement_asset: Literal["USDC"] = "USDC"
+    network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
+
+
 class RiskPassport(ApiModel):
     invoice_id: str
     eligibility: RiskEligibility
@@ -213,6 +244,11 @@ class RiskPassport(ApiModel):
     risk_factors: list[RiskFactor]
     suggested_advance_rate_bps: int | None = Field(default=None, ge=0, le=10_000)
     suggested_advance_amount_usdc: int | None = Field(default=None, ge=0)
+    invoice_face_value_usdc: int | None = Field(default=None, ge=0)
+    source_currency_to_usdc_rate: float | None = Field(default=None, gt=0)
+    data_coverage_bps: int = Field(default=0, ge=0, le=10_000)
+    score_factors: list[RiskScoreFactor] = Field(default_factory=list)
+    early_settlement_terms: EarlySettlementTerms | None = None
     model_name: str | None = None
     policy_version: str | None = None
     generated_at: str | None = None
@@ -262,6 +298,8 @@ class RwaAsset(ApiModel):
     escrow_token_account: str
     status: Literal["ISSUED", "SOLD"]
     issue_transaction: BlockchainTransaction
+    face_value_usdc: int | None = Field(default=None, ge=0)
+    issuance_price_usdc: int | None = Field(default=None, ge=0)
     purchase_transaction: BlockchainTransaction | None = None
     owner_vault_address: str | None = None
 
@@ -342,6 +380,7 @@ class Invoice(ApiModel):
     status: InvoiceStatus
     verification_id: str | None
     verification_requested_at: str | None = None
+    verification_confirmed_at: str | None = None
     documents: list[InvoiceDocument]
     analysis: DocumentAnalysis | None
     risk_passport: RiskPassport | None
