@@ -1,5 +1,5 @@
 import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   getAuthMe,
   getOtpClock,
@@ -88,10 +88,14 @@ function formatKoreanPhone(value: string) {
 }
 
 export function SignupPage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const signupAuth = useSignupAuth();
   const [step, setStep] = useState<SignupStep>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    const state = location.state as { email?: unknown } | null;
+    return typeof state?.email === "string" ? state.email : "";
+  });
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [otpDeadline, setOtpDeadline] = useState<OtpDeadline | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);

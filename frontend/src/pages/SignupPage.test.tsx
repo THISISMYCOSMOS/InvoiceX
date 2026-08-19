@@ -68,6 +68,16 @@ beforeEach(() => {
   });
 });
 
+test("prefills the company email when wallet authentication redirects to signup", () => {
+  render(
+    <MemoryRouter initialEntries={[{ pathname: "/signup", state: { email: "investor@company.com" } }]}>
+      <SignupPage />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByLabelText("기업 이메일")).toHaveValue("investor@company.com");
+});
+
 test("completes signup only after the onboarding API creates the user-owned wallet", async () => {
   const user = userEvent.setup();
   render(<MemoryRouter><SignupPage /></MemoryRouter>);

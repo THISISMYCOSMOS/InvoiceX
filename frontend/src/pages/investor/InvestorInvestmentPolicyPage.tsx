@@ -50,6 +50,7 @@ export function InvestorInvestmentPolicyPage() {
   const currentAccount = useCurrentPrivyAccount();
   const updateCurrentAccount = useUpdateCurrentPrivyAccount();
   const {
+    authenticated,
     embeddedSolanaWalletReady,
     ensureEmbeddedSolanaWallet,
     getAccessToken,
@@ -69,7 +70,7 @@ export function InvestorInvestmentPolicyPage() {
   const embeddedWalletAddress = currentAccount?.walletAddress ?? null;
   const ownerWalletAddress = embeddedWalletAddress;
   const hasEmbeddedWallet = Boolean(embeddedWalletAddress);
-  const canSignWithEmbeddedWallet = Boolean(embeddedSolanaWalletReady && currentAccount);
+  const canSignWithEmbeddedWallet = Boolean(authenticated && embeddedSolanaWalletReady && currentAccount);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,15 +279,32 @@ export function InvestorInvestmentPolicyPage() {
             </div>
             <footer>
               <p><Info size={15} weight="fill" aria-hidden="true" />{t("Saving asks your embedded wallet to sign the current Investment Policy.", "저장하면 임베디드 지갑으로 현재 Investment Policy의 서명을 요청합니다.")}</p>
-              <button className="investor-primary-button" type="button" disabled={!canSignWithEmbeddedWallet || isSubmitting} onClick={() => void activateMandate()}>
-                {isSubmitting ? t("Waiting for signature...", "지갑 서명 대기 중...") : <><Signature size={15} weight="fill" aria-hidden="true" />{mandateActionLabel}</>}
-              </button>
+              {authenticated ? (
+                <button className="investor-primary-button" type="button" disabled={!canSignWithEmbeddedWallet || isSubmitting} onClick={() => void activateMandate()}>
+                  {isSubmitting ? t("Waiting for signature...", "지갑 서명 대기 중...") : <><Signature size={15} weight="fill" aria-hidden="true" />{mandateActionLabel}</>}
+                </button>
+              ) : (
+                <Link
+                  className="investor-primary-button"
+                  state={{ email: currentAccount?.userEmail ?? "" }}
+                  to="/signup"
+                >
+                  {t("Verify email to connect wallet", "이메일 인증 후 지갑 연결")}
+                </Link>
+              )}
             </footer>
           </div>
           </section>
         )}
         {success ? <p className="investor-setup-success" role="status"><CheckCircle size={15} weight="fill" aria-hidden="true" />{success}</p> : null}
-        {error ? <p className="wallet-error" role="alert">{error}</p> : null}
+        {!authenticated ? (
+          <p className="wallet-error" role="alert">
+            {t(
+              "Email verification is required before creating a Privy embedded wallet.",
+              "Privy 임베디드 지갑을 생성하려면 이메일 인증 로그인이 필요합니다.",
+            )}
+          </p>
+        ) : error ? <p className="wallet-error" role="alert">{error}</p> : null}
       </div>
     </section>
   );
