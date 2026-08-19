@@ -151,6 +151,11 @@ class OnboardCompanyRequest(ApiModel):
     company: CompanyInput
     representative: RepresentativeInput
     password: str | None = Field(default=None, min_length=8, max_length=128)
+    embedded_wallet_address: str | None = None
+
+
+class LinkEmbeddedWalletRequest(ApiModel):
+    address: str
 
 
 class UpdateCompanyProfileRequest(ApiModel):

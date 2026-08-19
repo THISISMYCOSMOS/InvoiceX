@@ -31,6 +31,7 @@ class FakePrivyGateway:
     fail_wallet_attempts: int = 0
     emails: dict[str, str] = field(default_factory=dict)
     wallet_calls: list[tuple[str, str]] = field(default_factory=list)
+    verified_wallets: list[tuple[str, str]] = field(default_factory=list)
     deleted_user_ids: list[str] = field(default_factory=list)
 
     async def verified_email(self, user_id: str) -> str:
@@ -54,6 +55,16 @@ class FakePrivyGateway:
         return PrivyWalletRecord(
             id=f"privy-wallet-{suffix}",
             address=str(Keypair.from_seed(hashlib.sha256(user_id.encode()).digest()).pubkey()),
+            user_id=user_id,
+        )
+
+    async def verify_solana_wallet(
+        self, user_id: str, address: str
+    ) -> PrivyWalletRecord:
+        self.verified_wallets.append((user_id, address))
+        return PrivyWalletRecord(
+            id=f"client-wallet-{address[:8]}",
+            address=address,
             user_id=user_id,
         )
 
@@ -223,6 +234,58 @@ def test_supplier_onboarding_creates_a_user_owned_wallet(tmp_path: Path) -> None
     assert body["company"]["kybStatus"] == "NOT_PERFORMED"
     assert body["logicalVault"] is None
     assert gateway.wallet_calls[0][0] == "did:privy:supplier"
+
+
+def test_onboarding_links_the_client_created_solana_wallet(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    user_id = "did:privy:client-wallet"
+    wallet_address = str(Keypair().pubkey())
+    payload = company_payload()
+    payload["embeddedWalletAddress"] = wallet_address
+
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        response = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, user_id),
+            json=payload,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["embeddedWallet"]["address"] == wallet_address
+    assert gateway.verified_wallets == [(user_id, wallet_address)]
+    assert gateway.wallet_calls == []
+
+
+def test_completed_account_can_replace_an_unusable_server_wallet(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    user_id = "did:privy:wallet-repair"
+    replacement_address = str(Keypair().pubkey())
+
+    with onboarding_client(tmp_path, gateway) as (client, private_key, repository):
+        account_headers = headers(private_key, user_id)
+        created = client.post(
+            "/api/v1/onboarding/company",
+            headers=account_headers,
+            json=company_payload(
+                company_type="INVESTOR",
+                registration_number="12-3456789",
+                country_code="US",
+            ),
+        )
+        old_address = created.json()["embeddedWallet"]["address"]
+        repaired = client.put(
+            "/api/v1/auth/embedded-wallet",
+            headers=account_headers,
+            json={"address": replacement_address},
+        )
+        company_id = repaired.json()["company"]["id"]
+        saved_wallet = repository.get_company_wallet(company_id)
+
+    assert repaired.status_code == 200
+    assert replacement_address != old_address
+    assert repaired.json()["embeddedWallet"]["address"] == replacement_address
+    assert saved_wallet is not None
+    assert saved_wallet.address == replacement_address
 
 
 def test_completed_supplier_can_update_company_profile(tmp_path: Path) -> None:
@@ -869,6 +932,49 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
     owner_lookup_request = requests[3]
     assert owner_lookup_request.method == "POST"
     assert owner_lookup_request.url.path == "/v1/users/wallet/address"
+
+
+@pytest.mark.asyncio
+async def test_privy_gateway_verifies_a_client_embedded_wallet_owner(tmp_path: Path) -> None:
+    user_id = "did:privy:client-wallet-owner"
+    address = str(Keypair().pubkey())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/users/wallet/address"
+        assert json.loads(request.content) == {"address": address}
+        return httpx.Response(
+            200,
+            json={
+                "id": user_id,
+                "linked_accounts": [
+                    {
+                        "id": "client-wallet-id",
+                        "type": "wallet",
+                        "chain_type": "solana",
+                        "wallet_client_type": "privy",
+                        "address": address,
+                    }
+                ],
+            },
+        )
+
+    settings = mock_settings(
+        tmp_path / "uploads",
+        PRIVY_APP_ID="test-privy-app",
+        PRIVY_APP_SECRET="test-secret",
+        PRIVY_API_BASE_URL="https://api.privy.test",
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = HttpPrivyUserGateway(settings, http_client=client)
+
+    wallet = await gateway.verify_solana_wallet(user_id, address)
+    await client.aclose()
+
+    assert wallet == PrivyWalletRecord(
+        id="client-wallet-id",
+        address=address,
+        user_id=user_id,
+    )
 
 
 @pytest.mark.asyncio

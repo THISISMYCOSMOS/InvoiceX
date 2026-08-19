@@ -19,7 +19,7 @@ from fastapi import (
     status,
 )
 
-from invoicex_backend.agent_activity import AgentActivityTimeline
+from invoicex_backend.agent_activity import AgentActivityTimeline, AgentTrigger
 from invoicex_backend.auth import (
     AuthenticatedIdentity,
     issue_access_token,
@@ -57,6 +57,7 @@ from invoicex_backend.onboarding import OnboardingService
 from invoicex_backend.onboarding_models import (
     AuthMeResponse,
     DeleteAccountResponse,
+    LinkEmbeddedWalletRequest,
     OnboardCompanyRequest,
     OnboardingResponse,
     OnboardingStatus,
@@ -67,6 +68,7 @@ from invoicex_backend.onboarding_models import (
 from invoicex_backend.privy_auth import PrivyPrincipalDependency, verify_privy_access_token
 from invoicex_backend.seed import INVESTMENT_CRITERIA_BUYERS, authenticate_demo_account
 from invoicex_backend.service import InvoiceService
+from invoicex_backend.tasks import AgentTaskDispatcher, verify_cloud_tasks_oidc
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 onboarding_router = APIRouter(prefix="/api/v1/onboarding", tags=["Authentication"])
@@ -74,6 +76,7 @@ router = APIRouter(
     prefix="/api/v1",
     dependencies=[Depends(require_authenticated_identity)],
 )
+internal_router = APIRouter(prefix="/internal")
 
 supplier_only = Depends(require_roles(LoginRole.SUPPLIER))
 buyer_only = Depends(require_roles(LoginRole.BUYER))
@@ -100,6 +103,15 @@ def get_invoice_service(request: Request) -> InvoiceService:
 
 
 InvoiceServiceDependency = Annotated[InvoiceService, Depends(get_invoice_service)]
+
+
+def get_agent_task_dispatcher(request: Request) -> AgentTaskDispatcher:
+    return cast(AgentTaskDispatcher, request.app.state.agent_task_dispatcher)
+
+
+AgentTaskDispatcherDependency = Annotated[
+    AgentTaskDispatcher, Depends(get_agent_task_dispatcher)
+]
 
 
 def get_settings(request: Request) -> BackendSettings:
@@ -326,6 +338,25 @@ async def update_company_profile(
     return service.update_company_profile(email, payload)
 
 
+@auth_router.put(
+    "/embedded-wallet",
+    response_model=AuthMeResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Privy token is invalid"},
+        409: {"model": ErrorResponse, "description": "Wallet ownership conflict"},
+        422: {"model": ErrorResponse, "description": "Invalid Solana wallet"},
+        502: {"model": ErrorResponse, "description": "Privy wallet lookup failed"},
+    },
+    summary="브라우저에서 생성한 Embedded Wallet 연결",
+)
+async def link_embedded_wallet(
+    payload: LinkEmbeddedWalletRequest,
+    principal: PrivyPrincipalDependency,
+    service: OnboardingServiceDependency,
+) -> AuthMeResponse:
+    return await service.link_embedded_wallet(principal, payload)
+
+
 @auth_router.delete(
     "/account",
     response_model=DeleteAccountResponse,
@@ -384,6 +415,7 @@ async def create_invoice(
     purchase_order_file: PurchaseOrderFile,
     delivery_proof_file: DeliveryProofFile,
     service: InvoiceServiceDependency,
+    dispatcher: AgentTaskDispatcherDependency,
     identity: AuthenticatedIdentity | None = supplier_only,
 ) -> InvoiceResponse:
     """Accept the four exact multipart fields defined by the frontend contract."""
@@ -403,7 +435,36 @@ async def create_invoice(
             max_bytes,
         ),
     ]
-    return InvoiceResponse(invoice=await service.create_invoice(uploads, identity))
+    invoice = await service.create_invoice(uploads, identity)
+    await dispatcher.enqueue(invoice.id, AgentTrigger.INVOICE_CREATED)
+    return InvoiceResponse(invoice=service.get_invoice(invoice.id, identity))
+
+
+@internal_router.post("/agent-tasks", include_in_schema=False)
+async def run_agent_task(
+    payload: dict[str, str],
+    request: Request,
+    settings: SettingsDependency,
+    service: InvoiceServiceDependency,
+) -> dict[str, str]:
+    if (
+        settings.agent_task_dispatcher != "cloud_tasks"
+        or not settings.cloud_run_task_audience
+        or not settings.cloud_tasks_service_account_email
+        or not verify_cloud_tasks_oidc(
+            request.headers.get("Authorization"),
+            audience=settings.cloud_run_task_audience,
+            expected_email=settings.cloud_tasks_service_account_email,
+        )
+    ):
+        raise HTTPException(status_code=403, detail="Cloud Tasks caller is not authorized.")
+    try:
+        invoice_id = payload["invoiceId"]
+        trigger = AgentTrigger(payload["trigger"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid Agent task payload.") from exc
+    await service.run_agent_task(invoice_id, trigger)
+    return {"status": "completed"}
 
 
 @router.get(

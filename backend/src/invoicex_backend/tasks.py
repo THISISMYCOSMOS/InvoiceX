@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import asyncio
 import json
+from collections.abc import Awaitable, Callable
+from typing import Protocol
 
 from invoicex_backend.agent_activity import AgentTrigger
 from invoicex_backend.config import BackendSettings
 
 TaskHandler = Callable[[str, AgentTrigger], Awaitable[None]]
+
+
+class AgentTaskDispatcher(Protocol):
+    async def enqueue(self, invoice_id: str, trigger: AgentTrigger) -> None: ...
 
 
 class InlineAgentTaskDispatcher:
@@ -49,21 +55,19 @@ class CloudTasksAgentTaskDispatcher:
 
     async def enqueue(self, invoice_id: str, trigger: AgentTrigger) -> None:
         payload = json.dumps({"invoiceId": invoice_id, "trigger": trigger.value}).encode("utf-8")
-        self._client.create_task(
-            parent=self._parent,
-            task=self._tasks.Task(
-                http_request=self._tasks.HttpRequest(
-                    http_method=self._tasks.HttpMethod.POST,
-                    url=f"{self._audience.rstrip('/')}/internal/agent-tasks",
-                    headers={"Content-Type": "application/json"},
-                    body=payload,
-                    oidc_token=self._tasks.OidcToken(
-                        service_account_email=self._service_account_email,
-                        audience=self._audience,
-                    ),
-                )
-            ),
+        task = self._tasks.Task(
+            http_request=self._tasks.HttpRequest(
+                http_method=self._tasks.HttpMethod.POST,
+                url=f"{self._audience.rstrip('/')}/internal/agent-tasks",
+                headers={"Content-Type": "application/json"},
+                body=payload,
+                oidc_token=self._tasks.OidcToken(
+                    service_account_email=self._service_account_email,
+                    audience=self._audience,
+                ),
+            )
         )
+        await asyncio.to_thread(self._client.create_task, parent=self._parent, task=task)
 
 
 def verify_cloud_tasks_oidc(
@@ -77,8 +81,8 @@ def verify_cloud_tasks_oidc(
     if scheme.lower() != "bearer" or not token:
         return False
     try:
-        from google.oauth2 import id_token
         from google.auth.transport import requests
+        from google.oauth2 import id_token
 
         claims = id_token.verify_oauth2_token(token, requests.Request(), audience=audience)
         return claims.get("email") == expected_email and claims.get("email_verified") is True

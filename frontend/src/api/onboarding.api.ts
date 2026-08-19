@@ -53,9 +53,13 @@ export type OnboardCompanyInput = {
     phone: string;
   };
   password?: string;
+  embeddedWalletAddress: string;
 };
 
-export type UpdateCompanyProfileInput = Omit<OnboardCompanyInput, "password">;
+export type UpdateCompanyProfileInput = Omit<
+  OnboardCompanyInput,
+  "password" | "embeddedWalletAddress"
+>;
 
 export type OtpClock = {
   serverTimeMs: number;
@@ -155,5 +159,15 @@ export function updateCompanyProfile(
   return request<OnboardingResponse>("/auth/company-profile", token, {
     method: "PUT",
     body: JSON.stringify(input),
+  });
+}
+
+export function linkEmbeddedWallet(
+  token: string,
+  address: string,
+): Promise<OnboardingResponse> {
+  return request<OnboardingResponse>("/auth/embedded-wallet", token, {
+    method: "PUT",
+    body: JSON.stringify({ address }),
   });
 }

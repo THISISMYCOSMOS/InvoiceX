@@ -33,6 +33,10 @@ class PrivyUserGateway(Protocol):
         idempotency_key: str,
     ) -> PrivyWalletRecord: ...
 
+    async def verify_solana_wallet(
+        self, user_id: str, address: str
+    ) -> PrivyWalletRecord: ...
+
     async def aclose(self) -> None: ...
 
 
@@ -151,6 +155,63 @@ class HttpPrivyUserGateway:
                 "EMBEDDED_WALLET_PROVISIONING_FAILED",
                 "사용자 소유 Solana Embedded Wallet을 생성하지 못했습니다.",
             ) from exc
+
+    async def verify_solana_wallet(
+        self, user_id: str, address: str
+    ) -> PrivyWalletRecord:
+        headers, auth = self._request_options()
+        try:
+            response = await self._client.post(
+                f"{self._settings.privy_api_base_url}/v1/users/wallet/address",
+                headers={**headers, "Content-Type": "application/json"},
+                auth=auth,
+                json={"address": address},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise OnboardingApiError(
+                status.HTTP_502_BAD_GATEWAY,
+                "EMBEDDED_WALLET_OWNER_LOOKUP_FAILED",
+                "Privy Wallet의 사용자 소유 정보를 확인하지 못했습니다.",
+            ) from exc
+
+        owner_user_id = payload.get("id") if isinstance(payload, dict) else None
+        if not isinstance(owner_user_id, str) or not self._same_user_id(
+            owner_user_id, user_id
+        ):
+            raise OnboardingApiError(
+                status.HTTP_409_CONFLICT,
+                "EMBEDDED_WALLET_OWNER_INVALID",
+                "Privy Wallet의 소유 사용자가 현재 인증 사용자와 다릅니다.",
+            )
+        linked_accounts = payload.get("linked_accounts")
+        if not isinstance(linked_accounts, list):
+            raise OnboardingApiError(
+                status.HTTP_502_BAD_GATEWAY,
+                "EMBEDDED_WALLET_RESPONSE_INVALID",
+                "Privy Wallet 연결 정보를 확인하지 못했습니다.",
+            )
+        wallet = next(
+            (
+                account
+                for account in linked_accounts
+                if isinstance(account, dict)
+                and account.get("type") == "wallet"
+                and account.get("chain_type") == "solana"
+                and account.get("wallet_client_type") == "privy"
+                and account.get("address") == address
+            ),
+            None,
+        )
+        wallet_id = wallet.get("id") if isinstance(wallet, dict) else None
+        if not isinstance(wallet_id, str) or not wallet_id:
+            raise OnboardingApiError(
+                status.HTTP_409_CONFLICT,
+                "EMBEDDED_WALLET_NOT_LINKED",
+                "현재 Privy 계정에 연결된 Solana Embedded Wallet이 아닙니다.",
+            )
+        return PrivyWalletRecord(id=wallet_id, address=address, user_id=user_id)
 
     @staticmethod
     def _wallet_external_id(user_id: str) -> str:

@@ -16,6 +16,7 @@ from invoicex_backend.onboarding_models import (
     CompanyType,
     CompanyWallet,
     DeleteAccountResponse,
+    LinkEmbeddedWalletRequest,
     LogicalVault,
     OnboardCompanyRequest,
     OnboardingResponse,
@@ -122,6 +123,50 @@ class OnboardingService:
         )
         self._repository.update_company_profile(updated_user, updated_company)
         return self.auth_me_for_email(email)
+
+    async def link_embedded_wallet(
+        self,
+        principal: PrivyPrincipal,
+        payload: LinkEmbeddedWalletRequest,
+    ) -> AuthMeResponse:
+        user = self._repository.get_onboarding_user(principal.user_id)
+        if (
+            user is None
+            or user.company_id is None
+            or user.onboarding_status is not OnboardingStatus.COMPLETED
+        ):
+            raise OnboardingApiError(
+                status.HTTP_409_CONFLICT,
+                "ONBOARDING_INCOMPLETE",
+                "회원가입을 완료한 계정의 Embedded Wallet만 연결할 수 있습니다.",
+            )
+        try:
+            address = str(Pubkey.from_string(payload.address))
+        except ValueError as exc:
+            raise OnboardingApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "WALLET_ADDRESS_INVALID",
+                "유효한 Solana 지갑 주소를 입력해 주세요.",
+            ) from exc
+        verified = await self._privy.verify_solana_wallet(principal.user_id, address)
+        current = self._repository.get_company_wallet(user.company_id)
+        if current is None:
+            raise OnboardingApiError(
+                status.HTTP_409_CONFLICT,
+                "EMBEDDED_WALLET_NOT_AVAILABLE",
+                "교체할 Embedded Wallet을 찾을 수 없습니다.",
+            )
+        self._repository.replace_company_wallet(
+            principal.user_id,
+            current.model_copy(
+                update={
+                    "privy_wallet_id": verified.id,
+                    "address": verified.address,
+                    "status": "ACTIVE",
+                }
+            ),
+        )
+        return await self.auth_me(principal)
 
     def authenticate_password_login(
         self, email: str, password: str, role: LoginRole
@@ -299,10 +344,22 @@ class OnboardingService:
                 wallet = existing_wallet
             else:
                 try:
-                    privy_wallet = await self._privy.get_or_create_solana_wallet(
-                        principal.user_id,
-                        idempotency_key=idempotency_key,
-                    )
+                    if payload.embedded_wallet_address:
+                        address = str(Pubkey.from_string(payload.embedded_wallet_address))
+                        privy_wallet = await self._privy.verify_solana_wallet(
+                            principal.user_id, address
+                        )
+                    else:
+                        privy_wallet = await self._privy.get_or_create_solana_wallet(
+                            principal.user_id,
+                            idempotency_key=idempotency_key,
+                        )
+                except ValueError as exc:
+                    raise OnboardingApiError(
+                        status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        "WALLET_ADDRESS_INVALID",
+                        "유효한 Solana 지갑 주소를 입력해 주세요.",
+                    ) from exc
                 except OnboardingApiError:
                     self._repository.rotate_wallet_idempotency_key(
                         principal.user_id, f"onboarding_{uuid.uuid4().hex}"

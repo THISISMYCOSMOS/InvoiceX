@@ -266,54 +266,79 @@ class InvoiceService:
                 ]
             )
             invoice.documents = list(stored_documents)
-            agent_documents = [
-                AgentDocument(
-                    document_id=document_id,
-                    type=upload.type,
-                    mime_type=upload.mime_type,
-                    data=upload.data,
-                )
-                for document_id, upload in zip(document_ids, uploads, strict=True)
-            ]
-            agent_result = await self._agents.analyze_documents(
-                invoice_id,
-                agent_documents,
-            )
-        except AgentError as exc:
-            invoice.status = InvoiceStatus.ERROR
-            raise IntegrationError(f"Gemini 문서 분석에 실패했습니다: {exc}") from exc
+            self._save_invoice(invoice)
         except OSError as exc:
             invoice.status = InvoiceStatus.ERROR
+            self._save_invoice(invoice)
             raise IntegrationError("업로드 문서를 저장하지 못했습니다.") from exc
-
-        self._agent_analyses[invoice_id] = agent_result
-        self._repository.save_analysis(invoice_id, agent_result)
-        invoice.analysis = self._to_frontend_analysis(
-            invoice_id,
-            agent_result,
-            {document.document_id: document.type for document in agent_documents},
-        )
-        self._apply_extracted_metadata(invoice, agent_result)
-        if identity is not None and identity.source == "PRIVY":
-            invoice.supplier.name = identity.company_name or invoice.supplier.name
-        invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
-        self._append_trace(
-            invoice,
-            source="DOCUMENT_AGENT",
-            target="RISK_AGENT",
-            status="COMPLETED",
-            summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
-        )
-        self._record_completed_agent_run(
-            invoice_id=invoice.id,
-            trigger=AgentTrigger.INVOICE_CREATED,
-            tool_name="analyze_documents",
-            summary="문서 분석과 교차 검증을 완료했습니다.",
-            source_agent="DOCUMENT_AGENT",
-            target_agent="RISK_AGENT",
-        )
-        self._save_invoice(invoice)
         return self._copy_invoice(invoice)
+
+    async def analyze_invoice_documents(self, invoice_id: str) -> Invoice:
+        """Analyze a persisted document set once; safe for Cloud Tasks retries."""
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoice(invoice_id)
+            if invoice.status is not InvoiceStatus.DOCUMENT_ANALYZING:
+                return self._copy_invoice(invoice)
+            try:
+                document_bytes = await asyncio.gather(
+                    *[self._storage.load(document) for document in invoice.documents]
+                )
+                agent_documents = [
+                    AgentDocument(
+                        document_id=document.id,
+                        type=document.type,
+                        mime_type=document.mime_type,
+                        data=data,
+                    )
+                    for document, data in zip(invoice.documents, document_bytes, strict=True)
+                ]
+                agent_result = await self._agents.analyze_documents(invoice_id, agent_documents)
+            except AgentError as exc:
+                invoice.status = InvoiceStatus.ERROR
+                self._save_invoice(invoice)
+                raise IntegrationError(f"Gemini 문서 분석에 실패했습니다: {exc}") from exc
+            except OSError as exc:
+                invoice.status = InvoiceStatus.ERROR
+                self._save_invoice(invoice)
+                raise IntegrationError("저장된 업로드 문서를 불러오지 못했습니다.") from exc
+
+            self._agent_analyses[invoice_id] = agent_result
+            self._repository.save_analysis(invoice_id, agent_result)
+            invoice.analysis = self._to_frontend_analysis(
+                invoice_id,
+                agent_result,
+                {document.document_id: document.type for document in agent_documents},
+            )
+            authenticated_supplier_name = (
+                invoice.supplier.name if invoice.supplier.id != "SUPPLIER_ALPHA" else None
+            )
+            self._apply_extracted_metadata(invoice, agent_result)
+            if authenticated_supplier_name is not None:
+                invoice.supplier.name = authenticated_supplier_name
+            invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
+            self._append_trace(
+                invoice,
+                source="DOCUMENT_AGENT",
+                target="RISK_AGENT",
+                status="COMPLETED",
+                summary="Gemini 문서 분석과 근거 연결을 완료했습니다.",
+            )
+            self._record_completed_agent_run(
+                invoice_id=invoice.id,
+                trigger=AgentTrigger.INVOICE_CREATED,
+                tool_name="analyze_documents",
+                summary="문서 분석과 교차 검증을 완료했습니다.",
+                source_agent="DOCUMENT_AGENT",
+                target_agent="RISK_AGENT",
+            )
+            self._save_invoice(invoice)
+            return self._copy_invoice(invoice)
+
+    async def run_agent_task(self, invoice_id: str, trigger: AgentTrigger) -> None:
+        if trigger is not AgentTrigger.INVOICE_CREATED:
+            raise StateConflictError("지원하지 않는 비동기 Agent 작업입니다.")
+        await self.analyze_invoice_documents(invoice_id)
 
     def list_invoices(
         self,

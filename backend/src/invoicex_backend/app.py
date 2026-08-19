@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from invoicex_backend.agents import create_agent_gateway
-from invoicex_backend.api import auth_router, onboarding_router, router
+from invoicex_backend.api import auth_router, internal_router, onboarding_router, router
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import (
     BackendError,
@@ -29,6 +29,11 @@ from invoicex_backend.secrets import load_settings
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import create_solana_gateway
 from invoicex_backend.storage import GcsDocumentStorage, LocalDocumentStorage
+from invoicex_backend.tasks import (
+    AgentTaskDispatcher,
+    CloudTasksAgentTaskDispatcher,
+    InlineAgentTaskDispatcher,
+)
 
 
 def create_repository(settings: BackendSettings):
@@ -47,6 +52,7 @@ def create_app(
     settings: BackendSettings | None = None,
     service: InvoiceService | None = None,
     onboarding_service: OnboardingService | None = None,
+    agent_task_dispatcher: AgentTaskDispatcher | None = None,
 ) -> FastAPI:
     """Create the API and allow dependency injection for contract tests."""
 
@@ -64,6 +70,12 @@ def create_app(
         onboarding_service = OnboardingService(
             repository=service.repository,
             privy=HttpPrivyUserGateway(resolved_settings),
+        )
+    if agent_task_dispatcher is None:
+        agent_task_dispatcher = (
+            CloudTasksAgentTaskDispatcher(resolved_settings)
+            if resolved_settings.agent_task_dispatcher == "cloud_tasks"
+            else InlineAgentTaskDispatcher(service.run_agent_task)
         )
 
     @asynccontextmanager
@@ -94,6 +106,7 @@ def create_app(
     app.state.invoice_service = service
     app.state.onboarding_service = onboarding_service
     app.state.settings = resolved_settings
+    app.state.agent_task_dispatcher = agent_task_dispatcher
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:
@@ -117,6 +130,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(onboarding_router)
     app.include_router(router)
+    app.include_router(internal_router)
     if isinstance(storage, LocalDocumentStorage):
         app.mount(
             "/uploads",

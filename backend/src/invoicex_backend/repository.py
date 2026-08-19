@@ -90,6 +90,9 @@ class RwaRepository(Protocol):
         wallet: CompanyWallet,
         vault: LogicalVault | None,
     ) -> OnboardingUser: ...
+    def replace_company_wallet(
+        self, privy_user_id: str, wallet: CompanyWallet
+    ) -> None: ...
     def rotate_wallet_idempotency_key(self, privy_user_id: str, value: str) -> None: ...
     def delete_onboarding_user(self, privy_user_id: str) -> None: ...
 
@@ -915,6 +918,44 @@ class SQLiteRwaRepository:
             ).fetchone()
         assert saved_row is not None
         return self._onboarding_user(saved_row)
+
+    def replace_company_wallet(
+        self, privy_user_id: str, wallet: CompanyWallet
+    ) -> None:
+        with self._lock, self._connection:
+            user_row = self._connection.execute(
+                "SELECT company_id FROM users WHERE privy_user_id = ?",
+                (privy_user_id,),
+            ).fetchone()
+            if user_row is None or user_row["company_id"] != wallet.company_id:
+                raise OnboardingApiError(409, "ONBOARDING_STATE_INVALID", "가입 상태가 없습니다.")
+            try:
+                updated = self._connection.execute(
+                    """
+                    UPDATE wallets
+                    SET privy_wallet_id = ?, address = ?, status = ?
+                    WHERE company_id = ? AND privy_user_id = ?
+                    """,
+                    (
+                        wallet.privy_wallet_id,
+                        wallet.address,
+                        wallet.status,
+                        wallet.company_id,
+                        privy_user_id,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise OnboardingApiError(
+                    409,
+                    "EMBEDDED_WALLET_ALREADY_LINKED",
+                    "해당 Embedded Wallet은 이미 다른 기업에 연결되어 있습니다.",
+                ) from exc
+            if updated.rowcount != 1:
+                raise OnboardingApiError(
+                    409,
+                    "EMBEDDED_WALLET_NOT_AVAILABLE",
+                    "교체할 Embedded Wallet을 찾을 수 없습니다.",
+                )
 
     def rotate_wallet_idempotency_key(self, privy_user_id: str, value: str) -> None:
         with self._lock, self._connection:
@@ -1812,6 +1853,53 @@ class CloudSqlRwaRepository:
         saved = self.get_onboarding_user(privy_user_id)
         assert saved is not None
         return saved
+
+    def replace_company_wallet(
+        self, privy_user_id: str, wallet: CompanyWallet
+    ) -> None:
+        user = self.get_onboarding_user(privy_user_id)
+        current = self.get_company_wallet(wallet.company_id)
+        if (
+            user is None
+            or user.company_id != wallet.company_id
+            or current is None
+            or current.privy_user_id != privy_user_id
+        ):
+            raise OnboardingApiError(
+                409,
+                "EMBEDDED_WALLET_NOT_AVAILABLE",
+                "교체할 Embedded Wallet을 찾을 수 없습니다.",
+            )
+        try:
+            self._write(
+                lambda cursor: cursor.execute(
+                    """
+                    UPDATE wallets
+                    SET privy_wallet_id = %s, address = %s, status = %s
+                    WHERE company_id = %s AND privy_user_id = %s
+                    """,
+                    (
+                        wallet.privy_wallet_id,
+                        wallet.address,
+                        wallet.status,
+                        wallet.company_id,
+                        privy_user_id,
+                    ),
+                )
+            )
+        except Exception as exc:
+            raise OnboardingApiError(
+                409,
+                "EMBEDDED_WALLET_ALREADY_LINKED",
+                "해당 Embedded Wallet은 이미 다른 기업에 연결되어 있습니다.",
+            ) from exc
+        linked = self.get_company_wallet(wallet.company_id)
+        if linked is None or linked.privy_wallet_id != wallet.privy_wallet_id:
+            raise OnboardingApiError(
+                409,
+                "EMBEDDED_WALLET_NOT_AVAILABLE",
+                "Embedded Wallet 교체 결과를 확인하지 못했습니다.",
+            )
 
     def rotate_wallet_idempotency_key(self, privy_user_id: str, value: str) -> None:
         self._write(

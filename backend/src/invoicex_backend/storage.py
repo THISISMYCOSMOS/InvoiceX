@@ -6,6 +6,7 @@ import asyncio
 from datetime import timedelta
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from google.auth import default as default_google_credentials
@@ -30,6 +31,8 @@ class DocumentStorage(Protocol):
         invoice_id: str,
         upload: UploadedDocument,
     ) -> InvoiceDocument: ...
+
+    async def load(self, document: InvoiceDocument) -> bytes: ...
 
     def presentation_url(self, document: InvoiceDocument) -> str: ...
 
@@ -67,6 +70,12 @@ class LocalDocumentStorage:
             storage_url=f"{self._public_base_url}/uploads/{stored_name}",
             upload_status=UploadStatus.COMPLETED,
         )
+
+    async def load(self, document: InvoiceDocument) -> bytes:
+        target = (self._directory / Path(urlparse(document.storage_url).path).name).resolve()
+        if target.parent != self._directory:
+            raise ValueError("Document path is outside the configured upload directory")
+        return await asyncio.to_thread(target.read_bytes)
 
     def presentation_url(self, document: InvoiceDocument) -> str:
         return document.storage_url
@@ -151,6 +160,13 @@ class GcsDocumentStorage:
             storage_url=f"gs://{self._bucket_name}/{object_name}",
             upload_status=UploadStatus.COMPLETED,
         )
+
+    async def load(self, document: InvoiceDocument) -> bytes:
+        prefix = f"gs://{self._bucket_name}/"
+        if not document.storage_url.startswith(prefix):
+            raise ValueError("Document is not stored in the configured GCS bucket")
+        object_name = document.storage_url.removeprefix(prefix)
+        return await asyncio.to_thread(self._bucket.blob(object_name).download_as_bytes)
 
     def presentation_url(self, document: InvoiceDocument) -> str:
         prefix = f"gs://{self._bucket_name}/"

@@ -5,6 +5,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { SignupPage } from "./SignupPage";
 
 const mocks = vi.hoisted(() => ({
+  ensureEmbeddedSolanaWallet: vi.fn(),
   getAccessToken: vi.fn(),
   getAuthMe: vi.fn(),
   getOtpClock: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("../auth/SignupAuthContext", () => ({
     authenticated: false,
     configured: true,
     ready: true,
+    ensureEmbeddedSolanaWallet: mocks.ensureEmbeddedSolanaWallet,
     getAccessToken: mocks.getAccessToken,
     logout: mocks.logout,
     sendCode: mocks.sendCode,
@@ -41,6 +43,10 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   mocks.getAccessToken.mockResolvedValue("privy-access-token");
+  mocks.ensureEmbeddedSolanaWallet.mockResolvedValue({
+    address: "SolanaAddress",
+    created: true,
+  });
   mocks.logout.mockResolvedValue(undefined);
   mocks.getAuthMe.mockResolvedValue({
     user: { email: "finance@company.com" },
@@ -103,6 +109,7 @@ test("completes signup only after the onboarding API creates the user-owned wall
       phone: "010-1234-5678",
     },
     password: "member-password-123",
+    embeddedWalletAddress: "SolanaAddress",
   });
   expect(await screen.findByRole("heading", { name: "기업 계정 생성이 완료되었습니다!" }))
     .toBeInTheDocument();
@@ -367,6 +374,7 @@ test("restores a failed signup and retries its stored company wallet", async () 
       title: "재무팀 매니저",
       phone: "010-1234-5678",
     },
+    embeddedWalletAddress: "SolanaAddress",
   });
 });
 

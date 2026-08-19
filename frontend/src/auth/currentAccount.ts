@@ -15,7 +15,7 @@ export type CurrentPrivyAccount = {
 
 export type CurrentPrivyAccountUpdate = Partial<Pick<
   CurrentPrivyAccount,
-  "companyName" | "registrationNumber" | "userName" | "userPhone" | "userTitle"
+  "companyName" | "registrationNumber" | "userName" | "userPhone" | "userTitle" | "walletAddress"
 >>;
 
 export const CurrentAccountContext = createContext<CurrentPrivyAccount | undefined>(undefined);

@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, test, vi } from "vitest";
 import { AuthenticatedAppLayout } from "./AuthenticatedAppLayout";
 
@@ -71,6 +72,26 @@ test("loads the completed Privy company before rendering business pages", async 
   expect(await screen.findByText("Supplier One")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Supplier dashboard" })).toBeInTheDocument();
   expect(mocks.getAuthMe).toHaveBeenCalledWith("privy-token");
+});
+
+test("keeps the authenticated profile while navigating within the same role", async () => {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={["/supplier"]}>
+      <AuthenticatedAppLayout>
+        <Routes>
+          <Route path="/supplier" element={<Link to="/supplier/invoices/new">Invoices</Link>} />
+          <Route path="/supplier/invoices/new" element={<h1>New invoice</h1>} />
+        </Routes>
+      </AuthenticatedAppLayout>
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText("Supplier One")).toBeInTheDocument();
+  await user.click(screen.getByRole("link", { name: "Invoices" }));
+  expect(await screen.findByRole("heading", { name: "New invoice" })).toBeInTheDocument();
+  await waitFor(() => expect(mocks.getAuthMe).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText("로그인 정보를 확인하는 중입니다...")).not.toBeInTheDocument();
 });
 
 test("redirects an unauthenticated business route to login", async () => {

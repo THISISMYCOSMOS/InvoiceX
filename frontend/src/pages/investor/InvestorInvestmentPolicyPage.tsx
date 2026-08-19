@@ -2,8 +2,9 @@ import { CaretDown, CheckCircle, Info, MagnifyingGlass, ShieldCheck, Signature, 
 import bs58 from "bs58";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { linkEmbeddedWallet, withPrivyAccessTokenRetry } from "../../api/onboarding.api";
 import { rwaApi, type InvestorMandate, type MandatePolicyInput } from "../../api/rwa.api";
-import { useCurrentPrivyAccount } from "../../auth/currentAccount";
+import { useCurrentPrivyAccount, useUpdateCurrentPrivyAccount } from "../../auth/currentAccount";
 import { useSignupAuth } from "../../auth/SignupAuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
 
@@ -47,7 +48,14 @@ function policyFromMandate(policy: MandatePolicyInput): InvestmentPolicyDraft {
 export function InvestorInvestmentPolicyPage() {
   const { t } = useLanguage();
   const currentAccount = useCurrentPrivyAccount();
-  const { embeddedSolanaWalletReady, signEmbeddedSolanaMessage } = useSignupAuth();
+  const updateCurrentAccount = useUpdateCurrentPrivyAccount();
+  const {
+    embeddedSolanaWalletReady,
+    ensureEmbeddedSolanaWallet,
+    getAccessToken,
+    hasEmbeddedSolanaWallet,
+    signEmbeddedSolanaMessage,
+  } = useSignupAuth();
   const [policy, setPolicy] = useState(defaultPolicy);
   const [buyerCompanies, setBuyerCompanies] = useState<readonly string[]>(fallbackBuyerCompanies);
   const [activeMandateId, setActiveMandateId] = useState<string | null>(null);
@@ -61,7 +69,7 @@ export function InvestorInvestmentPolicyPage() {
   const embeddedWalletAddress = currentAccount?.walletAddress ?? null;
   const ownerWalletAddress = embeddedWalletAddress;
   const hasEmbeddedWallet = Boolean(embeddedWalletAddress);
-  const canSignWithEmbeddedWallet = Boolean(embeddedSolanaWalletReady && embeddedWalletAddress);
+  const canSignWithEmbeddedWallet = Boolean(embeddedSolanaWalletReady && currentAccount);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,11 +116,10 @@ export function InvestorInvestmentPolicyPage() {
   };
 
   const activateMandate = async () => {
-    if (!embeddedWalletAddress || !embeddedSolanaWalletReady) {
+    if (!currentAccount || !embeddedSolanaWalletReady) {
       setError(t("Your embedded wallet is not ready for signing yet.", "임베디드 지갑을 아직 서명에 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."));
       return;
     }
-    const signingWalletAddress = embeddedWalletAddress;
     if (policy.buyerAllowlist.length === 0) {
       setError(t("Select at least one buyer company before signing.", "서명하기 전에 구매기업을 하나 이상 선택해 주세요."));
       return;
@@ -121,6 +128,26 @@ export function InvestorInvestmentPolicyPage() {
     setSuccess(null);
     setIsSubmitting(true);
     try {
+      let signingWalletAddress = embeddedWalletAddress;
+      if (!signingWalletAddress || !hasEmbeddedSolanaWallet(signingWalletAddress)) {
+        const wallet = await ensureEmbeddedSolanaWallet();
+        const profile = await withPrivyAccessTokenRetry(
+          getAccessToken,
+          (accessToken) => linkEmbeddedWallet(accessToken, wallet.address),
+        );
+        if (!profile.embeddedWallet) {
+          throw new Error("연결된 Privy 임베디드 지갑을 확인하지 못했습니다.");
+        }
+        signingWalletAddress = profile.embeddedWallet.address;
+        updateCurrentAccount({ walletAddress: signingWalletAddress });
+        if (wallet.created) {
+          setSuccess(t(
+            "Embedded wallet created. Click the signing button once more.",
+            "임베디드 지갑을 생성했습니다. 서명 버튼을 한 번 더 눌러 주세요.",
+          ));
+          return;
+        }
+      }
       const policyInput: MandatePolicyInput = {
         totalInvestmentLimitUsdc: parseAmount(policy.totalLimit),
         perInvoiceLimitUsdc: parseAmount(policy.perInvoiceLimit),

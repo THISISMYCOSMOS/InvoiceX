@@ -6,8 +6,36 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from solders.keypair import Keypair
 
+from invoicex_backend.agent_activity import AgentTrigger
 from invoicex_backend.app import create_app
 from tests.conftest import mock_settings
+
+
+class RecordingTaskDispatcher:
+    def __init__(self) -> None:
+        self.tasks: list[tuple[str, AgentTrigger]] = []
+
+    async def enqueue(self, invoice_id: str, trigger: AgentTrigger) -> None:
+        self.tasks.append((invoice_id, trigger))
+
+
+def test_invoice_creation_queues_analysis_without_waiting_for_agent(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    dispatcher = RecordingTaskDispatcher()
+    app = create_app(
+        settings=mock_settings(tmp_path / "uploads"),
+        agent_task_dispatcher=dispatcher,
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/invoices", files=contract_files)
+
+    assert response.status_code == 201
+    invoice = response.json()["invoice"]
+    assert invoice["status"] == "DOCUMENT_ANALYZING"
+    assert dispatcher.tasks == [(invoice["id"], AgentTrigger.INVOICE_CREATED)]
 
 
 def test_complete_frontend_contract_workflow(
@@ -223,6 +251,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/auth/login",
             "/api/v1/auth/me",
             "/api/v1/auth/company-profile",
+            "/api/v1/auth/embedded-wallet",
             "/api/v1/auth/settlement-wallet",
         "/api/v1/auth/account",
         "/api/v1/onboarding/company",

@@ -238,6 +238,7 @@ export function SignupPage() {
     }
     setSubmitting(true);
     try {
+      const embeddedWallet = await signupAuth.ensureEmbeddedSolanaWallet();
       const result = await withPrivyAccessTokenRetry(
         signupAuth.getAccessToken,
         (accessToken) => onboardCompany(accessToken, {
@@ -253,6 +254,7 @@ export function SignupPage() {
             phone: contactPhone,
           },
           password: resumingOnboarding ? undefined : password,
+          embeddedWalletAddress: embeddedWallet.address,
         }),
       );
       if (result.onboardingStatus !== "COMPLETED" || !result.embeddedWallet) {
