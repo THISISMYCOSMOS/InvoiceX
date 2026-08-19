@@ -51,6 +51,12 @@ export interface InvestmentCriteriaBuyer {
   name: string;
 }
 
+export interface SettlementWallet {
+  walletType: "EMBEDDED" | "EXTERNAL";
+  address: string;
+  embeddedWalletAddress: string;
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 const apiBase = `${apiBaseUrl.replace(/\/$/, "")}/api/v1`;
 
@@ -104,6 +110,30 @@ export const rwaApi = {
     }
     return request<InvestmentCriteriaBuyer[]>("/reference/investment-criteria/buyers", {
       method: "GET",
+    });
+  },
+
+  async getSettlementWallet(): Promise<SettlementWallet | null> {
+    if (isMockApi) return null;
+    return request<SettlementWallet>("/auth/settlement-wallet", { method: "GET" });
+  },
+
+  async updateSettlementWallet(
+    walletType: SettlementWallet["walletType"],
+    address?: string,
+  ): Promise<SettlementWallet | null> {
+    if (isMockApi) return null;
+    return request<SettlementWallet>("/auth/settlement-wallet", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletType, address }),
+    });
+  },
+
+  async withdrawAccount(): Promise<void> {
+    if (isMockApi) return;
+    await request<{ onboardingStatus: "WITHDRAWN" }>("/auth/account", {
+      method: "DELETE",
     });
   },
 

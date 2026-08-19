@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DocumentUploadCard } from "../../components/DocumentUploadCard";
 import { ErrorState } from "../../components/ErrorState";
+import { InvoiceRegistrationProgress } from "../../components/InvoiceRegistrationProgress";
 import { isMockApi } from "../../api/client";
-import { DEMO_INVOICE } from "../../mocks/demoScenario";
 import { useDocumentUpload } from "../../hooks/useDocumentUpload";
 import type { DocumentType, InvoiceDocument } from "../../types/documents";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -16,7 +16,7 @@ export function NewInvoicePage() {
   const { t } = useLanguage();
   const onFileSelected = (type: DocumentType, file: File) => {
     setFiles((current) => ({ ...current, [type]: file }));
-    setDocuments((current) => [...current.filter((document) => document.type !== type), { id: `LOCAL-${type}`, invoiceId: DEMO_INVOICE.id, type, fileName: file.name, mimeType: file.type, fileSize: file.size, uploadStatus: "COMPLETED" }]);
+    setDocuments((current) => [...current.filter((document) => document.type !== type), { id: `LOCAL-${type}`, invoiceId: "LOCAL-DRAFT", type, fileName: file.name, mimeType: file.type, fileSize: file.size, uploadStatus: "COMPLETED" }]);
   };
   const onAnalyze = () => {
     const formData = new FormData();
@@ -44,6 +44,7 @@ export function NewInvoicePage() {
         </div>
         <span className="draft-badge">{t("Draft saved", "초안 저장됨")}</span>
       </header>
+      <InvoiceRegistrationProgress step={1} />
       {isMockApi ? (
         <section className="demo-invoice-registration">
           <div>

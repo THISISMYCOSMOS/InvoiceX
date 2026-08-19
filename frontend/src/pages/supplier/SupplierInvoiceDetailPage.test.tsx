@@ -10,7 +10,8 @@ import {
 } from "../../mocks/demoScenario";
 import { SupplierInvoiceDetailContent } from "./SupplierInvoiceDetailPage";
 
-test("shows the early settlement CTA for an offer-ready invoice", () => {
+test("separates Risk Passport, settlement terms, and RWA issuance", async () => {
+  const user = userEvent.setup();
   render(
     <SupplierInvoiceDetailContent
       invoice={{ ...DEMO_INVOICE, status: "OFFER_READY", riskPassport: DEMO_RISK_PASSPORT }}
@@ -18,15 +19,27 @@ test("shows the early settlement CTA for an offer-ready invoice", () => {
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "2 USDC" })).toBeInTheDocument();
-  expect(screen.getByText("0.13 USDC")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Risk Passport" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Risk Passport assessment" })).toBeInTheDocument();
+  expect(screen.getByText("Provisional Risk Score")).toBeInTheDocument();
+  expect(screen.getAllByText("Synthetic Demo Data")).toHaveLength(3);
+  expect(screen.getByText("3 / 7 Risk Passport")).toHaveAttribute("aria-current", "step");
   expect(screen.queryByRole("button", { name: "Decline offer" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Review early-settlement terms" }));
+  expect(screen.getByRole("heading", { name: "Review early-settlement terms" })).toBeInTheDocument();
+  expect(screen.getByText("Discount")).toBeInTheDocument();
+  expect(screen.getByText("Reserve ≠ Fee")).toBeInTheDocument();
+  expect(screen.getByText("4 / 7 Early-settlement terms")).toHaveAttribute("aria-current", "step");
+
+  await user.click(screen.getByRole("button", { name: "Agree to early-settlement terms" }));
+  expect(screen.getByRole("heading", { name: "Review RWA issuance" })).toBeInTheDocument();
+  expect(screen.getByText("InvoiceX ID")).toBeInTheDocument();
+  expect(screen.getByText("5 / 7 RWA issuance")).toHaveAttribute("aria-current", "step");
   expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
 });
 
-test("shows the RWA issuance request state and error instead of silently failing", () => {
+test("shows the RWA issuance request state and error instead of silently failing", async () => {
+  const user = userEvent.setup();
   render(
     <SupplierInvoiceDetailContent
       invoice={{ ...DEMO_INVOICE, status: "OFFER_READY", riskPassport: DEMO_RISK_PASSPORT }}
@@ -36,6 +49,8 @@ test("shows the RWA issuance request state and error instead of silently failing
     />,
   );
 
+  await user.click(screen.getByRole("button", { name: "Review early-settlement terms" }));
+  await user.click(screen.getByRole("button", { name: "Agree to early-settlement terms" }));
   expect(screen.getByRole("button", { name: "Requesting RWA issuance…" })).toBeDisabled();
   expect(screen.getByRole("alert")).toHaveTextContent("RWA 발행 요청을 처리하지 못했습니다.");
 });
@@ -80,8 +95,8 @@ test("shows the shared lifecycle for an in-progress risk assessment", () => {
     />,
   );
 
-  expect(screen.getByRole("list", { name: "Invoice lifecycle" })).toHaveTextContent("Document analysis");
-  expect(screen.getByRole("list", { name: "Invoice lifecycle" })).toHaveTextContent("Maturity settlement");
+  expect(screen.getByLabelText("Invoice lifecycle")).toHaveTextContent("3 / 7 Risk Passport");
+  expect(screen.getByLabelText("Invoice lifecycle")).toHaveTextContent("Maturity settlement");
   expect(screen.getByRole("heading", { name: "Generating the Risk Passport" })).toBeInTheDocument();
 });
 
@@ -145,7 +160,13 @@ test("shows extracted information and requests verification after confirmation",
         documents: DEMO_DOCUMENTS,
         analysis: {
           ...DEMO_ANALYSIS,
+          invoiceNumber: { value: "DOC-INV-8842", status: "MATCHED" },
+          buyerName: { value: "Document Buyer Ltd.", status: "MATCHED" },
+          amount: { value: 4920.5, status: "MATCHED" },
+          currency: { value: "EUR", status: "MATCHED" },
+          dueDate: { value: "2026-12-18", status: "MATCHED" },
           contractNumber: { ...DEMO_ANALYSIS.contractNumber, status: "REVIEW_REQUIRED" },
+          purchaseOrderNumber: { value: "PO-DOC-019", status: "MATCHED" },
         },
       }}
       onAccept={() => undefined}
@@ -155,13 +176,18 @@ test("shows extracted information and requests verification after confirmation",
 
   expect(screen.getByRole("heading", { name: "Review extracted information" })).toBeInTheDocument();
   expect(screen.getByText("2 / 3 Review extraction")).toBeInTheDocument();
-  expect(screen.getByText("9 of 10 verified")).toBeInTheDocument();
+  expect(screen.getByText("7 of 8 verified")).toBeInTheDocument();
+  expect(screen.getByText("DOC-INV-8842")).toBeInTheDocument();
+  expect(screen.getByText("Document Buyer Ltd.")).toBeInTheDocument();
+  expect(screen.getByText("4,920.5 EUR")).toBeInTheDocument();
+  expect(screen.getByText("December 18, 2026")).toBeInTheDocument();
   expect(screen.getByText("PM-SUPPLY-2026-04")).toBeInTheDocument();
+  expect(screen.getByText("PO-DOC-019")).toBeInTheDocument();
+  expect(screen.getByText(/contract number differs between documents or could not be confirmed/i)).toBeInTheDocument();
   expect(screen.getByText("Needs review")).toBeInTheDocument();
-  expect(screen.getByText("Completed · July 24, 2026")).toBeInTheDocument();
+  expect(screen.getByText("Completed")).toBeInTheDocument();
   expect(screen.queryByText("03 · DOCUMENT AGENT REVIEW / 1440 × 900")).not.toBeInTheDocument();
   expect(screen.queryByText("Document Agent complete")).not.toBeInTheDocument();
-  expect(screen.getByText("Prime Mobility Co., Ltd.")).toBeInTheDocument();
   expect(screen.getByText("01_Invoice_INV-2026-001.pdf")).toBeInTheDocument();
 
   await user.click(screen.getByRole("tab", { name: "Contract" }));
@@ -187,6 +213,7 @@ test("shows the buyer-verification pending summary from the invoice", () => {
   expect(screen.getByText("3 USDC")).toBeInTheDocument();
   expect(screen.getByText("Oct 30, 2026")).toBeInTheDocument();
   expect(screen.getByText("Verification requested · Jul 29, 2026 · 10:42")).toBeInTheDocument();
-  expect(screen.getByText("Buyer verification")).toHaveAttribute("aria-current", "step");
+  expect(screen.getByText("3 / 3 Buyer review requested")).toHaveAttribute("aria-current", "step");
+  expect(screen.queryByRole("list", { name: "Buyer verification progress" })).not.toBeInTheDocument();
   expect(screen.queryByText("04 · BUYER VERIFICATION PENDING / 1440 × 900")).not.toBeInTheDocument();
 });

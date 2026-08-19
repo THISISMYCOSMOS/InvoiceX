@@ -15,6 +15,7 @@ from invoicex_agents import (
     StaticGeminiClient,
 )
 from invoicex_agents.clients.base import MediaDocument
+from invoicex_agents.exceptions import AgentConfigurationError
 from invoicex_agents.models.document import DocumentAnalysisResult
 from invoicex_agents.models.risk import RiskAnalysisRequest, RiskAnalysisResult
 
@@ -63,7 +64,8 @@ class RealAgentGateway:
 
     def __init__(self, settings: BackendSettings) -> None:
         agent_settings = AgentSettings(
-            GEMINI_API_KEY=settings.gemini_api_key,
+            VERTEX_AI_PROJECT_ID=settings.vertex_ai_project_id,
+            VERTEX_AI_LOCATION=settings.vertex_ai_location,
             GEMINI_MODEL=settings.gemini_model,
             GEMINI_TIMEOUT_SECONDS=settings.gemini_timeout_seconds,
             GEMINI_MAX_ATTEMPTS=settings.gemini_max_attempts,
@@ -235,9 +237,38 @@ class MockAgentGateway:
         return explanations.get(code, "백엔드가 제공한 검증 사실을 확인했습니다.")
 
 
+class UnconfiguredAgentGateway:
+    """Reject document analysis instead of silently returning demo values."""
+
+    mode = "unavailable"
+    model_name = "unconfigured"
+
+    @staticmethod
+    def _error() -> AgentConfigurationError:
+        return AgentConfigurationError(
+            "Vertex AI 설정이 없습니다. VERTEX_AI_PROJECT_ID를 설정하거나, "
+            "Demo 분석이 필요한 경우에만 AGENT_MODE=mock을 명시하세요."
+        )
+
+    async def analyze_documents(
+        self,
+        invoice_id: str,
+        documents: list[AgentDocument],
+    ) -> DocumentAnalysisResult:
+        del invoice_id, documents
+        raise self._error()
+
+    async def analyze_risk(self, request: RiskAnalysisRequest) -> RiskAnalysisResult:
+        del request
+        raise self._error()
+
+
 def create_agent_gateway(settings: BackendSettings) -> AgentGateway:
     """Select real Gemini or deterministic mock once at application startup."""
 
-    if settings.resolved_agent_mode() == "real":
+    resolved_mode = settings.resolved_agent_mode()
+    if resolved_mode == "real":
         return RealAgentGateway(settings)
-    return MockAgentGateway()
+    if resolved_mode == "mock":
+        return MockAgentGateway()
+    return UnconfiguredAgentGateway()

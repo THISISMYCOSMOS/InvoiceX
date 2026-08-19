@@ -27,7 +27,7 @@ from invoicex_backend.auth import (
     require_roles,
 )
 from invoicex_backend.config import BackendSettings
-from invoicex_backend.errors import DocumentValidationError, NotFoundError
+from invoicex_backend.errors import DocumentValidationError, NotFoundError, OnboardingApiError
 from invoicex_backend.models import (
     ConfirmVaultDepositRequest,
     CreateMandateRequest,
@@ -56,10 +56,15 @@ from invoicex_backend.models import (
 from invoicex_backend.onboarding import OnboardingService
 from invoicex_backend.onboarding_models import (
     AuthMeResponse,
+    DeleteAccountResponse,
     OnboardCompanyRequest,
     OnboardingResponse,
+    OnboardingStatus,
+    SettlementWallet,
+    UpdateCompanyProfileRequest,
+    UpdateSettlementWalletRequest,
 )
-from invoicex_backend.privy_auth import PrivyPrincipalDependency
+from invoicex_backend.privy_auth import PrivyPrincipalDependency, verify_privy_access_token
 from invoicex_backend.seed import INVESTMENT_CRITERIA_BUYERS, authenticate_demo_account
 from invoicex_backend.service import InvoiceService
 
@@ -154,10 +159,30 @@ VerificationId = Annotated[
 @auth_router.post(
     "/login",
     response_model=LoginResponse,
-    responses={401: {"model": ErrorResponse, "description": "Invalid demo account credentials"}},
-    summary="고정 데모 계정 로그인",
+    responses={401: {"model": ErrorResponse, "description": "Invalid account credentials"}},
+    summary="이메일과 비밀번호 로그인",
 )
-async def login(payload: LoginRequest, settings: SettingsDependency) -> LoginResponse:
+async def login(
+    payload: LoginRequest,
+    settings: SettingsDependency,
+    service: OnboardingServiceDependency,
+) -> LoginResponse:
+    member = service.authenticate_password_login(payload.email, payload.password, payload.role)
+    if member is not None:
+        identity = AuthenticatedIdentity(
+            role=payload.role,
+            email=member.email,
+            source="MEMBER",
+        )
+        access_token, expires_at = issue_access_token(identity, settings)
+        return LoginResponse(
+            access_token=access_token,
+            auth_mode="MEMBER",
+            role=payload.role,
+            email=member.email,
+            expires_at=expires_at,
+        )
+
     account = authenticate_demo_account(payload.role, payload.email, payload.password)
     if account is None:
         raise HTTPException(
@@ -168,6 +193,7 @@ async def login(payload: LoginRequest, settings: SettingsDependency) -> LoginRes
     access_token, expires_at = issue_access_token(identity, settings)
     return LoginResponse(
         access_token=access_token,
+        auth_mode="DEMO",
         role=account.role,
         email=account.email,
         expires_at=expires_at,
@@ -195,10 +221,123 @@ async def otp_clock(response: Response, settings: SettingsDependency) -> dict[st
     summary="Privy 사용자 가입 상태 조회",
 )
 async def auth_me(
-    principal: PrivyPrincipalDependency,
+    request: Request,
+    settings: SettingsDependency,
     service: OnboardingServiceDependency,
 ) -> AuthMeResponse:
-    return await service.auth_me(principal)
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise OnboardingApiError(
+            status.HTTP_401_UNAUTHORIZED,
+            "PRIVY_TOKEN_INVALID",
+            "인증 토큰이 필요합니다.",
+        )
+    if token.count(".") == 2:
+        return await service.auth_me(verify_privy_access_token(token, settings))
+    identity = await require_authenticated_identity(request)
+    if identity is None:
+        raise OnboardingApiError(
+            status.HTTP_401_UNAUTHORIZED,
+            "AUTHENTICATION_REQUIRED",
+            "인증 토큰을 확인할 수 없습니다.",
+        )
+    return service.auth_me_for_email(identity.email)
+
+
+async def _completed_member_email(
+    request: Request,
+    settings: BackendSettings,
+    service: OnboardingService,
+) -> str:
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise OnboardingApiError(
+            status.HTTP_401_UNAUTHORIZED,
+            "AUTHENTICATION_REQUIRED",
+            "인증 토큰이 필요합니다.",
+        )
+    if token.count(".") == 2:
+        profile = await service.auth_me(verify_privy_access_token(token, settings))
+        if profile.onboarding_status is not OnboardingStatus.COMPLETED:
+            raise OnboardingApiError(
+                status.HTTP_403_FORBIDDEN,
+                "ONBOARDING_INCOMPLETE",
+                "회원가입을 완료한 후 이용할 수 있습니다.",
+            )
+        return profile.user.email
+    identity = await require_authenticated_identity(request)
+    if identity is None:
+        raise OnboardingApiError(
+            status.HTTP_401_UNAUTHORIZED,
+            "AUTHENTICATION_REQUIRED",
+            "인증 토큰을 확인할 수 없습니다.",
+        )
+    return identity.email
+
+
+@auth_router.get(
+    "/settlement-wallet",
+    response_model=SettlementWallet,
+    summary="현재 조기정산 지갑 조회",
+)
+async def get_settlement_wallet(
+    request: Request,
+    settings: SettingsDependency,
+    service: OnboardingServiceDependency,
+) -> SettlementWallet:
+    email = await _completed_member_email(request, settings, service)
+    return service.settlement_wallet_for_email(email)
+
+
+@auth_router.put(
+    "/settlement-wallet",
+    response_model=SettlementWallet,
+    summary="조기정산에 사용할 지갑 변경",
+)
+async def update_settlement_wallet(
+    payload: UpdateSettlementWalletRequest,
+    request: Request,
+    settings: SettingsDependency,
+    service: OnboardingServiceDependency,
+) -> SettlementWallet:
+    email = await _completed_member_email(request, settings, service)
+    return service.update_settlement_wallet(email, payload)
+
+
+@auth_router.put(
+    "/company-profile",
+    response_model=AuthMeResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Authentication is required"},
+        409: {"model": ErrorResponse, "description": "Company profile conflict"},
+        422: {"model": ErrorResponse, "description": "Invalid company profile"},
+    },
+    summary="데모용 기업 프로필 수정",
+)
+async def update_company_profile(
+    payload: UpdateCompanyProfileRequest,
+    request: Request,
+    settings: SettingsDependency,
+    service: OnboardingServiceDependency,
+) -> AuthMeResponse:
+    email = await _completed_member_email(request, settings, service)
+    return service.update_company_profile(email, payload)
+
+
+@auth_router.delete(
+    "/account",
+    response_model=DeleteAccountResponse,
+    summary="InvoiceX 계정 탈퇴",
+)
+async def withdraw_account(
+    request: Request,
+    settings: SettingsDependency,
+    service: OnboardingServiceDependency,
+) -> DeleteAccountResponse:
+    email = await _completed_member_email(request, settings, service)
+    return await service.withdraw_account_for_email(email)
 
 
 @onboarding_router.post(

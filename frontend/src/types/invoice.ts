@@ -81,6 +81,8 @@ export interface RwaAsset {
   escrowTokenAccount: string;
   status: "ISSUED" | "SOLD";
   issueTransaction: BlockchainTransaction;
+  faceValueUsdc?: number;
+  issuancePriceUsdc?: number;
   purchaseTransaction?: BlockchainTransaction;
   ownerVaultAddress?: string;
 }
@@ -113,6 +115,7 @@ export interface Invoice {
   riskPassport?: RiskPassport;
   verificationId?: string;
   verificationRequestedAt?: string;
+  verificationConfirmedAt?: string;
   fundingTransaction?: BlockchainTransaction;
   settlementTransaction?: BlockchainTransaction;
   settlement?: SettlementResult;

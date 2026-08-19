@@ -22,6 +22,9 @@ test.each([
   ["/supplier", "Good morning, Minjun"],
   ["/supplier/company-wallet", "Company & Wallet"],
   ["/buyer", "Invoice verification"],
+  ["/buyer/verification", "Verification requests"],
+  ["/buyer/payment", "Payment schedule"],
+  ["/buyer/profile", "Company profile"],
   ["/investor", "Dashboard"],
   ["/dev/demo", "Developer demo controls"],
 ])("renders %s", async (path, expectedText) => {
@@ -73,9 +76,9 @@ test("renders supplier navigation in the shared application shell", async () => 
   renderAt("/supplier");
 
   expect(await screen.findByRole("navigation", { name: "Supplier navigation" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/supplier");
-  expect(screen.getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/supplier/invoices/new");
-  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/supplier/company-wallet");
+  expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/supplier");
+  expect(screen.getByRole("link", { name: "Invoice registration" })).toHaveAttribute("href", "/supplier/invoices/new");
+  expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/supplier/company-wallet");
 });
 
 test("shows the supplier wallet connection without a hard-coded demo address", async () => {
@@ -101,10 +104,13 @@ test("splits investor wallet, policy, and Vault across their MVP pages", async (
   const investor = renderAt("/investor/investment-policy");
 
   expect(await screen.findByRole("heading", { name: "Investment Policy" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Investment Mandate" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Investment conditions" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByRole("heading", { name: "Investment Conditions" })).toBeInTheDocument();
   expect(screen.getByLabelText(/Total investment limit/)).toHaveValue("1");
-  expect(screen.getByRole("link", { name: "Connect wallet in Profile" })).toHaveAttribute("href", "/investor/profile");
+  await user.click(screen.getByRole("tab", { name: "Mandate" }));
+  expect(screen.getByRole("heading", { name: "Investment Mandate" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Review embedded wallet in Profile" })).toHaveAttribute("href", "/investor/profile");
+  await user.click(screen.getByRole("tab", { name: "Investment conditions" }));
   expect(screen.getByRole("button", { name: "Sign & save policy" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("Prime Mobility");
 
@@ -122,7 +128,6 @@ test("splits investor wallet, policy, and Vault across their MVP pages", async (
   vault.unmount();
   const profile = renderAt("/investor/profile");
   expect(await screen.findByRole("heading", { name: "Profile" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "No wallet connected" })).toBeInTheDocument();
   profile.unmount();
   renderAt("/buyer");
   expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
@@ -143,8 +148,22 @@ test("switches between English and Korean from login and keeps the choice across
   renderAt("/supplier");
 
   expect(await screen.findByRole("heading", { name: "좋은 아침이에요, 민준님" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "개요" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "대시보드" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "인보이스 등록" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "프로필" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "알림" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Switch to English" })).toBeInTheDocument();
+});
+
+test("renders buyer profile navigation without wallet management", async () => {
+  renderAt("/buyer/profile");
+
+  expect(await screen.findByRole("heading", { name: "Company profile" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/buyer/profile");
+  expect(screen.getByText("USD")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
+  expect(screen.queryByText(/wallet/i)).not.toBeInTheDocument();
 });
 
 test("places the role switcher before the language control in the app topbar", async () => {
@@ -193,6 +212,7 @@ test("renders the investor Figma navigation and agent decision route", async () 
   );
   expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/investor");
   expect(screen.getByRole("link", { name: "Investment Policy" })).toHaveAttribute("href", "/investor/investment-policy");
+  expect(screen.getByRole("link", { name: "Funds conversion" })).toHaveAttribute("href", "/investor/funds-conversion");
   expect(screen.getByRole("link", { name: "Vault" })).toHaveAttribute("href", "/investor/vault");
   expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/investor/profile");
   expect(screen.queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
@@ -206,15 +226,15 @@ test("renders the investor Figma navigation and agent decision route", async () 
   expect(screen.getByText("0 / 1 PASSED")).toBeInTheDocument();
 });
 
-test("returns from buyer verification to the buyer dashboard", async () => {
+test("returns from buyer verification to the request list", async () => {
   const user = userEvent.setup();
   renderAt("/buyer/invoices/INV-2026-001?section=verification");
 
   const backLink = await screen.findByRole("link", { name: "Back" });
-  expect(backLink).toHaveAttribute("href", "/buyer");
+  expect(backLink).toHaveAttribute("href", "/buyer/verification");
 
   await user.click(backLink);
-  expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Verification requests" })).toBeInTheDocument();
 });
 
 test("opens a due invoice from the buyer dashboard payment queue", async () => {
@@ -250,7 +270,11 @@ test("shows the supplier RWA issuance request after buyer confirmation", async (
   buyer.unmount();
   renderAt("/supplier/invoices/INV-2026-001");
 
-  expect(await screen.findByRole("heading", { name: "Your RWA issuance preparation is complete" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Risk Passport assessment" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Review early-settlement terms" }));
+  expect(screen.getByRole("heading", { name: "Review early-settlement terms" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Agree to early-settlement terms" }));
+  expect(screen.getByRole("heading", { name: "Review RWA issuance" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
 });
 

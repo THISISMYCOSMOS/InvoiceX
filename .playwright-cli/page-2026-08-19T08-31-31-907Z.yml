@@ -1,0 +1,81 @@
+- generic [ref=e38]:
+  - banner [ref=e39]:
+    - link "InvoiceX home" [ref=e40] [cursor=pointer]:
+      - /url: /investor
+      - generic [ref=e41]: InvoiceX
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]: Switch role
+        - combobox "Switch role" [ref=e45] [cursor=pointer]:
+          - option "Supplier"
+          - option "Buyer"
+          - option "Investor" [selected]
+      - button "한국어로 전환" [ref=e46] [cursor=pointer]:
+        - generic [ref=e49]: 한국어
+      - button "Notifications" [ref=e51] [cursor=pointer]
+      - strong [ref=e54]: Nova Capital
+  - generic [ref=e55]:
+    - complementary [ref=e56]:
+      - generic [ref=e57]: INVESTOR
+      - navigation "Investor navigation" [ref=e58]:
+        - link "Dashboard" [ref=e59] [cursor=pointer]:
+          - /url: /investor
+        - link "Agent Activity" [ref=e60] [cursor=pointer]:
+          - /url: /investor/activities
+        - link "Investment Policy" [ref=e61] [cursor=pointer]:
+          - /url: /investor/investment-policy
+        - link "Funds conversion" [active] [ref=e62] [cursor=pointer]:
+          - /url: /investor/funds-conversion
+        - link "Vault" [ref=e63] [cursor=pointer]:
+          - /url: /investor/vault
+        - link "Profile" [ref=e64] [cursor=pointer]:
+          - /url: /investor/profile
+    - main [ref=e65]:
+      - generic [ref=e180]:
+        - generic [ref=e181]:
+          - generic [ref=e182]:
+            - heading "Funds conversion" [level=1] [ref=e183]
+            - paragraph [ref=e184]: Preview how USDC can move between your business and a financial partner.
+          - generic [ref=e185]: Partner flow preview
+        - complementary [ref=e188]:
+          - paragraph [ref=e191]: Funds conversion is provided through external financial partners. Actual exchange rates and fees may vary at the partner's time of processing.
+        - tablist "Funds conversion type" [ref=e192]:
+          - tab "Buy USDC Fiat → USDC" [selected] [ref=e193] [cursor=pointer]:
+            - generic [ref=e196]: Buy USDC
+            - generic [ref=e197]: Fiat → USDC
+          - tab "Withdraw USDC USDC → Fiat" [ref=e198] [cursor=pointer]:
+            - generic [ref=e201]: Withdraw USDC
+            - generic [ref=e202]: USDC → Fiat
+        - article [ref=e203]:
+          - generic [ref=e204]:
+            - generic [ref=e208]:
+              - heading "Buy USDC" [level=2] [ref=e209]
+              - paragraph [ref=e210]: Fiat to USDC through a settlement partner
+            - generic [ref=e211]: Demo quote
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - generic [ref=e214]: Amount to convert
+              - generic [ref=e215]:
+                - textbox "Amount to convert KRW" [ref=e216]: 1,500,000
+                - strong [ref=e217]: KRW
+            - generic [ref=e218]:
+              - generic [ref=e219]: Payment currency
+              - combobox "Payment currency" [ref=e220] [cursor=pointer]:
+                - option "KRW · Korean won" [selected]
+                - option "USD · US dollar"
+                - option "JPY · Japanese yen"
+            - generic [ref=e221]:
+              - generic [ref=e222]:
+                - term [ref=e223]: Estimated USDC received
+                - definition [ref=e224]: 1,059.7971 USDC
+              - generic [ref=e225]:
+                - term [ref=e226]: 예상 환율
+                - definition [ref=e227]: 1 USDC ≈ KRW 1,404.75
+              - generic [ref=e228]:
+                - term [ref=e229]: 예상 수수료
+                - definition [ref=e230]: KRW 11,250 · 0.75%
+          - generic [ref=e231]:
+            - generic [ref=e232]:
+              - generic [ref=e233]: External partner
+              - strong [ref=e234]: Settlement partner connection · Planned
+            - button "Continue" [ref=e235] [cursor=pointer]

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle, ClipboardText, CurrencyDollar } from "@phosphor-icons/react";
+import { ArrowLeft, CheckCircle, CurrencyDollar } from "@phosphor-icons/react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import invoicePreview from "../../assets/invoice-preview.png";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useBuyerConfirm } from "../../hooks/useBuyerConfirm";
 import { useInvoice } from "../../hooks/useInvoice";
+import { getInvoiceDisplayReference } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { DocumentType } from "../../types/documents";
 import { formatInvoiceAmount, type Invoice, type InvoiceStatus } from "../../types/invoice";
@@ -83,11 +84,13 @@ function BuyerVerificationSection({
   onConfirm,
   canConfirm,
   isConfirming,
+  backPath,
 }: {
   invoice: Invoice;
   onConfirm: () => Promise<void> | void;
   canConfirm: boolean;
   isConfirming: boolean;
+  backPath: string;
 }) {
   const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<DocumentType>("INVOICE");
@@ -125,7 +128,7 @@ function BuyerVerificationSection({
 
   return (
     <section className="buyer-verification">
-      <Link className="buyer-back-link" to="/buyer">
+      <Link className="buyer-back-link" to={backPath}>
         <ArrowLeft size={13} weight="bold" aria-hidden="true" />
         {t("Back", "뒤로 가기")}
       </Link>
@@ -270,58 +273,74 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
 }
 
 function BuyerInvoiceIdleSection({ invoice }: { invoice: Invoice }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const locale = language === "ko" ? "ko-KR" : "en-US";
+  const originalInvoiceNumber = getInvoiceDisplayReference(invoice);
+  const deliveryCompleted = invoice.analysis?.deliveryCompleted.value;
+  const confirmationTimestamp = invoice.verificationConfirmedAt ?? invoice.riskPassport?.generatedAt;
+  const confirmationTime = confirmationTimestamp
+    ? new Intl.DateTimeFormat(locale, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(confirmationTimestamp))
+    : "—";
+
   return (
     <section className="buyer-idle-state">
-      <Link className="buyer-back-link" to="/buyer">
+      <Link className="buyer-back-link" to="/buyer/verification">
         <ArrowLeft size={13} weight="bold" aria-hidden="true" />
-        {t("Back to overview", "개요로 돌아가기")}
+        {t("Back to verification requests", "확인 요청 목록으로")}
       </Link>
-      <article className="buyer-complete-card">
-        <header className="buyer-complete-card__heading">
-          <span className="buyer-complete-card__icon" aria-hidden="true">
-            <CheckCircle size={28} weight="fill" />
-          </span>
-          <div>
-            <span className="buyer-complete-card__eyebrow">{t("BUYER CONFIRMATION COMPLETE", "구매기업 확인 완료")}</span>
-            <h1>{t("Invoice verification completed", "인보이스 확인이 완료되었습니다")}</h1>
-            <p>{t(
-              "Your confirmation has been recorded. The supplier can now review the early-settlement offer and request RWA issuance.",
-              "확인 내용이 등록되었습니다. 공급기업은 조기정산 조건을 검토한 뒤 RWA 발행을 요청할 수 있습니다.",
-            )}</p>
-          </div>
-          <span className="buyer-complete-card__status">{t("CONFIRMED", "확인 완료")}</span>
-        </header>
+      <div className="signup-progress buyer-confirmation-progress" aria-label={t("Verification progress", "인보이스 확인 진행 상황")}>
+        <div>
+          <strong>{t("2 / 2 Buyer confirmation complete", "2 / 2 구매기업 확인 완료")}</strong>
+          <span>{t("Invoice verification", "인보이스 확인")}</span>
+        </div>
+        <i><b className="signup-progress__fill signup-progress__fill--complete" /></i>
+      </div>
 
-        <dl className="buyer-complete-summary">
-          <div>
-            <dt>{t("Invoice", "인보이스")}</dt>
-            <dd>{invoice.id}</dd>
-          </div>
-          <div>
-            <dt>{t("Supplier", "공급기업")}</dt>
-            <dd>{invoice.supplier.name}</dd>
-          </div>
-          <div>
-            <dt>{t("Invoice amount", "인보이스 금액")}</dt>
-            <dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency)}</dd>
-          </div>
-        </dl>
+      <header className="buyer-confirmed-heading">
+        <span className="buyer-confirmed-heading__icon" aria-hidden="true"><CheckCircle size={24} weight="fill" /></span>
+        <div>
+          <span>{t("BUYER CONFIRMATION COMPLETE", "구매기업 확인 완료")}</span>
+          <h1>{t("Invoice verification completed", "인보이스 확인이 완료되었습니다")}</h1>
+          <p>{t("Your confirmation has been recorded for this invoice.", "인보이스 확인 기록이 등록되었습니다.")}</p>
+        </div>
+        <span className="buyer-complete-card__status">{t("CONFIRMED", "확인 완료")}</span>
+      </header>
 
-        <ol className="buyer-complete-steps" aria-label={t("Invoice workflow progress", "인보이스 진행 상황")}>
-          <li className="is-complete"><ClipboardText size={15} weight="fill" aria-hidden="true" /><span>{t("Supplier submitted", "공급기업 등록")}</span></li>
-          <li className="is-complete"><CheckCircle size={15} weight="fill" aria-hidden="true" /><span>{t("Buyer verified", "구매기업 확인")}</span></li>
-          <li className="is-next"><ArrowRight size={15} weight="bold" aria-hidden="true" /><span>{t("RWA issuance request", "RWA 발행 요청")}</span></li>
-        </ol>
-
-        <footer className="buyer-complete-card__footer">
-          <p>{t("No further action is required from your organization at this stage.", "현재 단계에서 구매기업이 추가로 수행할 작업은 없습니다.")}</p>
-          <Link className="buyer-complete-card__link" to="/buyer">
-            {t("View all requests", "확인 요청 목록")}
-            <ArrowRight size={14} weight="bold" aria-hidden="true" />
-          </Link>
-        </footer>
-      </article>
+      <div className="buyer-confirmed-details">
+        <section>
+          <h2>{t("Transaction information", "거래 정보")}</h2>
+          <dl>
+            <div><dt>{t("Original invoice number", "원본 인보이스 번호")}</dt><dd>{originalInvoiceNumber}</dd></div>
+            <div><dt>{t("Supplier", "공급기업")}</dt><dd>{invoice.supplier.name}</dd></div>
+            <div><dt>{t("Invoice amount", "인보이스 금액")}</dt><dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency, locale)}</dd></div>
+            <div><dt>{t("Due date", "만기일")}</dt><dd>{formatDate(invoice.dueDate, locale)}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h2>{t("Transaction evidence", "거래 근거")}</h2>
+          <dl>
+            <div><dt>{t("Contract number", "계약번호")}</dt><dd>{invoice.contractNumber || "—"}</dd></div>
+            <div><dt>{t("PO number", "PO 번호")}</dt><dd>{invoice.purchaseOrderNumber || "—"}</dd></div>
+            <div><dt>{t("Delivery status", "납품 상태")}</dt><dd>{deliveryCompleted === true ? t("Complete", "완료") : deliveryCompleted === false ? t("Not completed", "미완료") : t("Needs confirmation", "확인 필요")}</dd></div>
+            <div><dt>{t("Dispute status", "분쟁 상태")}</dt><dd>{t("None", "없음")}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h2>{t("Confirmation record", "확인 기록")}</h2>
+          <dl>
+            <div><dt>{t("Confirming company", "확인 기업")}</dt><dd>{invoice.buyer.name}</dd></div>
+            <div><dt>{t("Confirmed at", "확인 일시")}</dt><dd>{confirmationTime}</dd></div>
+            <div><dt>{t("Confirmation status", "확인 상태")}</dt><dd className="buyer-confirmed-status"><CheckCircle size={13} weight="fill" aria-hidden="true" /> Buyer Confirmed</dd></div>
+          </dl>
+        </section>
+      </div>
     </section>
   );
 }
@@ -349,6 +368,7 @@ export function BuyerInvoiceDetailContent({
         onConfirm={onConfirm}
         canConfirm={Boolean(invoice.verificationId)}
         isConfirming={isConfirming}
+        backPath="/buyer/verification"
       />
     );
   }

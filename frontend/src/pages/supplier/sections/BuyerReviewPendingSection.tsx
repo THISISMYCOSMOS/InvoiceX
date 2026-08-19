@@ -1,4 +1,5 @@
 import { ArrowsClockwise } from "@phosphor-icons/react";
+import { InvoiceRegistrationProgress } from "../../../components/InvoiceRegistrationProgress";
 import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 import { useLanguage } from "../../../i18n/LanguageContext";
 
@@ -12,6 +13,7 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
   return (
     <section className="buyer-review-pending">
       <p className="breadcrumb">{t("Invoices", "인보이스")} / {invoice.id}</p>
+      <InvoiceRegistrationProgress step={3} />
       <section className="pending-card">
         <span className="pending-card__icon" aria-hidden="true">
           <ArrowsClockwise size={18} weight="bold" />
@@ -37,12 +39,6 @@ export function BuyerReviewPendingSection({ invoice }: { invoice: Invoice }) {
             <dd>{localizedDateFormatter.format(new Date(`${invoice.dueDate}T00:00:00`))}</dd>
           </div>
         </dl>
-
-        <ol className="pending-progress" aria-label={t("Buyer verification progress", "구매기업 확인 진행 상황")}>
-          <li className="is-complete"><span>{t("Registered", "등록")}</span></li>
-          <li className="is-current"><span aria-current="step">{t("Buyer verification", "구매자 검증")}</span></li>
-          <li><span>{t("Verified", "검증 완료")}</span></li>
-        </ol>
 
         <div className="pending-notice">
           <strong>{t("Verification requested · Jul 29, 2026 · 10:42", "검증 요청 · 2026년 7월 29일 · 10:42")}</strong>

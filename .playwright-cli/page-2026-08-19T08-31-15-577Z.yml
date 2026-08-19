@@ -1,0 +1,65 @@
+- generic [ref=e38]:
+  - banner [ref=e39]:
+    - link "InvoiceX home" [ref=e40] [cursor=pointer]:
+      - /url: /investor
+      - generic [ref=e41]: InvoiceX
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]: Switch role
+        - combobox "Switch role" [ref=e45] [cursor=pointer]:
+          - option "Supplier"
+          - option "Buyer"
+          - option "Investor" [selected]
+      - button "한국어로 전환" [ref=e46] [cursor=pointer]:
+        - generic [ref=e49]: 한국어
+      - button "Notifications" [ref=e51] [cursor=pointer]
+      - strong [ref=e54]: Nova Capital
+  - generic [ref=e55]:
+    - complementary [ref=e56]:
+      - generic [ref=e57]: INVESTOR
+      - navigation "Investor navigation" [ref=e58]:
+        - link "Dashboard" [ref=e59] [cursor=pointer]:
+          - /url: /investor
+        - link "Agent Activity" [ref=e60] [cursor=pointer]:
+          - /url: /investor/activities
+        - link "Investment Policy" [active] [ref=e61] [cursor=pointer]:
+          - /url: /investor/investment-policy
+        - link "Funds conversion" [ref=e62] [cursor=pointer]:
+          - /url: /investor/funds-conversion
+        - link "Vault" [ref=e63] [cursor=pointer]:
+          - /url: /investor/vault
+        - link "Profile" [ref=e64] [cursor=pointer]:
+          - /url: /investor/profile
+    - main [ref=e65]:
+      - generic [ref=e101]:
+        - generic [ref=e103]:
+          - paragraph [ref=e104]: Investor / Investment Policy
+          - heading "Investment Policy" [level=1] [ref=e105]
+          - paragraph [ref=e106]: Define the conditions Treasury Agent must meet before investing from your Vault.
+        - tablist "Investment Policy sections" [ref=e107]:
+          - tab "Mandate" [selected] [ref=e108] [cursor=pointer]
+          - tab "Investment conditions" [ref=e109] [cursor=pointer]
+        - tabpanel "Mandate" [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e116]:
+              - heading "Investment Mandate" [level=2] [ref=e117]
+              - paragraph [ref=e118]: A wallet-signed authorization for Treasury Agent to invest within the policy below.
+            - generic [ref=e119]: Signature required
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - term [ref=e123]: Authorization
+                - definition [ref=e124]: Wallet-signed Mandate
+              - generic [ref=e125]:
+                - term [ref=e126]: Authorized agent
+                - definition [ref=e127]: Treasury Agent
+              - generic [ref=e128]:
+                - term [ref=e129]: Payment source
+                - definition [ref=e130]: Vault · USDC
+              - generic [ref=e131]:
+                - term [ref=e132]: Mandate status
+                - definition [ref=e133]: Signature required
+            - generic [ref=e134]:
+              - paragraph [ref=e135]: Policy changes apply only after you sign them.
+              - link "Connect wallet in Profile" [ref=e138] [cursor=pointer]:
+                - /url: /investor/profile

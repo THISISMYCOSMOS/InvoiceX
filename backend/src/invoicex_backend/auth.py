@@ -24,7 +24,7 @@ from invoicex_backend.privy_auth import verify_privy_access_token
 class AuthenticatedIdentity:
     role: LoginRole
     email: str
-    source: Literal["DEMO", "PRIVY"] = "DEMO"
+    source: Literal["DEMO", "MEMBER", "PRIVY"] = "DEMO"
     privy_user_id: str | None = None
     company_id: str | None = None
     company_name: str | None = None
@@ -133,6 +133,7 @@ def _privy_identity(
         CompanyType.BUYER: LoginRole.BUYER,
         CompanyType.INVESTOR: LoginRole.INVESTOR,
     }[company.type]
+    settlement_wallet = repository.get_company_settlement_wallet(company.id)
     return AuthenticatedIdentity(
         role=role,
         email=user.email,
@@ -140,7 +141,7 @@ def _privy_identity(
         privy_user_id=principal.user_id,
         company_id=company.id,
         company_name=company.name,
-        wallet_address=wallet.address,
+        wallet_address=settlement_wallet[1] if settlement_wallet is not None else wallet.address,
     )
 
 

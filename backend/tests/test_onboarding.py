@@ -31,9 +31,13 @@ class FakePrivyGateway:
     fail_wallet_attempts: int = 0
     emails: dict[str, str] = field(default_factory=dict)
     wallet_calls: list[tuple[str, str]] = field(default_factory=list)
+    deleted_user_ids: list[str] = field(default_factory=list)
 
     async def verified_email(self, user_id: str) -> str:
         return self.emails.get(user_id, f"{user_id.rsplit(':', 1)[-1]}@example.com")
+
+    async def delete_user(self, user_id: str) -> None:
+        self.deleted_user_ids.append(user_id)
 
     async def get_or_create_solana_wallet(
         self, user_id: str, *, idempotency_key: str
@@ -110,6 +114,7 @@ def company_payload(
     country_code: str = "KR",
 ):
     return {
+        "password": "member-password-123",
         "company": {
             "name": "에이씨미 주식회사",
             "type": company_type,
@@ -158,7 +163,11 @@ def register_company(
     company_name: str,
     business_number: str,
 ) -> dict[str, object]:
-    payload = company_payload(company_type, business_number)
+    payload = company_payload(
+        company_type,
+        business_number,
+        "KR" if company_type == "SUPPLIER" else "US",
+    )
     payload["company"]["name"] = company_name
     response = client.post(
         "/api/v1/onboarding/company",
@@ -216,6 +225,291 @@ def test_supplier_onboarding_creates_a_user_owned_wallet(tmp_path: Path) -> None
     assert gateway.wallet_calls[0][0] == "did:privy:supplier"
 
 
+def test_completed_supplier_can_update_company_profile(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    profile_headers: dict[str, str]
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        profile_headers = headers(private_key, "did:privy:profile-update")
+        created = client.post(
+            "/api/v1/onboarding/company",
+            headers=profile_headers,
+            json=company_payload(),
+        )
+        assert created.status_code == 200
+        payload = company_payload(registration_number="987-65-43210")
+        payload.pop("password")
+        payload["company"]["name"] = "InvoiceX Demo Supplier"
+        payload["representative"] = {
+            "name": "황순익",
+            "title": "대표이사",
+            "phone": "010-9876-5432",
+        }
+        updated = client.put(
+            "/api/v1/auth/company-profile",
+            headers=profile_headers,
+            json=payload,
+        )
+        loaded = client.get("/api/v1/auth/me", headers=profile_headers)
+
+    assert updated.status_code == 200
+    assert updated.json()["company"]["name"] == "InvoiceX Demo Supplier"
+    assert updated.json()["company"]["registrationNumber"] == "9876543210"
+    assert updated.json()["user"]["name"] == "황순익"
+    assert updated.json()["user"]["title"] == "대표이사"
+    assert updated.json()["user"]["phone"] == "010-9876-5432"
+    assert loaded.status_code == 200
+    assert loaded.json()["company"] == updated.json()["company"]
+    assert loaded.json()["user"]["name"] == "황순익"
+
+
+def test_company_profile_update_keeps_role_and_country_immutable(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        profile_headers = headers(private_key, "did:privy:profile-identity")
+        created = client.post(
+            "/api/v1/onboarding/company",
+            headers=profile_headers,
+            json=company_payload(),
+        )
+        assert created.status_code == 200
+        foreign_payload = company_payload(
+            company_type="BUYER",
+            country_code="US",
+            registration_number="12-3456789",
+        )
+        foreign_payload.pop("password")
+        response = client.put(
+            "/api/v1/auth/company-profile",
+            headers=profile_headers,
+            json=foreign_payload,
+        )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "COMPANY_IDENTITY_IMMUTABLE"
+
+
+def test_completed_member_can_log_in_with_the_signup_password(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    with onboarding_client(tmp_path, gateway) as (client, private_key, repository):
+        onboarding = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:password-member"),
+            json=company_payload(),
+        )
+        assert onboarding.status_code == 200
+
+        saved_hash = repository.get_user_password_hash(
+            "did:privy:password-member"
+        )
+        assert saved_hash is not None
+        assert saved_hash.startswith("scrypt$")
+        assert saved_hash != "member-password-123"
+
+        login = client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Supplier",
+                "email": "password-member@example.com",
+                "password": "member-password-123",
+            },
+        )
+        rejected = client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Supplier",
+                "email": "password-member@example.com",
+                "password": "incorrect-password",
+            },
+        )
+
+        assert login.status_code == 200
+        assert login.json()["authMode"] == "MEMBER"
+        profile = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {login.json()['accessToken']}"},
+        )
+
+    assert rejected.status_code == 401
+    assert profile.status_code == 200
+    assert profile.json()["onboardingStatus"] == "COMPLETED"
+
+
+def test_member_can_switch_between_embedded_and_external_settlement_wallets(
+    tmp_path: Path,
+) -> None:
+    gateway = FakePrivyGateway()
+    user_id = "did:privy:wallet-switcher"
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        onboarding = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, user_id),
+            json=company_payload(),
+        )
+        assert onboarding.status_code == 200
+
+        default_wallet = client.get(
+            "/api/v1/auth/settlement-wallet", headers=headers(private_key, user_id)
+        )
+        external_address = str(Keypair().pubkey())
+        external_wallet = client.put(
+            "/api/v1/auth/settlement-wallet",
+            headers=headers(private_key, user_id),
+            json={"walletType": "EXTERNAL", "address": external_address},
+        )
+        restored_wallet = client.put(
+            "/api/v1/auth/settlement-wallet",
+            headers=headers(private_key, user_id),
+            json={"walletType": "EMBEDDED"},
+        )
+
+    assert default_wallet.status_code == 200
+    assert default_wallet.json()["walletType"] == "EMBEDDED"
+    assert external_wallet.status_code == 200
+    assert external_wallet.json()["walletType"] == "EXTERNAL"
+    assert external_wallet.json()["address"] == external_address
+    assert restored_wallet.status_code == 200
+    assert restored_wallet.json()["walletType"] == "EMBEDDED"
+    assert restored_wallet.json()["address"] == default_wallet.json()["address"]
+
+
+def test_account_withdrawal_disables_password_login_and_wallet_access(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    user_id = "did:privy:account-withdrawal"
+    with onboarding_client(tmp_path, gateway) as (client, private_key, repository):
+        onboarding = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, user_id),
+            json=company_payload(),
+        )
+        assert onboarding.status_code == 200
+        company_id = onboarding.json()["company"]["id"]
+
+        withdrawal = client.delete(
+            "/api/v1/auth/account",
+            headers=headers(private_key, user_id),
+        )
+        password_login = client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Supplier",
+                "email": "account-withdrawal@example.com",
+                "password": "member-password-123",
+            },
+        )
+        user = repository.get_onboarding_user(user_id)
+        password_hash = repository.get_user_password_hash(user_id)
+        company = repository.get_company(company_id)
+        wallet = repository.get_company_wallet(company_id)
+        wallet_access = client.get(
+            "/api/v1/auth/settlement-wallet", headers=headers(private_key, user_id)
+        )
+
+    assert withdrawal.status_code == 200
+    assert withdrawal.json()["onboardingStatus"] == "WITHDRAWN"
+    assert password_login.status_code == 401
+    assert wallet_access.status_code == 403
+    assert user is None
+    assert password_hash is None
+    assert company is None
+    assert wallet is None
+    assert gateway.deleted_user_ids == [user_id]
+
+
+def test_account_withdrawal_allows_rejoining_with_the_same_company(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    user_id = "did:privy:account-rejoin"
+    rejoined_user_id = "did:privy:account-rejoin-new"
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        first_onboarding = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, user_id),
+            json=company_payload(),
+        )
+        assert first_onboarding.status_code == 200
+
+        withdrawal = client.delete(
+            "/api/v1/auth/account",
+            headers=headers(private_key, user_id),
+        )
+        rejoin = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, rejoined_user_id),
+            json=company_payload(),
+        )
+
+    assert withdrawal.status_code == 200
+    assert rejoin.status_code == 200
+    assert rejoin.json()["onboardingStatus"] == "COMPLETED"
+    assert rejoin.json()["embeddedWallet"]["address"] != first_onboarding.json()["embeddedWallet"]["address"]
+    assert len(gateway.wallet_calls) == 2
+    assert gateway.deleted_user_ids == [user_id]
+
+
+def test_new_onboarding_requires_a_password(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        payload = company_payload()
+        payload.pop("password")
+        response = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:missing-password"),
+            json=payload,
+        )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "PASSWORD_REQUIRED"
+
+
+def test_korean_company_registration_number_requires_ten_digits(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        response = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:invalid-business-number"),
+            json=company_payload(registration_number="123-45-6789"),
+        )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_buyer_can_register_with_us_ein_but_supplier_cannot(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    with onboarding_client(tmp_path, gateway) as (client, private_key, _):
+        buyer = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:us-buyer"),
+            json=company_payload(
+                company_type="BUYER",
+                country_code="US",
+                registration_number="12-3456789",
+            ),
+        )
+        supplier = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:us-supplier"),
+            json=company_payload(
+                country_code="US",
+                registration_number="98-7654321",
+            ),
+        )
+        invalid_ein = client.post(
+            "/api/v1/onboarding/company",
+            headers=headers(private_key, "did:privy:invalid-ein"),
+            json=company_payload(
+                company_type="INVESTOR",
+                country_code="US",
+                registration_number="12-345678",
+            ),
+        )
+
+    assert buyer.status_code == 200
+    assert buyer.json()["company"]["countryCode"] == "US"
+    assert buyer.json()["company"]["registrationNumber"] == "123456789"
+    assert supplier.status_code == 422
+    assert invalid_ein.status_code == 422
+
+
 def test_privy_business_requests_use_database_company_role_and_scope(
     tmp_path: Path,
     contract_files: dict[str, tuple[str, bytes, str]],
@@ -235,7 +529,7 @@ def test_privy_business_requests_use_database_company_role_and_scope(
             user_id="did:privy:buyer-one",
             company_type="BUYER",
             company_name="Prime Mobility",
-            business_number="222-22-22222",
+            business_number="22-2222222",
         )
         other_supplier = register_company(
             client,
@@ -251,7 +545,7 @@ def test_privy_business_requests_use_database_company_role_and_scope(
             user_id="did:privy:buyer-two",
             company_type="BUYER",
             company_name="Other Buyer",
-            business_number="444-44-44444",
+            business_number="44-4444444",
         )
 
         supplier_headers = headers(private_key, "did:privy:supplier-one")
@@ -316,7 +610,11 @@ def test_investor_onboarding_creates_only_a_logical_vault_row(tmp_path: Path) ->
         response = client.post(
             "/api/v1/onboarding/company",
             headers=headers(private_key, "did:privy:investor"),
-            json=company_payload("INVESTOR"),
+            json=company_payload(
+                "INVESTOR",
+                registration_number="12-3456789",
+                country_code="US",
+            ),
         )
 
     assert response.status_code == 200
@@ -390,7 +688,11 @@ def test_country_and_registration_number_pair_and_completed_user_cannot_be_reuse
         duplicate = client.post(
             "/api/v1/onboarding/company", headers=second_headers, json=company_payload()
         )
-        foreign_payload = company_payload(country_code="US")
+        foreign_payload = company_payload(
+            company_type="BUYER",
+            country_code="US",
+            registration_number="12-3456789",
+        )
         foreign_payload["representative"]["phone"] = "+1 212-555-0100"
         different_country = client.post(
             "/api/v1/onboarding/company",
@@ -497,17 +799,35 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        if request.method == "GET":
+        if request.method == "GET" and request.url.path == "/v1/wallets":
             return httpx.Response(200, json={"data": []})
+        if request.method == "GET" and request.url.path == "/v1/wallets/wallet-1":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "wallet-1",
+                    "address": "7YpT1nGKM4gL4pWj6Rc2sN9u8TqfAEHvkM3dXeZbQ5Uc",
+                    "chain_type": "solana",
+                    "external_id": external_id,
+                    "owner_id": "key-quorum-1",
+                    "entity": None,
+                },
+            )
+        if (
+            request.method == "POST"
+            and request.url.path == "/v1/users/wallet/address"
+        ):
+            assert json.loads(request.content) == {
+                "address": "7YpT1nGKM4gL4pWj6Rc2sN9u8TqfAEHvkM3dXeZbQ5Uc"
+            }
+            return httpx.Response(200, json={"id": user_id, "linked_accounts": []})
         return httpx.Response(
             201,
             json={
                 "id": "wallet-1",
                 "address": "7YpT1nGKM4gL4pWj6Rc2sN9u8TqfAEHvkM3dXeZbQ5Uc",
                 "chain_type": "solana",
-                "external_id": external_id,
-                "entity": {"id": user_id, "type": "user"},
-                "owner_id": None,
+                "owner_id": "key-quorum-1",
             },
         )
 
@@ -527,7 +847,7 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
     await client.aclose()
 
     assert wallet.user_id == user_id
-    assert len(requests) == 2
+    assert len(requests) == 4
     lookup_request = requests[0]
     assert lookup_request.url.params["user_id"] == user_id
     assert lookup_request.url.params["chain_type"] == "solana"
@@ -543,6 +863,40 @@ async def test_privy_wallet_request_assigns_the_privy_user_as_owner(tmp_path: Pa
     assert payload["external_id"] == external_id
     assert "entity" not in payload
     assert payload["owner"] == {"user_id": user_id}
+    detail_request = requests[2]
+    assert detail_request.method == "GET"
+    assert detail_request.url.path == "/v1/wallets/wallet-1"
+    owner_lookup_request = requests[3]
+    assert owner_lookup_request.method == "POST"
+    assert owner_lookup_request.url.path == "/v1/users/wallet/address"
+
+
+@pytest.mark.asyncio
+async def test_privy_user_deletion_calls_the_delete_user_api(tmp_path: Path) -> None:
+    requests: list[httpx.Request] = []
+    user_id = "did:privy:user-delete"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(204)
+
+    settings = mock_settings(
+        tmp_path / "uploads",
+        PRIVY_APP_ID="test-privy-app",
+        PRIVY_APP_SECRET="test-secret",
+        PRIVY_API_BASE_URL="https://api.privy.test",
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = HttpPrivyUserGateway(settings, http_client=client)
+
+    await gateway.delete_user(user_id)
+    await client.aclose()
+
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.method == "DELETE"
+    assert request.url.path == f"/v1/users/{user_id}"
+    assert request.headers["privy-app-id"] == "test-privy-app"
 
 
 @pytest.mark.asyncio
@@ -553,6 +907,17 @@ async def test_privy_wallet_lookup_selects_only_the_invoicex_wallet(tmp_path: Pa
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
+        if request.url.path == "/v1/wallets/invoicex-wallet":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "invoicex-wallet",
+                    "address": "InvoiceXSolanaAddress",
+                    "chain_type": "solana",
+                    "external_id": external_id,
+                    "entity": {"id": user_id, "type": "user"},
+                },
+            )
         return httpx.Response(
             200,
             json={
@@ -592,5 +957,46 @@ async def test_privy_wallet_lookup_selects_only_the_invoicex_wallet(tmp_path: Pa
 
     assert wallet.id == "invoicex-wallet"
     assert wallet.address == "InvoiceXSolanaAddress"
-    assert len(requests) == 1
+    assert len(requests) == 2
     assert requests[0].method == "GET"
+    assert requests[1].url.path == "/v1/wallets/invoicex-wallet"
+
+
+def test_buyer_registered_after_invoice_creation_receives_matching_requests(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    with privy_business_client(tmp_path) as (client, private_key):
+        register_company(
+            client,
+            private_key,
+            user_id="did:privy:late-supplier",
+            company_type="SUPPLIER",
+            company_name="Late Supplier",
+            business_number="55-555-55555",
+        )
+        created = client.post(
+            "/api/v1/invoices",
+            headers=headers(private_key, "did:privy:late-supplier"),
+            files=contract_files,
+        )
+        assert created.status_code == 201
+        assert created.json()["invoice"]["buyer"]["id"] == "BUYER_PRIME"
+        assert created.json()["invoice"]["buyer"]["name"] == "Prime Mobility"
+
+        buyer = register_company(
+            client,
+            private_key,
+            user_id="did:privy:late-buyer",
+            company_type="BUYER",
+            company_name="Prime Mobility",
+            business_number="66-6666666",
+        )
+        listed = client.get(
+            "/api/v1/invoices",
+            headers=headers(private_key, "did:privy:late-buyer"),
+        )
+
+        assert listed.status_code == 200
+        assert len(listed.json()["items"]) == 1
+        assert listed.json()["items"][0]["buyer"]["id"] == buyer["company"]["id"]

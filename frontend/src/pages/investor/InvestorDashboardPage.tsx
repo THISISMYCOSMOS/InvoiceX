@@ -29,6 +29,24 @@ export function InvestorDashboardPage() {
   const activityInvoices = invoices.data?.filter((invoice) => (
     Boolean(invoice.agentDecision || invoice.rwaAsset)
   )) ?? [];
+  const automatedInvestmentInvoices = activityInvoices.filter((invoice) => (
+    invoice.agentDecision?.status === "EXECUTED" && invoice.rwaAsset?.status === "SOLD"
+  ));
+  const totalProfitUsdc = automatedInvestmentInvoices
+    .filter((invoice) => invoice.status === "SETTLED")
+    .reduce((total, invoice) => (
+      total + Math.max(
+        0,
+        (invoice.settlement?.investorSettlementUsdc ?? 0) - (invoice.agentDecision?.amountUsdc ?? 0),
+      )
+    ), 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdueReceivables = automatedInvestmentInvoices.filter((invoice) => {
+    if (invoice.status === "SETTLED") return false;
+    const dueDate = new Date(`${invoice.dueDate}T00:00:00`);
+    return !Number.isNaN(dueDate.getTime()) && dueDate < today;
+  });
   const recentActivityInvoices = activityInvoices.slice(0, 3);
   const stats = [
     {
@@ -37,19 +55,19 @@ export function InvestorDashboardPage() {
       unit: "USDC",
     },
     {
-      label: t("Outstanding principal", "미상환 투자 원금"),
-      value: data.outstandingPrincipalUsdc,
+      label: t("Total profit", "총 수익"),
+      value: totalProfitUsdc,
       unit: "USDC",
     },
     {
-      label: t("Due within 30 days", "30일 이내 만기"),
-      value: data.dueWithin30DaysUsdc,
-      unit: "USDC",
+      label: t("Auto-invested RWA", "자동 투자 RWA"),
+      value: automatedInvestmentInvoices.length,
+      unit: t("invoices", "건"),
     },
     {
-      label: t("Needs attention", "확인 필요 건"),
-      value: data.attentionRequiredCount,
-      unit: t("cases", "건"),
+      label: t("Overdue receivables", "연체 미수금"),
+      value: overdueReceivables.length,
+      unit: t("invoices", "건"),
     },
   ];
   const automatedInvestmentLabel = data.automatedInvestmentActive

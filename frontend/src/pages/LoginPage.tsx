@@ -47,7 +47,7 @@ export function LoginPage() {
     } else {
       try {
         const account = await authApi.login(role, email, password);
-        saveDemoSession(account, remember, account.accessToken);
+        saveDemoSession(account, remember, account.accessToken, account.authMode);
       } catch {
         setLoginError(t(
           "Check the selected role, email, and password.",

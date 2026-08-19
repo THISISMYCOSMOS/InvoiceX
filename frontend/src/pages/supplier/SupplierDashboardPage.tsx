@@ -7,6 +7,7 @@ import { getInvoiceDisplayReference, useInvoices } from "../../hooks/useInvoices
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { formatInvoiceAmount, type Invoice, type InvoiceStatus } from "../../types/invoice";
+import { useCurrentPrivyAccount } from "../../auth/currentAccount";
 
 const earlySettlementStatuses = new Set<InvoiceStatus>([
   "RISK_ASSESSING",
@@ -30,8 +31,9 @@ function getDashboardSummary(invoices: Invoice[]) {
 
 export function SupplierDashboardPage() {
   const invoices = useInvoices();
-  const supplierWalletBalance = useDevnetUsdcBalance();
   const { language, t } = useLanguage();
+  const currentAccount = useCurrentPrivyAccount();
+  const supplierWalletBalance = useDevnetUsdcBalance(currentAccount?.walletAddress);
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
@@ -65,12 +67,13 @@ export function SupplierDashboardPage() {
     if (status === "FUNDED" || status === "SETTLED") return "green";
     return "slate";
   };
+  const contactName = currentAccount?.userName?.trim() || (language === "ko" ? "민준" : "Minjun");
 
   return (
     <section className="supplier-dashboard">
       <header className="page-heading">
         <div>
-          <h1>{t("Good morning, Minjun", "좋은 아침이에요, 민준님")}</h1>
+          <h1>{language === "ko" ? `좋은 아침이에요, ${contactName}님` : `Good morning, ${contactName}`}</h1>
           <p>{t("Track invoices and access working capital faster.", "인보이스를 관리하고 운용자금을 더 빠르게 확보하세요.")}</p>
         </div>
         <Link className="primary-button compact-button" to="/supplier/invoices/new">

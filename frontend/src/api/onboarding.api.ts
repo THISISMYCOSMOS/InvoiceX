@@ -52,7 +52,10 @@ export type OnboardCompanyInput = {
     title: string;
     phone: string;
   };
+  password?: string;
 };
+
+export type UpdateCompanyProfileInput = Omit<OnboardCompanyInput, "password">;
 
 export type OtpClock = {
   serverTimeMs: number;
@@ -141,6 +144,16 @@ export function onboardCompany(
 ): Promise<OnboardingResponse> {
   return request<OnboardingResponse>("/onboarding/company", token, {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateCompanyProfile(
+  token: string,
+  input: UpdateCompanyProfileInput,
+): Promise<OnboardingResponse> {
+  return request<OnboardingResponse>("/auth/company-profile", token, {
+    method: "PUT",
     body: JSON.stringify(input),
   });
 }

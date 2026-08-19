@@ -4,6 +4,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { rwaApi, type VaultBalance } from "../../api/rwa.api";
+import { useCurrentPrivyAccount } from "../../auth/currentAccount";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -28,9 +29,11 @@ export function InvestorVaultPage() {
   const { t } = useLanguage();
   const { connection } = useConnection();
   const { connected, publicKey, signTransaction, sendTransaction } = useWallet();
-  const walletUsdcBalance = useDevnetUsdcBalance();
+  const currentAccount = useCurrentPrivyAccount();
+  const embeddedWalletAddress = currentAccount?.walletAddress ?? null;
+  const connectedWalletAddress = publicKey?.toBase58() ?? embeddedWalletAddress;
+  const walletUsdcBalance = useDevnetUsdcBalance(connectedWalletAddress);
   const dashboard = useInvestorDashboard();
-  const connectedWalletAddress = publicKey?.toBase58() ?? null;
   const [depositAmount, setDepositAmount] = useState("1");
   const [vault, setVault] = useState<VaultBalance | null>(null);
   const [isVaultLoading, setIsVaultLoading] = useState(false);
@@ -139,7 +142,7 @@ export function InvestorVaultPage() {
               <div><dt>{t("Invested Amount", "현재 투자 중 금액")}</dt><dd>{investedUsdc.toLocaleString()} USDC</dd><small>{t("Outstanding investment principal", "미상환 투자 원금")}</small></div>
               <div><dt>{t("Connected wallet balance", "연결 지갑 잔액")}</dt><dd>{walletUsdcBalance.isLoading ? t("Loading", "조회 중") : walletUsdcBalance.isError ? t("Unavailable", "조회 실패") : `${(walletUsdcBalance.balanceUsdc ?? 0).toLocaleString()} USDC`}</dd><small>{t("Devnet USDC available to deposit", "예치 가능한 Devnet USDC")}</small></div>
             </dl>
-            {!connected ? <p className="wallet-error"><Link to="/investor/profile">{t("Connect a Solana wallet in Profile before depositing.", "예치 전 Profile에서 Solana 지갑을 연결해 주세요.")}</Link></p> : null}
+            {!connected && !embeddedWalletAddress ? <p className="wallet-error"><Link to="/investor/profile">{t("Connect a Solana wallet in Profile before depositing.", "예치 전 Profile에서 Solana 지갑을 연결해 주세요.")}</Link></p> : null}
             <div className="investor-vault-deposit-form">
               <label htmlFor="vaultDeposit"><span>{t("Deposit amount", "예치 금액")}</span><div><input id="vaultDeposit" inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /><small>USDC</small></div></label>
               <button className="investor-primary-button" type="button" disabled={!connected || isDepositing} onClick={() => void depositToVault()}><Vault size={15} weight="fill" aria-hidden="true" />{isDepositing ? phaseLabel[phase] : t("Deposit USDC", "USDC 예치")}</button>

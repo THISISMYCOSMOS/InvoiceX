@@ -79,12 +79,15 @@ test("completes signup only after the onboarding API creates the user-owned wall
 
   await user.click(screen.getByRole("button", { name: "다음" }));
   await user.type(screen.getByLabelText("기업명"), "인보이스엑스 주식회사");
-  await user.clear(screen.getByLabelText("국가 코드"));
-  await user.type(screen.getByLabelText("국가 코드"), "KR");
-  await user.type(screen.getByLabelText("기업 등록번호"), "123-45-67890");
+  expect(screen.getByLabelText("국가 코드")).toHaveTextContent("KR");
+  await user.type(screen.getByLabelText("기업 등록번호"), "1234567890");
+  expect(screen.getByLabelText("기업 등록번호")).toHaveValue("123-45-67890");
   await user.type(screen.getByLabelText("담당자명"), "홍길동");
   await user.type(screen.getByLabelText("담당자 직책"), "재무팀 매니저");
-  await user.type(screen.getByLabelText("담당자 연락처"), "010-1234-5678");
+  await user.type(screen.getByLabelText("담당자 연락처"), "01012345678");
+  expect(screen.getByLabelText("담당자 연락처")).toHaveValue("010-1234-5678");
+  await user.type(screen.getByLabelText("비밀번호"), "member-password-123");
+  await user.type(screen.getByLabelText("비밀번호 확인"), "member-password-123");
   await user.click(screen.getByRole("button", { name: "기업 등록 완료" }));
 
   expect(mocks.onboardCompany).toHaveBeenCalledWith("privy-access-token", {
@@ -99,9 +102,45 @@ test("completes signup only after the onboarding API creates the user-owned wall
       title: "재무팀 매니저",
       phone: "010-1234-5678",
     },
+    password: "member-password-123",
   });
   expect(await screen.findByRole("heading", { name: "기업 계정 생성이 완료되었습니다!" }))
     .toBeInTheDocument();
+});
+
+test("allows buyers to register with a US EIN", async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SignupPage /></MemoryRouter>);
+
+  await user.type(screen.getByLabelText("기업 이메일"), "buyer@halcyon.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  for (const [index, digit] of [..."123456"].entries()) {
+    await user.type(screen.getByLabelText(`${index + 1}번째 인증 코드`), digit);
+  }
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+  await user.click(screen.getByRole("radio", { name: /구매기업/ }));
+  await user.click(screen.getByRole("button", { name: "다음" }));
+
+  expect(screen.getByLabelText("국가 코드")).toHaveTextContent("US");
+  expect(screen.getByLabelText("기업 등록번호")).toHaveAttribute("placeholder", "예: 12-3456789");
+  await user.type(screen.getByLabelText("기업명"), "Halcyon Robotics Ltd");
+  await user.type(screen.getByLabelText("기업 등록번호"), "123456789");
+  expect(screen.getByLabelText("기업 등록번호")).toHaveValue("12-3456789");
+  await user.type(screen.getByLabelText("담당자명"), "Alex Kim");
+  await user.type(screen.getByLabelText("담당자 직책"), "Finance Lead");
+  await user.type(screen.getByLabelText("담당자 연락처"), "01012345678");
+  await user.type(screen.getByLabelText("비밀번호"), "member-password-123");
+  await user.type(screen.getByLabelText("비밀번호 확인"), "member-password-123");
+  await user.click(screen.getByRole("button", { name: "기업 등록 완료" }));
+
+  expect(mocks.onboardCompany).toHaveBeenCalledWith("privy-access-token", expect.objectContaining({
+    company: {
+      name: "Halcyon Robotics Ltd",
+      type: "BUYER",
+      countryCode: "US",
+      registrationNumber: "12-3456789",
+    },
+  }));
 });
 
 test("signs an existing Privy member into the stored company route", async () => {
@@ -155,6 +194,8 @@ test("does not show completion when wallet provisioning is incomplete", async ()
   await user.type(screen.getByLabelText("담당자명"), "홍길동");
   await user.type(screen.getByLabelText("담당자 직책"), "매니저");
   await user.type(screen.getByLabelText("담당자 연락처"), "010-1234-5678");
+  await user.type(screen.getByLabelText("비밀번호"), "member-password-123");
+  await user.type(screen.getByLabelText("비밀번호 확인"), "member-password-123");
   await user.click(screen.getByRole("button", { name: "기업 등록 완료" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("사용자 지갑 생성이 완료되지 않았습니다.");
@@ -308,7 +349,7 @@ test("restores a failed signup and retries its stored company wallet", async () 
     .toBeInTheDocument();
   expect(screen.getByLabelText("기업명")).toHaveValue("인보이스엑스 주식회사");
   expect(screen.getByLabelText("기업명")).toHaveAttribute("readonly");
-  expect(screen.getByLabelText("국가 코드")).toHaveValue("US");
+  expect(screen.getByLabelText("국가 코드")).toHaveTextContent("US");
   expect(screen.getByLabelText("기업 등록번호")).toHaveValue("12-3456789");
   expect(screen.queryByRole("radiogroup", { name: "기업 유형" })).not.toBeInTheDocument();
 

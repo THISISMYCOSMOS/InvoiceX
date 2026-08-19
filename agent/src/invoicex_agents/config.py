@@ -1,6 +1,6 @@
 """Environment-backed configuration for Gemini clients."""
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,16 +14,12 @@ class AgentSettings(BaseSettings):
         case_sensitive=True,
     )
 
-    gemini_api_key: SecretStr | None = Field(
-        default=None,
-        validation_alias="GEMINI_API_KEY",
-    )
     vertex_ai_project_id: str | None = Field(
         default=None,
         validation_alias=AliasChoices("VERTEX_AI_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT_ID"),
     )
     vertex_ai_location: str = Field(
-        default="us-central1",
+        default="global",
         validation_alias="VERTEX_AI_LOCATION",
         min_length=1,
     )
@@ -33,7 +29,7 @@ class AgentSettings(BaseSettings):
         min_length=1,
     )
     gemini_timeout_seconds: float = Field(
-        default=60,
+        default=180,
         validation_alias="GEMINI_TIMEOUT_SECONDS",
         gt=0,
         le=300,

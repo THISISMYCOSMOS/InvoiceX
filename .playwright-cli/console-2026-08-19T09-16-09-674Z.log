@@ -1,0 +1,12 @@
+[     330ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=2a5d917b:20102
+[    1269ms] Error: Could not resolve "@solana-program/memo" imported by "@privy-io/react-auth". Is it installed?
+    at optional-peer-dep:__vite-optional-peer-dep:@solana-program/memo:@privy-io/react-auth:false (http://127.0.0.1:5173/node_modules/.vite/deps/@privy-io_react-auth_solana.js?v=2a5d917b:104:11)
+    at __require2 (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-KQ3MGMY2.js?v=2a5d917b:23:52)
+    at http://127.0.0.1:5173/node_modules/.vite/deps/@privy-io_react-auth_solana.js?v=2a5d917b:110:27
+[    1276ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5173/favicon.ico:0
+[   61811ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:864
+[  109826ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=92abc6cf:20102
+[  110998ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5173/login:0
+[  111588ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://auth.privy.io/api/v1/analytics_events:0
+[  111652ms] [ERROR] Framing 'https://auth.privy.io/' violates the following Content Security Policy directive: "frame-ancestors 'self' http://localhost:5173 https://auth.privy.io". The request has been blocked.
+ @ :0
