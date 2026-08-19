@@ -36,6 +36,7 @@ class InvoiceStatus(StrEnum):
     BUYER_VERIFIED = "BUYER_VERIFIED"
     RISK_ASSESSING = "RISK_ASSESSING"
     OFFER_READY = "OFFER_READY"
+    REJECTED = "REJECTED"
     REVIEW_REQUESTED = "REVIEW_REQUESTED"
     RWA_ISSUED = "RWA_ISSUED"
     FUNDING = "FUNDING"
@@ -43,6 +44,7 @@ class InvoiceStatus(StrEnum):
     REPAYMENT_PENDING = "REPAYMENT_PENDING"
     SETTLING = "SETTLING"
     SETTLED = "SETTLED"
+    SETTLEMENT_FAILED = "SETTLEMENT_FAILED"
     REVISION_REQUESTED = "REVISION_REQUESTED"
     DISPUTED = "DISPUTED"
     BLOCKED = "BLOCKED"
@@ -92,6 +94,7 @@ class TransactionStatus(StrEnum):
 class VerificationStatus(StrEnum):
     PENDING = "PENDING"
     CONFIRMED = "CONFIRMED"
+    REJECTED = "REJECTED"
     REVISION_REQUESTED = "REVISION_REQUESTED"
     DISPUTED = "DISPUTED"
 
@@ -221,6 +224,19 @@ class RiskScoreFactor(ApiModel):
     synthetic: bool = False
 
 
+class HardGateCheck(ApiModel):
+    key: str
+    label: str
+    passed: bool
+    reason: str | None = None
+
+
+class HardGateResult(ApiModel):
+    passed: bool
+    checks: list[HardGateCheck] = Field(default_factory=list)
+    failure_reasons: list[str] = Field(default_factory=list)
+
+
 class EarlySettlementTerms(ApiModel):
     face_value_usdc: int = Field(ge=0)
     discount_amount_usdc: int = Field(ge=0)
@@ -232,6 +248,14 @@ class EarlySettlementTerms(ApiModel):
     initial_advance_usdc: int = Field(ge=0)
     expected_reserve_return_usdc: int = Field(ge=0)
     expected_final_proceeds_usdc: int = Field(ge=0)
+    remaining_term_days: int | None = Field(default=None, ge=0)
+    sofr_rate_bps: int | None = Field(default=None, ge=0)
+    risk_spread_bps: int | None = Field(default=None, ge=0)
+    country_legal_spread_bps: int | None = Field(default=None, ge=0)
+    annual_expected_yield_bps: int | None = Field(default=None, ge=0)
+    expected_investor_return_usdc: int | None = Field(default=None, ge=0)
+    purchase_amount_usdc: int | None = Field(default=None, ge=0)
+    supplier_expected_settlement_usdc: int | None = Field(default=None, ge=0)
     settlement_asset: Literal["USDC"] = "USDC"
     network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
 
@@ -249,6 +273,7 @@ class RiskPassport(ApiModel):
     source_currency_to_usdc_rate: float | None = Field(default=None, gt=0)
     data_coverage_bps: int = Field(default=0, ge=0, le=10_000)
     score_factors: list[RiskScoreFactor] = Field(default_factory=list)
+    hard_gate: HardGateResult | None = None
     early_settlement_terms: EarlySettlementTerms | None = None
     model_name: str | None = None
     policy_version: str | None = None
@@ -275,6 +300,22 @@ class Settlement(ApiModel):
     supplier_residual_usdc: int
 
 
+class BuyerPaymentPreparation(ApiModel):
+    invoice_id: str
+    buyer_wallet_address: str
+    settlement_wallet_address: str
+    usdc_mint_address: str
+    amount_usdc: int = Field(gt=0)
+    amount_base_units: int = Field(gt=0)
+    decimals: int = Field(ge=0, le=18)
+    due_date: str
+    demo_due_date_bypass: bool = False
+
+
+class BuyerPaymentConfirmRequest(ApiModel):
+    signature: str = Field(min_length=20, max_length=200)
+
+
 class AgentTrace(ApiModel):
     id: str
     invoice_id: str
@@ -297,7 +338,7 @@ class RwaAsset(ApiModel):
     invoice_id: str
     mint_address: str
     escrow_token_account: str
-    status: Literal["ISSUED", "SOLD"]
+    status: Literal["ISSUED", "SOLD", "SETTLED"]
     issue_transaction: BlockchainTransaction
     face_value_usdc: int | None = Field(default=None, ge=0)
     issuance_price_usdc: int | None = Field(default=None, ge=0)
@@ -382,11 +423,19 @@ class Invoice(ApiModel):
     verification_id: str | None
     verification_requested_at: str | None = None
     verification_confirmed_at: str | None = None
+    verification_rejected_at: str | None = None
+    rejection_reason_code: str | None = None
+    rejection_reason_detail: str | None = None
+    review_requested_at: str | None = None
     documents: list[InvoiceDocument]
     analysis: DocumentAnalysis | None
     risk_passport: RiskPassport | None
     funding_transaction: BlockchainTransaction | None
     settlement_transaction: BlockchainTransaction | None
+    buyer_payment_transaction: BlockchainTransaction | None = None
+    investor_payout_transaction: BlockchainTransaction | None = None
+    platform_fee_transaction: BlockchainTransaction | None = None
+    buyer_paid_at: str | None = None
     settlement: Settlement | None
     agent_traces: list[AgentTrace]
     rwa_asset: RwaAsset | None = None
@@ -420,6 +469,9 @@ class Verification(ApiModel):
     invoice_id: str
     status: VerificationStatus
     created_at: str | None = None
+    rejection_reason_code: str | None = None
+    rejection_reason_detail: str | None = None
+    responded_at: str | None = None
 
 
 class InvoiceResponse(ApiModel):
@@ -453,6 +505,19 @@ class OfferResponseRequest(ApiModel):
         except ValueError as exc:
             raise ValueError("supplierWalletAddress must be a Solana address") from exc
         return address
+
+
+class RejectVerificationRequest(ApiModel):
+    reason_code: Literal[
+        "DUPLICATE_INVOICE",
+        "DOCUMENT_MISMATCH",
+        "DELIVERY_INCOMPLETE",
+        "AMOUNT_ERROR",
+        "DUE_DATE_ERROR",
+        "SUSPECTED_ASSIGNMENT",
+        "OTHER",
+    ]
+    detail: str | None = Field(default=None, max_length=1000)
 
 
 class InvestorDepositPrepareRequest(ApiModel):

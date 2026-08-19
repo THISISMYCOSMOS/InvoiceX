@@ -6,58 +6,48 @@ import type { Invoice } from "../../../types/invoice";
 
 export type OfferStage = "risk" | "terms" | "issuance";
 
-type ScoreFactor = RiskPassport["scoreFactors"][number];
 type SettlementTerms = NonNullable<RiskPassport["earlySettlementTerms"]>;
+type CompleteSettlementTerms = SettlementTerms & {
+  remainingTermDays: number;
+  sofrRateBps: number;
+  riskSpreadBps: number;
+  countryLegalSpreadBps: number;
+  annualExpectedYieldBps: number;
+  expectedInvestorReturnUsdc: number;
+  purchaseAmountUsdc: number;
+  supplierExpectedSettlementUsdc: number;
+};
 
-const FALLBACK_FACTORS: ScoreFactor[] = [
-  { key: "BUYER_CREDIT_QUALITY", label: "Buyer Credit Quality", score: 22, maxScore: 25, source: "SYNTHETIC_DEMO_DATA", detail: "A-equivalent synthetic corporate credit profile", synthetic: true },
-  { key: "BUYER_PAYMENT_HISTORY", label: "Buyer Payment History", score: 18, maxScore: 20, source: "SYNTHETIC_DEMO_DATA", detail: "1 late payment across 24 synthetic invoices", synthetic: true },
-  { key: "SUPPLIER_BUYER_HISTORY", label: "Supplier–Buyer Transaction History", score: 13, maxScore: 15, source: "SYNTHETIC_DEMO_DATA", detail: "24 synthetic prior transactions", synthetic: true },
-  { key: "REMAINING_MATURITY", label: "Remaining Maturity", score: 8, maxScore: 10, source: "INVOICE_DATA", detail: "Invoice due-date calculation", synthetic: false },
-  { key: "INVOICE_CONCENTRATION", label: "Invoice Size / Concentration", score: 5, maxScore: 5, source: "INVOICEX_DATA", detail: "Current InvoiceX portfolio exposure", synthetic: false },
-  { key: "DOCUMENT_INTEGRITY", label: "Document Integrity & Anomaly", score: 20, maxScore: 25, source: "DOCUMENT_AGENT", detail: "Cross-document consistency confirmed", synthetic: false },
-];
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
 
-function deriveTerms(invoice: Invoice): SettlementTerms | null {
-  const passport = invoice.riskPassport;
-  if (passport?.earlySettlementTerms) return passport.earlySettlementTerms;
-  const faceValue = passport?.invoiceFaceValueUsdc
-    ?? ((invoice.currency === "USD" || invoice.currency === "USDC") ? invoice.invoiceAmount : null);
-  const advance = passport?.suggestedAdvanceAmountUsdc;
-  if (faceValue == null || advance == null) return null;
-  const haircut = Math.max(0, faceValue - advance);
-  const reserve = Math.floor(haircut / 3);
-  const discount = haircut - reserve;
-  const investorReturn = Math.floor(discount * 0.7);
-  return {
-    faceValueUsdc: faceValue,
-    discountAmountUsdc: discount,
-    discountRateBps: faceValue ? Math.floor((discount * 10_000) / faceValue) : 0,
-    investorRequiredReturnUsdc: investorReturn,
-    platformFeeUsdc: discount - investorReturn,
-    reserveAmountUsdc: reserve,
-    reserveRateBps: faceValue ? Math.floor((reserve * 10_000) / faceValue) : 0,
-    initialAdvanceUsdc: advance,
-    expectedReserveReturnUsdc: reserve,
-    expectedFinalProceedsUsdc: advance + reserve,
-    settlementAsset: "USDC",
-    network: "SOLANA_DEVNET",
-  };
+function deriveTerms(invoice: Invoice): CompleteSettlementTerms | null {
+  const terms = invoice.riskPassport?.earlySettlementTerms;
+  if (!terms) return null;
+  const requiredValues = [
+    terms.faceValueUsdc,
+    terms.platformFeeUsdc,
+    terms.remainingTermDays,
+    terms.sofrRateBps,
+    terms.riskSpreadBps,
+    terms.countryLegalSpreadBps,
+    terms.annualExpectedYieldBps,
+    terms.expectedInvestorReturnUsdc,
+    terms.purchaseAmountUsdc,
+    terms.supplierExpectedSettlementUsdc,
+  ];
+  return requiredValues.every(isFiniteNumber) ? terms as CompleteSettlementTerms : null;
 }
 
 function formatUsdc(value: number | null | undefined) {
-  if (value == null) return "N/A";
+  if (!isFiniteNumber(value)) return "N/A";
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)} USDC`;
 }
 
-function sourceLabel(source: ScoreFactor["source"], t: (en: string, ko: string) => string) {
-  const labels = {
-    SYNTHETIC_DEMO_DATA: "Synthetic Demo Data",
-    INVOICE_DATA: t("Invoice Data", "인보이스 데이터"),
-    INVOICEX_DATA: t("InvoiceX Data", "InvoiceX 데이터"),
-    DOCUMENT_AGENT: "Document Agent",
-  } as const;
-  return labels[source];
+function formatRateBps(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) return "N/A";
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value / 100)}%`;
 }
 
 export function EarlySettlementOfferSection({
@@ -85,11 +75,7 @@ export function EarlySettlementOfferSection({
   const passport = invoice.riskPassport;
   const score = passport?.riskScore;
   const coverage = (passport?.dataCoverageBps ?? (score === 86 ? 10_000 : 0)) / 100;
-  const factors = passport?.scoreFactors?.length
-    ? passport.scoreFactors
-    : score === 86
-      ? FALLBACK_FACTORS
-      : [];
+  const factors = passport?.scoreFactors ?? [];
   const terms = deriveTerms(invoice);
 
   if (stage === "risk") {
@@ -114,7 +100,7 @@ export function EarlySettlementOfferSection({
               <div><span>Data Coverage</span><strong>{coverage}%</strong></div>
               <i><b style={{ width: `${coverage}%` }} /></i>
             </div>
-            <p>{t("Synthetic fields are explicitly labelled and are never generated by Gemini.", "Synthetic 항목은 명확히 표시되며 Gemini가 임의 생성하지 않습니다.")}</p>
+            <p>{t("Coverage reflects the data available for this Risk Passport.", "이 Risk Passport 산정에 사용된 데이터 범위입니다.")}</p>
           </section>
 
           <section className="risk-factor-card">
@@ -131,7 +117,6 @@ export function EarlySettlementOfferSection({
                   <div><h3>{factor.label}</h3><p>{factor.detail ?? t("No detail available", "세부 정보 없음")}</p></div>
                   <div className="risk-factor-result">
                     <strong>{factor.score == null ? "N/A" : `${factor.score} / ${factor.maxScore}`}</strong>
-                    <span className={factor.synthetic ? "is-synthetic" : ""}>{sourceLabel(factor.source, t)}</span>
                   </div>
                 </article>
               ))}
@@ -139,8 +124,26 @@ export function EarlySettlementOfferSection({
           </section>
         </div>
 
-        <footer className="offer-stage-actions is-split">
-          <button type="button" className="secondary-button" onClick={onRequestRiskReview} disabled={isRequestingRiskReview}>
+        {passport?.hardGate && (
+          <section className={`hard-gate-card ${passport.hardGate.passed ? "is-passed" : "is-failed"}`}>
+            <header>
+              <div><h2>Hard Gate</h2><p>{t("Eligibility checks completed before scoring", "Risk Score 산정 전 필수 적격성 검토")}</p></div>
+              <strong>{passport.hardGate.passed ? t("PASSED", "통과") : t("FAILED", "진행 불가")}</strong>
+            </header>
+            <div>
+              {passport.hardGate.checks.map((check) => (
+                <article key={check.key} className={check.passed ? "is-passed" : "is-failed"}>
+                  <CheckCircle weight="fill" aria-hidden="true" />
+                  <span>{check.label}</span>
+                  <b>{check.passed ? t("Pass", "통과") : check.reason ?? t("Failed", "실패")}</b>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <footer className="offer-stage-actions risk-passport-actions">
+          <button type="button" className="risk-review-button" onClick={onRequestRiskReview} disabled={isRequestingRiskReview}>
             {isRequestingRiskReview ? t("Submitting review request…", "이의 신청 접수 중…") : t("Request Risk Score review", "Risk Score 이의 신청")}
           </button>
           <button type="button" className="primary-button" onClick={() => onStageChange("terms")}>{t("Review early-settlement terms", "조기정산 조건 확인")}</button>
@@ -157,17 +160,19 @@ export function EarlySettlementOfferSection({
           <div>
             <p className="detail-breadcrumb">{t("Invoice", "인보이스")} / {invoice.id}</p>
             <h1>{t("Review early-settlement terms", "조기정산 조건 확인")}</h1>
-            <p>{t("Understand what you receive today, what you pay, and what is temporarily reserved.", "오늘 받는 금액, 부담하는 비용, 일시 유보되는 금액을 구분해 확인하세요.")}</p>
+            <p>{t("Review the SOFR-based annual yield, investor return, fees, and supplier settlement amount.", "SOFR 기반 연 수익률, 투자자 수익, 수수료와 공급기업 정산액을 확인하세요.")}</p>
           </div>
-          <span className="offer-ready-chip">{t("PRICING READY", "조건 산정 완료")}</span>
+          <span className="offer-ready-chip">
+            {terms ? t("PRICING READY", "조건 산정 완료") : t("CALCULATION FAILED", "조건 계산 불가")}
+          </span>
         </header>
 
         {terms ? (
           <>
             <div className="settlement-summary-grid">
               <article><span>Invoice Face Value</span><strong>{formatUsdc(terms.faceValueUsdc)}</strong></article>
-              <article className="is-primary"><span>{t("Initial Advance", "오늘 수령 예정")}</span><strong>{formatUsdc(terms.initialAdvanceUsdc)}</strong></article>
-              <article><span>{t("Expected Final Proceeds", "정상 정산 시 최종 예상 수령")}</span><strong>{formatUsdc(terms.expectedFinalProceedsUsdc)}</strong></article>
+              <article className="is-primary"><span>{t("RWA purchase amount", "RWA 매입가")}</span><strong>{formatUsdc(terms.purchaseAmountUsdc)}</strong></article>
+              <article><span>{t("Supplier settlement", "공급기업 정산 예정액")}</span><strong>{formatUsdc(terms.supplierExpectedSettlementUsdc)}</strong></article>
             </div>
 
             <div className="settlement-terms-layout">
@@ -175,25 +180,27 @@ export function EarlySettlementOfferSection({
                 <header><h2>{t("Economics breakdown", "조기정산 금액 구성")}</h2><span>{t("MVP policy", "MVP 정책")}</span></header>
                 <dl>
                   <div><dt>Invoice Face Value</dt><dd>{formatUsdc(terms.faceValueUsdc)}</dd></div>
-                  <div className="is-cost"><dt>{t("Discount", "Discount · 금융비용")}</dt><dd>- {formatUsdc(terms.discountAmountUsdc)}</dd></div>
-                  <div className="is-sub"><dt>Investor Required Return</dt><dd>{formatUsdc(terms.investorRequiredReturnUsdc)}</dd></div>
-                  <div className="is-sub"><dt>InvoiceX Transaction Fee</dt><dd>{formatUsdc(terms.platformFeeUsdc)}</dd></div>
-                  <div className="is-reserve"><dt>{t("Reserve", "Reserve · 일시 유보금")}</dt><dd>- {formatUsdc(terms.reserveAmountUsdc)}</dd></div>
-                  <div className="is-total"><dt>{t("Initial Advance", "오늘 수령 예정")}</dt><dd>{formatUsdc(terms.initialAdvanceUsdc)}</dd></div>
-                  <div className="is-return"><dt>{t("Expected Reserve Return", "정상 만기 시 예상 Reserve 반환")}</dt><dd>+ {formatUsdc(terms.expectedReserveReturnUsdc)}</dd></div>
-                  <div className="is-final"><dt>{t("Expected Final Proceeds", "정상 정산 시 최종 예상 수령")}</dt><dd>{formatUsdc(terms.expectedFinalProceedsUsdc)}</dd></div>
+                  <div><dt>{t("Remaining term", "잔존 만기")}</dt><dd>{terms.remainingTermDays} {t("days", "일")}</dd></div>
+                  <div><dt>SOFR</dt><dd>{formatRateBps(terms.sofrRateBps)}</dd></div>
+                  <div><dt>{t("Risk spread", "Risk Spread")}</dt><dd>+ {formatRateBps(terms.riskSpreadBps)}</dd></div>
+                  <div><dt>{t("Country / legal spread", "Country / Legal Spread")}</dt><dd>+ {formatRateBps(terms.countryLegalSpreadBps)}</dd></div>
+                  <div className="is-total"><dt>{t("Annual expected yield", "연 환산 기대수익률")}</dt><dd>{formatRateBps(terms.annualExpectedYieldBps)}</dd></div>
+                  <div className="is-cost"><dt>{t("Expected investor return", "예상 투자자 수익")}</dt><dd>- {formatUsdc(terms.expectedInvestorReturnUsdc)}</dd></div>
+                  <div><dt>{t("RWA purchase amount", "RWA 매입가")}</dt><dd>{formatUsdc(terms.purchaseAmountUsdc)}</dd></div>
+                  <div className="is-cost"><dt>InvoiceX Transaction Fee</dt><dd>- {formatUsdc(terms.platformFeeUsdc)}</dd></div>
+                  <div className="is-final"><dt>{t("Supplier settlement", "공급기업 정산 예정액")}</dt><dd>{formatUsdc(terms.supplierExpectedSettlementUsdc)}</dd></div>
                 </dl>
               </section>
 
               <aside className="settlement-explanation-column">
                 <section className="reserve-explanation-card">
-                  <span>Reserve ≠ Fee</span>
-                  <h2>{t("What is the Reserve?", "Reserve란?")}</h2>
-                  <p>{t("A temporary holdback for reductions, disputes, or settlement differences at maturity. Any unused amount is returned to the supplier after normal settlement.", "만기 정산 과정의 감액, 분쟁 또는 정산 차이를 처리하기 위한 일시 유보금입니다. 정상 정산 후 사용되지 않은 금액은 공급기업에 반환됩니다.")}</p>
+                  <span>Dynamic Pricing</span>
+                  <h2>{t("How is the price calculated?", "가격은 어떻게 산정되나요?")}</h2>
+                  <p>{t("The annual expected yield is SOFR plus the score-band risk spread and country/legal spread. Investor return is prorated by the remaining term.", "연 기대수익률은 SOFR에 Risk Score 구간 스프레드와 국가·법률 스프레드를 더해 계산하며, 투자자 수익은 잔존 만기에 비례해 산정합니다.")}</p>
                 </section>
                 <section className="settlement-metadata-card">
-                  <div><span>Discount Rate</span><strong>{terms.discountRateBps / 100}%</strong></div>
-                  <div><span>Reserve Rate</span><strong>{terms.reserveRateBps / 100}%</strong></div>
+                  <div><span>{t("Annual yield", "연 기대수익률")}</span><strong>{formatRateBps(terms.annualExpectedYieldBps)}</strong></div>
+                  <div><span>{t("Risk Score", "Risk Score")}</span><strong>{score ?? "N/A"}</strong></div>
                   <div><span>{t("Due date", "만기일")}</span><strong>{invoice.dueDate}</strong></div>
                   <div><span>{t("Settlement asset", "정산 자산")}</span><strong>{terms.settlementAsset}</strong></div>
                   <div><span>{t("Network", "네트워크")}</span><strong>Solana Devnet</strong></div>
@@ -201,10 +208,10 @@ export function EarlySettlementOfferSection({
               </aside>
             </div>
           </>
-        ) : <p className="offer-data-unavailable">{t("Early-settlement terms are unavailable. Please retry the risk assessment.", "조기정산 조건을 불러올 수 없습니다. Risk 산정을 다시 시도해 주세요.")}</p>}
+        ) : <p className="offer-data-unavailable">{t("Required Dynamic Pricing inputs are missing from the backend response.", "백엔드 응답에 Dynamic Pricing 필수 입력값이 없어 조건을 계산할 수 없습니다.")}</p>}
 
         <p className="offer-disclosure">{t("Funds are paid after an eligible investor's Treasury Agent purchases the RWA. Matching is not guaranteed.", "적격 투자자의 Treasury Agent가 RWA를 매입한 후 자금이 지급됩니다. 투자 매칭은 보장되지 않습니다.")}</p>
-        <footer className="offer-stage-actions is-split">
+        <footer className="offer-stage-actions offer-stage-actions--paired">
           <button type="button" className="secondary-button" onClick={() => onStageChange("risk")}>{t("Back", "이전")}</button>
           <button type="button" className="primary-button" onClick={() => onStageChange("issuance")} disabled={!terms}>{t("Agree to early-settlement terms", "조기정산 조건 동의")}</button>
         </footer>
@@ -232,13 +239,13 @@ export function EarlySettlementOfferSection({
           <div><dt>Face Value</dt><dd>{formatUsdc(terms?.faceValueUsdc)}</dd></div>
           <div><dt>{t("Due Date", "만기일")}</dt><dd>{invoice.dueDate}</dd></div>
           <div><dt>Risk Score</dt><dd>{score ?? "N/A"} / 100</dd></div>
-          <div><dt>Initial Advance</dt><dd>{formatUsdc(terms?.initialAdvanceUsdc)}</dd></div>
-          <div><dt>Reserve</dt><dd>{formatUsdc(terms?.reserveAmountUsdc)}</dd></div>
+          <div><dt>{t("RWA purchase amount", "RWA 매입가")}</dt><dd>{formatUsdc(terms?.purchaseAmountUsdc)}</dd></div>
+          <div><dt>{t("Supplier settlement", "공급기업 정산 예정액")}</dt><dd>{formatUsdc(terms?.supplierExpectedSettlementUsdc)}</dd></div>
         </dl>
-        <p><CheckCircle weight="fill" aria-hidden="true" />{t("The supplier agreed to the disclosed discount, reserve, and settlement terms.", "공급기업이 안내된 Discount, Reserve 및 정산 조건에 동의했습니다.")}</p>
+        <p><CheckCircle weight="fill" aria-hidden="true" />{t("The supplier agreed to the disclosed dynamic pricing and settlement terms.", "공급기업이 안내된 동적 가격 및 정산 조건에 동의했습니다.")}</p>
       </section>
 
-      <footer className="offer-stage-actions is-split">
+      <footer className="offer-stage-actions offer-stage-actions--paired">
         <button type="button" className="secondary-button" onClick={() => onStageChange("terms")} disabled={isRequesting}>{t("Back", "이전")}</button>
         <button type="button" className="primary-button" onClick={onAccept} disabled={isRequesting || !terms}>{isRequesting ? t("Requesting RWA issuance…", "RWA 발행 요청 중…") : t("Request RWA issuance", "RWA 발행 요청")}</button>
       </footer>

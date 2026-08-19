@@ -23,6 +23,11 @@ export interface RiskPassport {
     detail?: string;
     synthetic: boolean;
   }>;
+  hardGate?: {
+    passed: boolean;
+    checks: Array<{ key: string; label: string; passed: boolean; reason?: string }>;
+    failureReasons: string[];
+  } | null;
   earlySettlementTerms?: {
     faceValueUsdc: number;
     discountAmountUsdc: number;
@@ -34,6 +39,14 @@ export interface RiskPassport {
     initialAdvanceUsdc: number;
     expectedReserveReturnUsdc: number;
     expectedFinalProceedsUsdc: number;
+    remainingTermDays: number | null;
+    sofrRateBps: number | null;
+    riskSpreadBps: number | null;
+    countryLegalSpreadBps: number | null;
+    annualExpectedYieldBps: number | null;
+    expectedInvestorReturnUsdc: number | null;
+    purchaseAmountUsdc: number | null;
+    supplierExpectedSettlementUsdc: number | null;
     settlementAsset: "USDC";
     network: "SOLANA_DEVNET";
   } | null;

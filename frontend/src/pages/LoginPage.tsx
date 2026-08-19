@@ -32,7 +32,14 @@ export function LoginPage() {
     const password = String(formData.get("password") ?? "");
     const remember = formData.get("remember") === "on";
 
-    if (privyAuth.authenticated) await privyAuth.logout();
+    const normalizedEmail = email.trim().toLowerCase();
+    const privySessionBelongsToLogin = (
+      privyAuth.authenticated
+      && privyAuth.authenticatedEmail === normalizedEmail
+    );
+    if (privyAuth.authenticated && !privySessionBelongsToLogin) {
+      await privyAuth.logout();
+    }
 
     if (isMockApi) {
       const account = authenticateDemoAccount(role, email, password);

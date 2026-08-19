@@ -5,11 +5,19 @@ import invoicePreview from "../../assets/invoice-preview.png";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useBuyerConfirm } from "../../hooks/useBuyerConfirm";
+import { useBuyerPayment, useBuyerPaymentPreparation } from "../../hooks/useBuyerPayment";
+import { useBuyerReject } from "../../hooks/useBuyerReject";
 import { useInvoice } from "../../hooks/useInvoice";
 import { getInvoiceDisplayReference } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { DocumentType } from "../../types/documents";
-import { formatInvoiceAmount, type Invoice, type InvoiceStatus } from "../../types/invoice";
+import {
+  formatInvoiceAmount,
+  type BuyerRejectionReason,
+  type BuyerPaymentPreparation,
+  type Invoice,
+  type InvoiceStatus,
+} from "../../types/invoice";
 
 type BuyerView = "verification" | "payment";
 type VerificationChoice = "match" | "mismatch";
@@ -27,6 +35,15 @@ const previewableVerificationStatuses: InvoiceStatus[] = [
   "DOCUMENT_ANALYZING",
   "DOCUMENT_REVIEW_REQUIRED",
   "BUYER_REVIEW",
+];
+const rejectionReasons: Array<{ value: BuyerRejectionReason; english: string; korean: string }> = [
+  { value: "DUPLICATE_INVOICE", english: "Duplicate invoice", korean: "중복 인보이스" },
+  { value: "DOCUMENT_MISMATCH", english: "Invoice / contract / PO mismatch", korean: "인보이스 / 계약서 / PO 불일치" },
+  { value: "DELIVERY_INCOMPLETE", english: "Delivery or service incomplete", korean: "납품 또는 용역 미완료" },
+  { value: "AMOUNT_ERROR", english: "Incorrect amount", korean: "금액 오류" },
+  { value: "DUE_DATE_ERROR", english: "Incorrect due date", korean: "만기일 오류" },
+  { value: "SUSPECTED_ASSIGNMENT", english: "Suspected prior assignment", korean: "기존 채권 양도 의심" },
+  { value: "OTHER", english: "Other", korean: "기타" },
 ];
 
 function formatDate(date: string, locale: "en-US" | "ko-KR") {
@@ -82,19 +99,26 @@ function VerificationChoiceButtons({
 function BuyerVerificationSection({
   invoice,
   onConfirm,
+  onReject = () => undefined,
   canConfirm,
   isConfirming,
+  isRejecting,
   backPath,
 }: {
   invoice: Invoice;
   onConfirm: () => Promise<void> | void;
+  onReject?: (reasonCode: BuyerRejectionReason, detail?: string) => Promise<void> | void;
   canConfirm: boolean;
   isConfirming: boolean;
+  isRejecting: boolean;
   backPath: string;
 }) {
   const { language, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<DocumentType>("INVOICE");
   const [message, setMessage] = useState<string>();
+  const [showRejection, setShowRejection] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<BuyerRejectionReason>("DOCUMENT_MISMATCH");
+  const [rejectionDetail, setRejectionDetail] = useState("");
   const [choices, setChoices] = useState<Record<string, VerificationChoice>>({
     transaction: "match",
     supplier: "match",
@@ -123,6 +147,16 @@ function BuyerVerificationSection({
       setMessage(t("Invoice confirmation submitted.", "인보이스 확인이 제출되었습니다."));
     } catch {
       setMessage(t("We could not submit the invoice confirmation. Please try again.", "인보이스 확인을 제출하지 못했습니다. 다시 시도해 주세요."));
+    }
+  };
+
+  const submitRejection = async () => {
+    setMessage(undefined);
+    try {
+      await onReject(rejectionReason, rejectionDetail.trim() || undefined);
+      setMessage(t("Invoice rejection submitted.", "인보이스 거절 사유가 제출되었습니다."));
+    } catch {
+      setMessage(t("We could not submit the rejection. Please try again.", "인보이스 거절을 제출하지 못했습니다. 다시 시도해 주세요."));
     }
   };
 
@@ -193,10 +227,11 @@ function BuyerVerificationSection({
           <footer className="verification-actions">
             <button
               type="button"
-              className="secondary-button"
-              onClick={() => setMessage(t("Revision request prepared for the supplier.", "공급기업에 보낼 수정 요청을 준비했습니다."))}
+              className="buyer-reject-button"
+              onClick={() => setShowRejection((current) => !current)}
+              disabled={!canConfirm || isRejecting}
             >
-              {t("Request revision", "수정 요청")}
+              {t("Reject invoice", "인보이스 거절")}
             </button>
             <button
               type="button"
@@ -207,6 +242,29 @@ function BuyerVerificationSection({
               {isConfirming ? t("Confirming invoice...", "인보이스 확인 중...") : t("Confirm invoice", "인보이스 확인")}
             </button>
           </footer>
+          {showRejection && (
+            <div className="buyer-rejection-form">
+              <label>
+                <span>{t("Rejection reason", "거절 사유")}</span>
+                <select value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value as BuyerRejectionReason)}>
+                  {rejectionReasons.map((reason) => (
+                    <option key={reason.value} value={reason.value}>{t(reason.english, reason.korean)}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>{t("Additional details", "상세 사유")}</span>
+                <textarea
+                  value={rejectionDetail}
+                  onChange={(event) => setRejectionDetail(event.target.value)}
+                  placeholder={t("Add evidence or corrections the supplier should review.", "공급기업이 확인할 근거나 수정 내용을 입력하세요.")}
+                />
+              </label>
+              <button type="button" className="buyer-reject-submit" onClick={() => void submitRejection()} disabled={isRejecting}>
+                {isRejecting ? t("Submitting...", "제출 중...") : t("Submit rejection", "거절 제출")}
+              </button>
+            </div>
+          )}
           {message && <p className="inline-status" role="status">{message}</p>}
         </section>
       </div>
@@ -214,12 +272,27 @@ function BuyerVerificationSection({
   );
 }
 
-function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
-  const { t } = useLanguage();
+function MaturityPaymentSection({
+  invoice,
+  preparation,
+  onPay,
+  isPaying = false,
+  paymentError,
+  paymentComplete = false,
+}: {
+  invoice: Invoice;
+  preparation?: BuyerPaymentPreparation;
+  onPay?: () => void;
+  isPaying?: boolean;
+  paymentError?: string;
+  paymentComplete?: boolean;
+}) {
+  const { language, t } = useLanguage();
   const [copied, setCopied] = useState(false);
-  const accountNumber = "DemoSettlement7VB0Qe";
+  const accountNumber = preparation?.settlementWalletAddress ?? "—";
 
   const copyAccount = async () => {
+    if (!preparation) return;
     await navigator.clipboard?.writeText(accountNumber);
     setCopied(true);
   };
@@ -244,16 +317,19 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
           <dl>
             <div className="payment-amount-row">
               <dt>{t("Amount to pay", "결제 금액")}</dt>
-              <dd>{formatInvoiceAmount(invoice.invoiceAmount, invoice.currency)}</dd>
+              <dd>{formatInvoiceAmount(preparation?.amountUsdc ?? invoice.invoiceAmount, "USDC")}</dd>
             </div>
-            <div><dt>{t("Payment deadline", "결제 기한")}</dt><dd>{t("October 30, 2026", "2026년 10월 30일")}</dd></div>
+            <div><dt>{t("Payment deadline", "결제 기한")}</dt><dd>{formatDate(preparation?.dueDate ?? invoice.dueDate, language === "ko" ? "ko-KR" : "en-US")}</dd></div>
             <div><dt>{t("Network", "네트워크")}</dt><dd>Solana Devnet</dd></div>
             <div><dt>{t("Settlement address", "정산 주소")}</dt><dd>{accountNumber}</dd></div>
-            <div><dt>{t("Recipient", "수취인")}</dt><dd>InvoiceX Settlement Partner</dd></div>
+            <div><dt>{t("Asset", "결제 자산")}</dt><dd>Devnet USDC</dd></div>
           </dl>
           <footer>
-            <button type="button" className="copy-account-button" onClick={copyAccount}>
+            <button type="button" className="copy-account-button" onClick={copyAccount} disabled={!preparation}>
               {copied ? t("Address copied", "주소 복사 완료") : t("Copy address", "주소 복사")}
+            </button>
+            <button type="button" className="buyer-confirm-button" onClick={onPay} disabled={!preparation || !onPay || isPaying}>
+              {isPaying ? t("Confirming payment...", "결제 확인 중...") : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
             </button>
           </footer>
         </section>
@@ -267,6 +343,8 @@ function MaturityPaymentSection({ invoice }: { invoice: Invoice }) {
           </div>
         </section>
       </div>
+      {paymentError && <p className="wallet-error" role="alert">{paymentError}</p>}
+      {paymentComplete && <p className="inline-status" role="status">{t("USDC payment and settlement were confirmed.", "USDC 결제와 정산이 확인되었습니다.")}</p>}
       <p className="payment-processing-note">{t("The amount, asset, and settlement address must match for automatic processing.", "자동 처리를 위해 금액, 통화 자산, 정산 주소가 정확히 일치해야 합니다.")}</p>
     </section>
   );
@@ -348,26 +426,51 @@ function BuyerInvoiceIdleSection({ invoice }: { invoice: Invoice }) {
 export function BuyerInvoiceDetailContent({
   invoice,
   onConfirm,
+  onReject = () => undefined,
   view,
   isConfirming = false,
+  isRejecting = false,
+  paymentPreparation,
+  onPay,
+  isPaying = false,
+  paymentError,
+  paymentComplete = false,
 }: {
   invoice: Invoice;
   onConfirm: () => Promise<void> | void;
+  onReject?: (reasonCode: BuyerRejectionReason, detail?: string) => Promise<void> | void;
   view?: BuyerView;
   isConfirming?: boolean;
+  isRejecting?: boolean;
+  paymentPreparation?: BuyerPaymentPreparation;
+  onPay?: () => void;
+  isPaying?: boolean;
+  paymentError?: string;
+  paymentComplete?: boolean;
 }) {
   const showPayment = view === "payment" || maturityStatuses.includes(invoice.status);
   const showVerification = invoice.status === "BUYER_REVIEW"
     || (view === "verification" && previewableVerificationStatuses.includes(invoice.status));
 
-  if (showPayment) return <MaturityPaymentSection invoice={invoice} />;
+  if (showPayment) return (
+    <MaturityPaymentSection
+      invoice={invoice}
+      preparation={paymentPreparation}
+      onPay={onPay}
+      isPaying={isPaying}
+      paymentError={paymentError}
+      paymentComplete={paymentComplete}
+    />
+  );
   if (showVerification) {
     return (
       <BuyerVerificationSection
         invoice={invoice}
         onConfirm={onConfirm}
+        onReject={onReject}
         canConfirm={Boolean(invoice.verificationId)}
         isConfirming={isConfirming}
+        isRejecting={isRejecting}
         backPath="/buyer/verification"
       />
     );
@@ -381,6 +484,9 @@ export function BuyerInvoiceDetailPage() {
   const [searchParams] = useSearchParams();
   const invoice = useInvoice(invoiceId);
   const confirm = useBuyerConfirm();
+  const reject = useBuyerReject();
+  const paymentPreparation = useBuyerPaymentPreparation(invoiceId);
+  const payment = useBuyerPayment(invoiceId);
   const view = searchParams.get("section") === "payment" ? "payment" : "verification";
 
   if (invoice.isLoading) return <LoadingState />;
@@ -398,7 +504,19 @@ export function BuyerInvoiceDetailPage() {
         }
         return confirm.mutateAsync(invoice.data.verificationId).then(() => undefined);
       }}
+      onReject={(reasonCode, detail) => {
+        if (!invoice.data.verificationId) {
+          return Promise.reject(new Error("Verification request is unavailable."));
+        }
+        return reject.mutateAsync({ verificationId: invoice.data.verificationId, reasonCode, detail }).then(() => undefined);
+      }}
       isConfirming={confirm.isPending}
+      isRejecting={reject.isPending}
+      paymentPreparation={paymentPreparation.data}
+      onPay={() => payment.mutate()}
+      isPaying={payment.isPending}
+      paymentError={(paymentPreparation.error ?? payment.error)?.message}
+      paymentComplete={payment.isSuccess}
     />
   );
 }

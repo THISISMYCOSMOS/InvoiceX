@@ -121,8 +121,7 @@ export function BuyerProfilePage() {
           </dl>
         </article>
 
-        {currentAccount ? (
-          <article className="wallet-card">
+        <article className="wallet-card">
             <header className="settings-card__header">
               <span className="settings-card__icon settings-card__icon--green" aria-hidden="true">
                 <Wallet size={18} weight="fill" />
@@ -131,12 +130,12 @@ export function BuyerProfilePage() {
                 <h2>{t("Embedded wallet", "임베디드 지갑")}</h2>
                 <p>{t("User-owned wallet provisioned by Privy", "Privy가 생성한 사용자 소유 지갑")}</p>
               </div>
-              <span className="wallet-status is-connected"><span />{t("Active", "사용 중")}</span>
+              <span className={`wallet-status ${currentAccount ? "is-connected" : ""}`}><span />{currentAccount ? t("Active", "사용 중") : t("Sign in required", "로그인 필요")}</span>
             </header>
             <div className="wallet-address-panel">
               <div>
                 <span>{t("Solana wallet address", "Solana 지갑 주소")}</span>
-                <strong>{currentAccount.walletAddress}</strong>
+                <strong>{currentAccount?.walletAddress ?? t("Sign in to load the embedded wallet", "로그인 후 임베디드 지갑을 확인할 수 있습니다")}</strong>
               </div>
             </div>
             <div className="wallet-metrics">
@@ -172,11 +171,10 @@ export function BuyerProfilePage() {
                   : t("Connect external wallet", "외부 지갑 연결")}
               </button>
             </footer>
-          </article>
-        ) : null}
+        </article>
       </div>
 
-      {currentAccount && isExternalWalletConnectorOpen ? (
+      {isExternalWalletConnectorOpen ? (
         <section className="wallet-external-connector" aria-label={t("External settlement wallet", "외부 정산 지갑")}>
           <SolanaWalletConnection
             title={t("External settlement wallet", "외부 정산 지갑")}

@@ -18,6 +18,8 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/*.sqlite3
 firebase-debug.log*
+*.log
+node_modules.partial/
 .DS_Store
 /output/
 /docs/

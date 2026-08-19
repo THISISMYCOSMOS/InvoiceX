@@ -11,7 +11,12 @@ vi.mock("@privy-io/react-auth", () => ({
   getAccessToken: vi.fn(),
   PrivyProvider: mocks.privyProvider,
   useLoginWithEmail: () => ({ loginWithCode: vi.fn(), sendCode: vi.fn() }),
-  usePrivy: () => ({ authenticated: true, logout: vi.fn(), ready: true }),
+  usePrivy: () => ({
+    authenticated: true,
+    logout: vi.fn(),
+    ready: true,
+    user: { email: { address: "Investor@Company.com" } },
+  }),
 }));
 
 vi.mock("@privy-io/react-auth/solana", () => ({
@@ -22,7 +27,7 @@ vi.mock("@privy-io/react-auth/solana", () => ({
   useWallets: () => ({ ready: true, wallets: [] }),
 }));
 
-import { SignupAuthProvider } from "./SignupAuthContext";
+import { SignupAuthProvider, useSignupAuth } from "./SignupAuthContext";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -44,4 +49,15 @@ test("registers Privy's default Solana RPCs so the Devnet signing screen can ren
     }),
     undefined,
   );
+});
+
+test("exposes the normalized Privy email so password login preserves the matching wallet session", () => {
+  function Consumer() {
+    const auth = useSignupAuth();
+    return <span>{auth.authenticatedEmail}</span>;
+  }
+
+  render(<SignupAuthProvider><Consumer /></SignupAuthProvider>);
+
+  expect(screen.getByText("investor@company.com")).toBeInTheDocument();
 });

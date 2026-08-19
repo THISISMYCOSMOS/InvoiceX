@@ -6,6 +6,7 @@
 
 # Build dependencies are installed inside the container image.
 **/node_modules
+node_modules.partial/
 **/.venv
 
 # User-local and generated workspace directories.
@@ -13,3 +14,4 @@ output/
 scripts/
 backend/uploads/
 backend/*.sqlite3
+backend/*.log

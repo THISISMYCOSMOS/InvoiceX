@@ -79,6 +79,17 @@ class SolanaGateway(Protocol):
         self, *, signature: str, owner_wallet_address: str, amount_usdc: int
     ) -> bool: ...
 
+    async def settlement_wallet_address(self) -> str: ...
+
+    async def verify_usdc_payment(
+        self,
+        *,
+        signature: str,
+        sender_wallet_address: str,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+    ) -> bool: ...
+
     async def sponsor_vault_deposit(
         self,
         *,
@@ -209,6 +220,24 @@ class MockSolanaGateway:
         self, *, signature: str, owner_wallet_address: str, amount_usdc: int
     ) -> bool:
         return bool(signature and owner_wallet_address and amount_usdc > 0)
+
+    async def settlement_wallet_address(self) -> str:
+        return "DEMO_SETTLEMENT_WALLET"
+
+    async def verify_usdc_payment(
+        self,
+        *,
+        signature: str,
+        sender_wallet_address: str,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+    ) -> bool:
+        return bool(
+            signature
+            and sender_wallet_address
+            and recipient_wallet_address == await self.settlement_wallet_address()
+            and amount_usdc > 0
+        )
 
     async def sponsor_vault_deposit(self, **_: Any) -> ChainTransferResult:
         raise IntegrationError("가스리스 예치는 Privy Devnet 설정 후 사용할 수 있습니다.")
@@ -483,6 +512,62 @@ class DirectSolanaGateway:
             for instruction in instructions
         )
         return destination_has_expected_balance and has_expected_transfer
+
+    async def settlement_wallet_address(self) -> str:
+        return str(self._platform.pubkey())
+
+    async def verify_usdc_payment(
+        self,
+        *,
+        signature: str,
+        sender_wallet_address: str,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+    ) -> bool:
+        payload = await self._rpc(
+            "getTransaction",
+            [signature, {"encoding": "jsonParsed", "commitment": "confirmed", "maxSupportedTransactionVersion": 0}],
+        )
+        return self._payment_matches(
+            payload,
+            sender_wallet_address=sender_wallet_address,
+            recipient_wallet_address=recipient_wallet_address,
+            amount_usdc=amount_usdc,
+        )
+
+    def _payment_matches(
+        self,
+        payload: object,
+        *,
+        sender_wallet_address: str,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+    ) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        meta = payload.get("meta")
+        if not isinstance(meta, dict) or meta.get("err") is not None:
+            return False
+        transaction = payload.get("transaction")
+        message = transaction.get("message") if isinstance(transaction, dict) else None
+        instructions = message.get("instructions", []) if isinstance(message, dict) else []
+        expected_destination = str(
+            get_associated_token_address(
+                Pubkey.from_string(recipient_wallet_address), self._stablecoin_mint
+            )
+        )
+        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        return any(
+            isinstance(instruction, dict)
+            and instruction.get("program") in {"spl-token", "spl-token-2022"}
+            and isinstance(instruction.get("parsed"), dict)
+            and instruction["parsed"].get("type") in {"transfer", "transferChecked"}
+            and isinstance(instruction["parsed"].get("info"), dict)
+            and instruction["parsed"]["info"].get("authority") == sender_wallet_address
+            and instruction["parsed"]["info"].get("destination") == expected_destination
+            and int((instruction["parsed"]["info"].get("tokenAmount") or {"amount": instruction["parsed"]["info"].get("amount", 0)}).get("amount", 0)) == expected_raw
+            for instruction in instructions
+        )
 
     async def sponsor_vault_deposit(self, **_: Any) -> ChainTransferResult:
         raise IntegrationError("가스리스 예치는 Privy Sponsor 지갑이 필요합니다.")
@@ -980,6 +1065,56 @@ class PrivySolanaGateway:
             has_expected_transfer
             and owner_delta == -expected_raw
             and treasury_delta == expected_raw
+        )
+
+    async def settlement_wallet_address(self) -> str:
+        wallet_id = self._settings.privy_settlement_wallet_id
+        if not wallet_id:
+            raise IntegrationError("PRIVY_SETTLEMENT_WALLET_ID가 설정되지 않았습니다.")
+        return await self._wallet_address(wallet_id)
+
+    async def verify_usdc_payment(
+        self,
+        *,
+        signature: str,
+        sender_wallet_address: str,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+    ) -> bool:
+        payload = await self._rpc(
+            "getTransaction",
+            [signature, {"encoding": "jsonParsed", "commitment": "confirmed", "maxSupportedTransactionVersion": 0}],
+        )
+        if not isinstance(payload, dict):
+            return False
+        meta = payload.get("meta")
+        if not isinstance(meta, dict) or meta.get("err") is not None:
+            return False
+        transaction = payload.get("transaction")
+        message = transaction.get("message") if isinstance(transaction, dict) else None
+        instructions = message.get("instructions", []) if isinstance(message, dict) else []
+        mint = Pubkey.from_string(self.stablecoin_mint_address)
+        destination = str(
+            get_associated_token_address(Pubkey.from_string(recipient_wallet_address), mint)
+        )
+        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        has_transfer = any(
+            isinstance(instruction, dict)
+            and instruction.get("program") in {"spl-token", "spl-token-2022"}
+            and isinstance(instruction.get("parsed"), dict)
+            and instruction["parsed"].get("type") in {"transfer", "transferChecked"}
+            and isinstance(instruction["parsed"].get("info"), dict)
+            and instruction["parsed"]["info"].get("authority") == sender_wallet_address
+            and instruction["parsed"]["info"].get("destination") == destination
+            and int((instruction["parsed"]["info"].get("tokenAmount") or {"amount": instruction["parsed"]["info"].get("amount", 0)}).get("amount", 0)) == expected_raw
+            for instruction in instructions
+        )
+        pre_balances = meta.get("preTokenBalances", [])
+        post_balances = meta.get("postTokenBalances", [])
+        return (
+            has_transfer
+            and self._token_balance_delta(pre_balances, post_balances, sender_wallet_address) == -expected_raw
+            and self._token_balance_delta(pre_balances, post_balances, recipient_wallet_address) == expected_raw
         )
 
     async def send_usdc(

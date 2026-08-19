@@ -8,6 +8,7 @@ import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 test("shows the Figma verification controls for a buyer-review invoice", async () => {
   const user = userEvent.setup();
   const onConfirm = vi.fn().mockResolvedValue(undefined);
+  const onReject = vi.fn().mockResolvedValue(undefined);
   render(
     <MemoryRouter>
       <BuyerInvoiceDetailContent
@@ -22,6 +23,7 @@ test("shows the Figma verification controls for a buyer-review invoice", async (
           })),
         }}
         onConfirm={onConfirm}
+        onReject={onReject}
       />
     </MemoryRouter>,
   );
@@ -35,24 +37,45 @@ test("shows the Figma verification controls for a buyer-review invoice", async (
   expect(screen.getByText(/^Requested /)).toBeInTheDocument();
   expect(screen.getByText("Transaction exists")).toBeInTheDocument();
   expect(screen.getByText("Supplier information")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Request revision" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reject invoice" }));
+  expect(screen.getByText("Rejection reason")).toBeInTheDocument();
+  await user.selectOptions(screen.getByRole("combobox"), "AMOUNT_ERROR");
+  await user.click(screen.getByRole("button", { name: "Submit rejection" }));
+  expect(onReject).toHaveBeenCalledWith("AMOUNT_ERROR", undefined);
 
   await user.click(screen.getByRole("button", { name: "Confirm invoice" }));
   expect(onConfirm).toHaveBeenCalledTimes(1);
   expect(await screen.findByRole("status")).toHaveTextContent("Invoice confirmation submitted.");
 });
 
-test("shows the Figma maturity-payment screen for a funded invoice", () => {
+test("shows the embedded-wallet maturity-payment action for a funded invoice", async () => {
+  const user = userEvent.setup();
+  const onPay = vi.fn();
   render(
     <BuyerInvoiceDetailContent
       invoice={{ ...DEMO_INVOICE, status: "FUNDED" }}
       onConfirm={() => undefined}
+      paymentPreparation={{
+        invoiceId: DEMO_INVOICE.id,
+        buyerWalletAddress: "BuyerWallet",
+        settlementWalletAddress: "SettlementWallet",
+        usdcMintAddress: "UsdcMint",
+        amountUsdc: 3,
+        amountBaseUnits: 3_000_000,
+        decimals: 6,
+        dueDate: DEMO_INVOICE.dueDate,
+        demoDueDateBypass: true,
+      }}
+      onPay={onPay}
     />,
   );
 
   expect(screen.getByRole("heading", { name: "Pay invoice amount" })).toBeInTheDocument();
   expect(screen.getByText("3 USDC")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Copy address" })).toBeInTheDocument();
+  expect(screen.getByText("SettlementWallet")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Pay with embedded wallet" }));
+  expect(onPay).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("link", { name: "Download payment guide" })).not.toBeInTheDocument();
 });
 

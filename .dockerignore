@@ -5,6 +5,7 @@
 **/.pytest_cache
 **/.ruff_cache
 **/node_modules
+node_modules.partial
 **/dist
 **/*.pyc
 **/.env
@@ -12,6 +13,7 @@
 !**/.env.example
 backend/uploads
 backend/*.sqlite3
+backend/*.log
 frontend/.env.local
 output
 scripts

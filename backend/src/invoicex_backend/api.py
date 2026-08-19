@@ -30,6 +30,8 @@ from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import DocumentValidationError, NotFoundError, OnboardingApiError
 from invoicex_backend.models import (
     ConfirmVaultDepositRequest,
+    BuyerPaymentConfirmRequest,
+    BuyerPaymentPreparation,
     CreateMandateRequest,
     DocumentType,
     ErrorResponse,
@@ -45,6 +47,7 @@ from invoicex_backend.models import (
     OfferResponseRequest,
     PrepareMandateRequest,
     PrepareVaultDepositRequest,
+    RejectVerificationRequest,
     SaveSupplierWalletRequest,
     SponsorVaultDepositRequest,
     UploadedDocument,
@@ -577,6 +580,29 @@ async def confirm_verification(
 
 
 @router.post(
+    "/verifications/{verificationId}/reject",
+    response_model=InvoiceResponse,
+    responses=documented_errors(403, 404, 409, 422),
+    tags=["Verifications"],
+    summary="Buyer 인보이스 확인 거절",
+)
+async def reject_verification(
+    verification_id: VerificationId,
+    payload: RejectVerificationRequest,
+    service: InvoiceServiceDependency,
+    identity: AuthenticatedIdentity | None = buyer_only,
+) -> InvoiceResponse:
+    return InvoiceResponse(
+        invoice=await service.reject_verification(
+            verification_id,
+            reason_code=payload.reason_code,
+            detail=payload.detail,
+            identity=identity,
+        )
+    )
+
+
+@router.post(
     "/invoices/{invoiceId}/risk-review-request",
     response_model=InvoiceResponse,
     responses=documented_errors(403, 404, 409),
@@ -796,6 +822,43 @@ async def settle_mock_payment(
     identity: AuthenticatedIdentity | None = supplier_only,
 ) -> InvoiceResponse:
     return InvoiceResponse(invoice=await service.settle_mock_payment(invoice_id, identity))
+
+
+@router.get(
+    "/invoices/{invoiceId}/buyer-payment/prepare",
+    response_model=BuyerPaymentPreparation,
+    responses=documented_errors(403, 404, 409, 502),
+    tags=["Settlement"],
+    summary="Buyer Embedded Wallet USDC 결제 준비",
+)
+async def prepare_buyer_payment(
+    invoice_id: InvoiceId,
+    service: InvoiceServiceDependency,
+    identity: AuthenticatedIdentity | None = buyer_only,
+) -> BuyerPaymentPreparation:
+    return await service.prepare_buyer_payment(invoice_id, identity)
+
+
+@router.post(
+    "/invoices/{invoiceId}/buyer-payment/confirm",
+    response_model=InvoiceResponse,
+    responses=documented_errors(403, 404, 409, 502),
+    tags=["Settlement"],
+    summary="Buyer USDC 결제 검증 및 멱등 정산",
+)
+async def confirm_buyer_payment(
+    invoice_id: InvoiceId,
+    payload: BuyerPaymentConfirmRequest,
+    service: InvoiceServiceDependency,
+    identity: AuthenticatedIdentity | None = buyer_only,
+) -> InvoiceResponse:
+    return InvoiceResponse(
+        invoice=await service.confirm_buyer_payment(
+            invoice_id,
+            signature=payload.signature,
+            identity=identity,
+        )
+    )
 
 
 async def _read_upload(

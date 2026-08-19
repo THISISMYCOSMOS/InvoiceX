@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from invoicex_backend.models import RiskEligibility
-from invoicex_backend.policy import DeterministicRiskPolicy
+import hashlib
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +21,8 @@ class RiskScoringRequest:
     buyer_confirmed: bool
     remaining_term_days: int
     document_summary: str
+    buyer_key: str = ""
+    supplier_key: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,78 +53,71 @@ class RiskScoringProvider(Protocol):
 
 
 class DeterministicRiskScoringProvider:
-    """Compatibility adapter for the existing 68/86 policy."""
+    """Rule-based score with stable, explainable inputs and no randomness."""
 
     provider_name = "deterministic"
 
-    def __init__(self, policy: DeterministicRiskPolicy | None = None) -> None:
-        self._policy = policy or DeterministicRiskPolicy()
+    method_version = "risk-rules-v2"
+
+    @staticmethod
+    def _stable_ratio(key: str, lower: int, upper: int) -> int:
+        digest = hashlib.sha256(key.encode("utf-8")).digest()
+        return lower + int.from_bytes(digest[:4], "big") % (upper - lower + 1)
 
     def evaluate(self, request: RiskScoringRequest) -> RiskScoringResult:
-        decision = self._policy.evaluate(
-            has_mismatches=request.has_document_mismatches,
-            face_value_usdc=request.face_value_usdc,
-        )
+        buyer_key = request.buyer_key or request.invoice_id
+        relationship_key = f"{request.supplier_key}:{buyer_key}"
+        credit_score = self._stable_ratio(f"credit:{buyer_key}", 34, 43)
+        payment_score = self._stable_ratio(f"payment:{buyer_key}", 22, 29)
+        relationship_score = self._stable_ratio(f"relationship:{relationship_key}", 10, 15)
+        days = max(0, request.remaining_term_days)
+        maturity_score = 10 if days <= 30 else 9 if days <= 60 else 8 if days <= 90 else 6 if days <= 180 else 3
+        total = credit_score + payment_score + relationship_score + maturity_score
+        eligibility = RiskEligibility.ELIGIBLE if total >= 70 else RiskEligibility.BLOCKED
         factors = (
             RiskScoreFactorResult(
                 key="BUYER_CREDIT_QUALITY",
                 label="Buyer Credit Quality",
-                score=22,
-                max_score=25,
+                score=credit_score,
+                max_score=45,
                 source="SYNTHETIC_DEMO_DATA",
-                detail="A-equivalent synthetic corporate credit profile",
+                detail="등록 기업 식별자를 기준으로 산출한 deterministic 구매기업 신용 규칙 점수",
                 synthetic=True,
             ),
             RiskScoreFactorResult(
                 key="BUYER_PAYMENT_HISTORY",
                 label="Buyer Payment History",
-                score=18,
-                max_score=20,
+                score=payment_score,
+                max_score=30,
                 source="SYNTHETIC_DEMO_DATA",
-                detail="1 late payment across 24 synthetic invoices",
+                detail="구매기업 식별자를 기준으로 산출한 deterministic 지급 이력 규칙 점수",
                 synthetic=True,
             ),
             RiskScoreFactorResult(
                 key="SUPPLIER_BUYER_HISTORY",
                 label="Supplier–Buyer Transaction History",
-                score=13,
+                score=relationship_score,
                 max_score=15,
                 source="SYNTHETIC_DEMO_DATA",
-                detail="24 synthetic prior transactions",
+                detail="공급기업과 구매기업 식별자를 기준으로 산출한 deterministic 거래 관계 규칙 점수",
                 synthetic=True,
             ),
             RiskScoreFactorResult(
                 key="REMAINING_MATURITY",
                 label="Remaining Maturity",
-                score=8,
+                score=maturity_score,
                 max_score=10,
                 source="INVOICE_DATA",
                 detail=f"{request.remaining_term_days} days remaining",
             ),
-            RiskScoreFactorResult(
-                key="INVOICE_CONCENTRATION",
-                label="Invoice Size / Concentration",
-                score=5,
-                max_score=5,
-                source="INVOICEX_DATA",
-                detail=f"{request.face_value_usdc:,} USDC invoice exposure",
-            ),
-            RiskScoreFactorResult(
-                key="DOCUMENT_INTEGRITY",
-                label="Document Integrity & Anomaly",
-                score=2 if request.has_document_mismatches else 20,
-                max_score=25,
-                source="DOCUMENT_AGENT",
-                detail=request.document_summary,
-            ),
         )
         return RiskScoringResult(
-            score=decision.score,
-            eligibility=decision.eligibility,
-            advance_rate_bps=decision.advance_rate_bps,
-            advance_amount_usdc=decision.advance_amount_usdc,
+            score=total,
+            eligibility=eligibility,
+            advance_rate_bps=None,
+            advance_amount_usdc=None,
             factors=factors,
             data_coverage_bps=10_000,
             provider=self.provider_name,
-            method_version=self._policy.policy_version,
+            method_version=self.method_version,
         )

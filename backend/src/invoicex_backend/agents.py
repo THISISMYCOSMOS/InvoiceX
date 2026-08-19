@@ -142,7 +142,7 @@ class MockAgentGateway:
         shared = {
             "supplierName": "Alpha Components",
             "buyerName": "Prime Mobility",
-            "currency": "USDC",
+            "currency": "USD",
             "totalAmount": "3",
         }
         values_by_type: dict[DocumentType, dict[str, object]] = {

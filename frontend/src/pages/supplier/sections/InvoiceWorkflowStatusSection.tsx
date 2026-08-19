@@ -44,9 +44,15 @@ function getWorkflowCopy(invoice: Invoice): WorkflowCopy {
       };
     case "REVIEW_REQUESTED":
       return {
-        title: ["Risk Score review requested", "Risk Score 검토 요청이 접수되었습니다"],
-        description: ["The workflow is paused while the submitted Risk Score appeal is reviewed.", "제출한 Risk Score 이의 신청을 검토하는 동안 진행이 일시 중지됩니다."],
+        title: ["Review request submitted", "이의 신청이 접수되었습니다"],
+        description: ["The workflow is paused with the submitted review request recorded.", "제출한 이의 신청이 기록되어 진행이 일시 중지되었습니다."],
         tone: "attention",
+      };
+    case "REJECTED":
+      return {
+        title: ["The buyer rejected this invoice", "구매기업이 인보이스를 거절했습니다"],
+        description: ["Review the reason below. You can submit one review request for this MVP flow.", "아래 거절 사유를 확인하세요. MVP 흐름에서는 이의 신청을 접수할 수 있습니다."],
+        tone: "blocked",
       };
     case "REVISION_REQUESTED":
       return {
@@ -76,11 +82,38 @@ function getWorkflowCopy(invoice: Invoice): WorkflowCopy {
   }
 }
 
-export function InvoiceWorkflowStatusSection({ invoice }: { invoice: Invoice }) {
+const rejectionLabels: Record<string, [string, string]> = {
+  DUPLICATE_INVOICE: ["Duplicate invoice", "중복 인보이스"],
+  DOCUMENT_MISMATCH: ["Invoice / contract / PO mismatch", "인보이스 / 계약서 / PO 불일치"],
+  DELIVERY_INCOMPLETE: ["Delivery or service incomplete", "납품 또는 용역 미완료"],
+  AMOUNT_ERROR: ["Incorrect amount", "금액 오류"],
+  DUE_DATE_ERROR: ["Incorrect due date", "만기일 오류"],
+  SUSPECTED_ASSIGNMENT: ["Suspected prior assignment", "기존 채권 양도 의심"],
+  OTHER: ["Other", "기타"],
+};
+
+export function InvoiceWorkflowStatusSection({
+  invoice,
+  onRequestReview,
+  isRequestingReview = false,
+  reviewError,
+}: {
+  invoice: Invoice;
+  onRequestReview?: () => void;
+  isRequestingReview?: boolean;
+  reviewError?: string;
+}) {
   const { language, t } = useLanguage();
   const copy = getWorkflowCopy(invoice);
   const Icon = copy.tone === "blocked" ? WarningCircle : copy.tone === "attention" ? ClockCountdown : CircleNotch;
   const statusLabel = language === "ko" ? getInvoiceStatusLabel(invoice.status) : invoice.status.replaceAll("_", " ");
+  const rejectionCopy = invoice.rejectionReasonCode
+    ? rejectionLabels[invoice.rejectionReasonCode]
+    : undefined;
+  const blockedReasons = invoice.riskPassport?.hardGate?.failureReasons
+    ?? invoice.riskPassport?.riskFactors.map((factor) => factor.description)
+    ?? [];
+  const canRequestReview = (invoice.status === "REJECTED" || invoice.status === "BLOCKED") && Boolean(onRequestReview);
 
   return (
     <section className={`invoice-workflow-status invoice-workflow-status--${copy.tone}`}>
@@ -95,6 +128,24 @@ export function InvoiceWorkflowStatusSection({ invoice }: { invoice: Invoice }) 
         </div>
         {copy.tone === "processing" && <span className="invoice-workflow-status__live"><CheckCircle size={13} weight="fill" aria-hidden="true" /> {t("Updating", "상태 업데이트 중")}</span>}
       </article>
+      {(rejectionCopy || invoice.rejectionReasonDetail || blockedReasons.length > 0) && (
+        <section className="invoice-review-reasons" aria-label={t("Review reasons", "거절 및 탈락 사유")}>
+          <h2>{t("Reason", "사유")}</h2>
+          {rejectionCopy && <strong>{t(...rejectionCopy)}</strong>}
+          {invoice.rejectionReasonDetail && <p>{invoice.rejectionReasonDetail}</p>}
+          {blockedReasons.length > 0 && (
+            <ul>{blockedReasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+          )}
+        </section>
+      )}
+      {canRequestReview && (
+        <footer className="invoice-review-actions">
+          <button type="button" className="risk-review-button" onClick={onRequestReview} disabled={isRequestingReview}>
+            {isRequestingReview ? t("Submitting review request…", "이의 신청 접수 중…") : t("Request review", "이의 신청")}
+          </button>
+          {reviewError && <p className="offer-request-error" role="alert">{reviewError}</p>}
+        </footer>
+      )}
     </section>
   );
 }

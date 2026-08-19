@@ -15,6 +15,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 type SignupAuthContextValue = {
   authenticated: boolean;
+  authenticatedEmail: string | null;
   configured: boolean;
   ready: boolean;
   getAccessToken: () => Promise<string | null>;
@@ -30,6 +31,7 @@ type SignupAuthContextValue = {
 
 const disabledContext: SignupAuthContextValue = {
   authenticated: false,
+  authenticatedEmail: null,
   configured: false,
   ready: true,
   getAccessToken: async () => null,
@@ -56,7 +58,7 @@ const disabledContext: SignupAuthContextValue = {
 const SignupAuthContext = createContext<SignupAuthContextValue>(disabledContext);
 
 function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
-  const { authenticated, logout, ready } = usePrivy();
+  const { authenticated, logout, ready, user } = usePrivy();
   const { loginWithCode, sendCode } = useLoginWithEmail();
   const { ready: embeddedSolanaWalletReady, wallets: embeddedSolanaWallets } = usePrivySolanaWallets();
   const { createWallet: createEmbeddedSolanaWallet } = useCreatePrivySolanaWallet();
@@ -67,6 +69,7 @@ function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
     <SignupAuthContext.Provider
       value={{
         authenticated,
+        authenticatedEmail: user?.email?.address?.trim().toLowerCase() ?? null,
         configured: true,
         ready,
         getAccessToken: getPrivyAccessToken,

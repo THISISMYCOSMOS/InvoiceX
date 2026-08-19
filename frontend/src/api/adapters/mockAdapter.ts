@@ -137,6 +137,27 @@ export function createMockAdapter(): ScenarioAdapter {
       invoice = { ...invoice, riskPassport: clone(DEMO_RISK_PASSPORT), status: "OFFER_READY" };
       return clone(invoice);
     },
+    async rejectVerification(verificationId, reasonCode, detail) {
+      if (verification?.id !== verificationId) {
+        throw new Error(`Verification ${verificationId}을(를) 찾을 수 없습니다.`);
+      }
+      if (invoice.status !== "BUYER_REVIEW") {
+        return invalidTransition(invoice, "구매기업 거절");
+      }
+      verification = {
+        ...verification,
+        status: "REJECTED",
+        rejectionReasonCode: reasonCode,
+        rejectionReasonDetail: detail,
+      };
+      invoice = {
+        ...invoice,
+        status: "REJECTED",
+        rejectionReasonCode: reasonCode,
+        rejectionReasonDetail: detail,
+      };
+      return clone(invoice);
+    },
     async requestRiskReview(invoiceId) {
       const current = ensureInvoice(invoiceId);
       if (current.status === "REVIEW_REQUESTED") return clone(current);
@@ -178,6 +199,26 @@ export function createMockAdapter(): ScenarioAdapter {
         return invalidTransition(current, "USDC 입금 Mock");
       }
 
+      invoice = { ...current, status: "SETTLING" };
+      return clone(invoice);
+    },
+    async prepareBuyerPayment(invoiceId) {
+      const current = ensureInvoice(invoiceId);
+      const amountUsdc = current.riskPassport?.invoiceFaceValueUsdc ?? current.invoiceAmount;
+      return {
+        invoiceId,
+        buyerWalletAddress: current.buyer.walletAddress ?? "11111111111111111111111111111111",
+        settlementWalletAddress: "11111111111111111111111111111111",
+        usdcMintAddress: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        amountUsdc,
+        amountBaseUnits: amountUsdc * 1_000_000,
+        decimals: 6,
+        dueDate: current.dueDate,
+        demoDueDateBypass: true,
+      };
+    },
+    async confirmBuyerPayment(invoiceId) {
+      const current = ensureInvoice(invoiceId);
       invoice = { ...current, status: "SETTLING" };
       return clone(invoice);
     },

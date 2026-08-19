@@ -64,6 +64,54 @@ test("submits a Risk Score review request", async () => {
   );
 });
 
+test("submits a persisted buyer rejection reason", async () => {
+  const fetchImpl = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ invoice: { id: "INV-2026-001", status: "REJECTED" } }), { status: 200 }),
+  );
+  const adapter = createHttpAdapter(fetchImpl, "https://api.example.com/api/v1");
+
+  await adapter.rejectVerification("VER-2026-001", "AMOUNT_ERROR", "계약 금액과 다릅니다.");
+
+  expect(fetchImpl.mock.calls[0][0]).toBe(
+    "https://api.example.com/api/v1/verifications/VER-2026-001/reject",
+  );
+  expect(JSON.parse(fetchImpl.mock.calls[0][1]?.body as string)).toEqual({
+    reasonCode: "AMOUNT_ERROR",
+    detail: "계약 금액과 다릅니다.",
+  });
+});
+
+test("prepares and confirms an exact buyer USDC payment", async () => {
+  const preparation = {
+    invoiceId: "INV-2026-001",
+    buyerWalletAddress: "Vote111111111111111111111111111111111111111",
+    settlementWalletAddress: "So11111111111111111111111111111111111111112",
+    usdcMintAddress: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    amountUsdc: 96_000,
+    amountBaseUnits: 96_000_000_000,
+    decimals: 6,
+    dueDate: "2026-09-18",
+    demoDueDateBypass: true,
+  };
+  const fetchImpl = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify(preparation), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ id: preparation.invoiceId, status: "SETTLED" }), { status: 200 }));
+  const adapter = createHttpAdapter(fetchImpl, "https://api.example.com/api/v1");
+
+  await adapter.prepareBuyerPayment(preparation.invoiceId);
+  await adapter.confirmBuyerPayment(preparation.invoiceId, "payment-signature");
+
+  expect(fetchImpl.mock.calls[0][0]).toBe(
+    "https://api.example.com/api/v1/invoices/INV-2026-001/buyer-payment/prepare",
+  );
+  expect(fetchImpl.mock.calls[1][0]).toBe(
+    "https://api.example.com/api/v1/invoices/INV-2026-001/buyer-payment/confirm",
+  );
+  expect(JSON.parse(fetchImpl.mock.calls[1][1]?.body as string)).toEqual({
+    signature: "payment-signature",
+  });
+});
+
 test("shows the backend detail message for offer errors", async () => {
   const fetchImpl = vi.fn().mockResolvedValue(
     new Response(JSON.stringify({ message: "Solana 지갑을 연결해야 합니다." }), { status: 409 }),

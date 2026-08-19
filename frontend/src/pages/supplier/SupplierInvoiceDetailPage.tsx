@@ -94,7 +94,14 @@ export function SupplierInvoiceDetailContent({
       return <SettlementReceiptSection invoice={invoice} />;
     }
 
-    return <InvoiceWorkflowStatusSection invoice={invoice} />;
+    return (
+      <InvoiceWorkflowStatusSection
+        invoice={invoice}
+        onRequestReview={onRequestRiskReview}
+        isRequestingReview={isRequestingRiskReview}
+        reviewError={riskReviewError}
+      />
+    );
   };
 
   const riskReviewNotice = isRiskReviewNoticeOpen ? (

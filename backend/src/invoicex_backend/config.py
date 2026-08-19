@@ -124,6 +124,20 @@ class BackendSettings(BaseSettings):
         default="deterministic",
         validation_alias="RISK_SCORING_PROVIDER",
     )
+    mvp_sofr_rate: float = Field(
+        default=0.05,
+        validation_alias="MVP_SOFR_RATE",
+        ge=0,
+        le=1,
+        description="Annual SOFR decimal fraction used by the MVP pricing policy.",
+    )
+    risk_spread_90: float = Field(default=0.015, validation_alias="RISK_SPREAD_90", ge=0, le=1)
+    risk_spread_80: float = Field(default=0.025, validation_alias="RISK_SPREAD_80", ge=0, le=1)
+    risk_spread_70: float = Field(default=0.04, validation_alias="RISK_SPREAD_70", ge=0, le=1)
+    country_spread_low: float = Field(default=0.005, validation_alias="COUNTRY_SPREAD_LOW", ge=0, le=1)
+    country_spread_medium: float = Field(default=0.015, validation_alias="COUNTRY_SPREAD_MEDIUM", ge=0, le=1)
+    country_spread_high: float = Field(default=0.03, validation_alias="COUNTRY_SPREAD_HIGH", ge=0, le=1)
+    platform_fee_rate: float = Field(default=0.012, validation_alias="PLATFORM_FEE_RATE", ge=0, le=1)
     agent_task_dispatcher: Literal["inline", "cloud_tasks"] = Field(
         default="inline",
         validation_alias="AGENT_TASK_DISPATCHER",

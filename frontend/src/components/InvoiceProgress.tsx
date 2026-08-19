@@ -16,6 +16,7 @@ function getCurrentLifecycleIndex(status: InvoiceStatus, offerStage: OfferStage)
     case "BUYER_VERIFIED":
     case "RISK_ASSESSING":
     case "REVIEW_REQUESTED":
+    case "REJECTED":
       return 2;
     case "OFFER_READY":
       return offerStage === "risk" ? 2 : offerStage === "terms" ? 3 : 4;
@@ -25,6 +26,7 @@ function getCurrentLifecycleIndex(status: InvoiceStatus, offerStage: OfferStage)
     case "FUNDED":
     case "REPAYMENT_PENDING":
     case "SETTLING":
+    case "SETTLEMENT_FAILED":
     case "SETTLED":
       return 6;
     case "REVISION_REQUESTED":

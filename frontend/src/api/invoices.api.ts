@@ -14,4 +14,7 @@ export const invoiceApi = {
     supplierWalletAddress?: string,
   ) => scenarioAdapter.respondToOffer(invoiceId, response, supplierWalletAddress),
   runFunding: (invoiceId: string) => scenarioAdapter.runFunding(invoiceId),
+  prepareBuyerPayment: (invoiceId: string) => scenarioAdapter.prepareBuyerPayment(invoiceId),
+  confirmBuyerPayment: (invoiceId: string, signature: string) =>
+    scenarioAdapter.confirmBuyerPayment(invoiceId, signature),
 };

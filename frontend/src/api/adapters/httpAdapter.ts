@@ -4,6 +4,7 @@ import type {
   InvestorDepositPreparation,
   Invoice,
   InvoiceStatus,
+  BuyerPaymentPreparation,
   VerificationRequest,
 } from "../../types/invoice";
 import { getAuthorizationHeader } from "../../auth/authorization";
@@ -13,8 +14,8 @@ type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Pro
 
 const invoiceStatuses = new Set<InvoiceStatus>([
   "DRAFT", "DOCUMENT_UPLOADING", "DOCUMENT_ANALYZING", "DOCUMENT_REVIEW_REQUIRED",
-  "BUYER_REVIEW", "BUYER_VERIFIED", "RISK_ASSESSING", "OFFER_READY", "RWA_ISSUED", "FUNDING",
-  "FUNDED", "REPAYMENT_PENDING", "SETTLING", "SETTLED", "REVISION_REQUESTED", "REVIEW_REQUESTED",
+  "BUYER_REVIEW", "BUYER_VERIFIED", "RISK_ASSESSING", "OFFER_READY", "REJECTED", "RWA_ISSUED", "FUNDING",
+  "FUNDED", "REPAYMENT_PENDING", "SETTLING", "SETTLED", "SETTLEMENT_FAILED", "REVISION_REQUESTED", "REVIEW_REQUESTED",
   "DISPUTED", "BLOCKED", "ERROR",
 ]);
 
@@ -148,6 +149,13 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async confirmVerification(verificationId) {
       return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/confirm`, { method: "POST" }));
     },
+    async rejectVerification(verificationId, reasonCode, detail) {
+      return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reasonCode, detail }),
+      }));
+    },
     async requestRiskReview(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/risk-review-request`, { method: "POST" }));
     },
@@ -161,6 +169,18 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     runFunding: () => unavailable("Treasury Agent 투자 실행"),
     async mockPayment(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/settlement/mock-payment`, { method: "POST" }));
+    },
+    async prepareBuyerPayment(invoiceId) {
+      return (await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/buyer-payment/prepare`, {
+        method: "GET",
+      })) as BuyerPaymentPreparation;
+    },
+    async confirmBuyerPayment(invoiceId, signature) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/buyer-payment/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature }),
+      }));
     },
     runSettlement: () => unavailable("Settlement 실행"),
     async getInvestorDashboard() {

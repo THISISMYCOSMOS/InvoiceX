@@ -63,6 +63,35 @@ def test_risk_review_request_persists_review_requested_status(
     assert persisted.json()["invoice"]["status"] == "REVIEW_REQUESTED"
 
 
+def test_buyer_reject_persists_reason_and_supplier_can_request_review(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    created = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]
+    invoice_id = created["id"]
+    requested = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()["invoice"]
+
+    rejected = client.post(
+        f"/api/v1/verifications/{requested['verificationId']}/reject",
+        json={
+            "reasonCode": "DOCUMENT_MISMATCH",
+            "detail": "PO 금액과 인보이스 금액을 다시 확인해 주세요.",
+        },
+    )
+
+    assert rejected.status_code == 200
+    invoice = rejected.json()["invoice"]
+    assert invoice["status"] == "REJECTED"
+    assert invoice["rejectionReasonCode"] == "DOCUMENT_MISMATCH"
+    assert invoice["rejectionReasonDetail"] == "PO 금액과 인보이스 금액을 다시 확인해 주세요."
+    assert isinstance(invoice["verificationRejectedAt"], str)
+
+    reviewed = client.post(f"/api/v1/invoices/{invoice_id}/risk-review-request")
+    assert reviewed.status_code == 200
+    assert reviewed.json()["invoice"]["status"] == "REVIEW_REQUESTED"
+    assert isinstance(reviewed.json()["invoice"]["reviewRequestedAt"], str)
+
+
 def test_complete_frontend_contract_workflow(
     client: TestClient,
     contract_files: dict[str, tuple[str, bytes, str]],
@@ -78,9 +107,9 @@ def test_complete_frontend_contract_workflow(
     assert {document["type"] for document in invoice["documents"]} == set(contract_files)
     assert invoice["analysis"]["status"] == "COMPLETED"
     assert invoice["invoiceAmount"] == 3
-    assert invoice["currency"] == "USDC"
+    assert invoice["currency"] == "USD"
     assert invoice["analysis"]["amount"]["value"] == 3
-    assert invoice["analysis"]["currency"]["value"] == "USDC"
+    assert invoice["analysis"]["currency"]["value"] == "USD"
     assert invoice["riskPassport"] is None
     assert invoice["fundingTransaction"] is None
     assert invoice["settlementTransaction"] is None
@@ -107,6 +136,9 @@ def test_complete_frontend_contract_workflow(
         "invoiceId": invoice_id,
         "status": "PENDING",
         "createdAt": requested_at,
+        "rejectionReasonCode": None,
+        "rejectionReasonDetail": None,
+        "respondedAt": None,
     }
     assert client.get(f"/api/v1/verifications/{verification_id}").json() == {
         "verification": listed_verification
@@ -117,16 +149,18 @@ def test_complete_frontend_contract_workflow(
     offered = confirmed.json()["invoice"]
     assert offered["status"] == "OFFER_READY"
     assert offered["riskPassport"]["eligibility"] == "ELIGIBLE"
-    assert offered["riskPassport"]["riskScore"] == 86
-    assert offered["riskPassport"]["suggestedAdvanceRateBps"] == 9_400
-    assert offered["riskPassport"]["suggestedAdvanceAmountUsdc"] == 2
+    assert 70 <= offered["riskPassport"]["riskScore"] <= 100
     assert offered["riskPassport"]["invoiceFaceValueUsdc"] == 3
     assert offered["riskPassport"]["sourceCurrencyToUsdcRate"] == 1
     assert offered["riskPassport"]["dataCoverageBps"] == 10_000
-    assert len(offered["riskPassport"]["scoreFactors"]) == 6
-    assert sum(factor["score"] for factor in offered["riskPassport"]["scoreFactors"]) == 86
-    assert offered["riskPassport"]["earlySettlementTerms"]["initialAdvanceUsdc"] == 2
-    assert offered["riskPassport"]["earlySettlementTerms"]["discountAmountUsdc"] == 1
+    assert len(offered["riskPassport"]["scoreFactors"]) == 4
+    assert sum(factor["score"] for factor in offered["riskPassport"]["scoreFactors"]) == offered["riskPassport"]["riskScore"]
+    assert offered["riskPassport"]["hardGate"]["passed"] is True
+    assert len(offered["riskPassport"]["hardGate"]["checks"]) == 9
+    terms = offered["riskPassport"]["earlySettlementTerms"]
+    assert terms["annualExpectedYieldBps"] == terms["sofrRateBps"] + terms["riskSpreadBps"] + terms["countryLegalSpreadBps"]
+    assert terms["purchaseAmountUsdc"] == terms["faceValueUsdc"] - terms["expectedInvestorReturnUsdc"]
+    assert terms["supplierExpectedSettlementUsdc"] == terms["purchaseAmountUsdc"] - terms["platformFeeUsdc"]
     assert offered["riskPassport"]["earlySettlementTerms"]["reserveAmountUsdc"] == 0
     assert isinstance(offered["verificationConfirmedAt"], str)
 
@@ -142,7 +176,7 @@ def test_complete_frontend_contract_workflow(
     assert issued["status"] == "RWA_ISSUED"
     assert issued["rwaAsset"]["status"] == "ISSUED"
     assert issued["rwaAsset"]["faceValueUsdc"] == 3
-    assert issued["rwaAsset"]["issuancePriceUsdc"] == 2
+    assert issued["rwaAsset"]["issuancePriceUsdc"] == terms["supplierExpectedSettlementUsdc"]
     assert issued["fundingTransaction"] is None
 
     investor = Keypair()
@@ -173,7 +207,7 @@ def test_complete_frontend_contract_workflow(
 
     prepared_deposit = client.post(
         "/api/v1/investor/vault/deposits/prepare",
-        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": 2},
+        json={"ownerWalletAddress": str(investor.pubkey()), "amountUsdc": terms["supplierExpectedSettlementUsdc"]},
     )
     assert prepared_deposit.status_code == 200
     assert prepared_deposit.json()["vaultAddress"] == "DEMO_AGENT_VAULT"
@@ -181,7 +215,7 @@ def test_complete_frontend_contract_workflow(
         "/api/v1/investor/vault/deposits/confirm",
         json={
             "ownerWalletAddress": str(investor.pubkey()),
-            "amountUsdc": 2,
+            "amountUsdc": terms["supplierExpectedSettlementUsdc"],
             "signature": "mock-deposit-signature-001",
         },
     )
@@ -190,7 +224,7 @@ def test_complete_frontend_contract_workflow(
     funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
     assert funded["status"] == "FUNDED"
     assert funded["fundingTransaction"]["status"] == "CONFIRMED"
-    assert funded["fundingTransaction"]["amountUsdc"] == 2
+    assert funded["fundingTransaction"]["amountUsdc"] == terms["supplierExpectedSettlementUsdc"]
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
     assert funded["rwaAsset"]["status"] == "SOLD"
@@ -207,16 +241,16 @@ def test_complete_frontend_contract_workflow(
 
     dashboard = client.get("/api/v1/investor/dashboard")
     assert dashboard.status_code == 200
-    assert dashboard.json()["outstandingPrincipalUsdc"] == 2
+    assert dashboard.json()["outstandingPrincipalUsdc"] == terms["supplierExpectedSettlementUsdc"]
 
     settled_response = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
     assert settled_response.status_code == 200
     settled = settled_response.json()["invoice"]
     assert settled["status"] == "SETTLED"
     assert settled["settlement"] == {
-        "invoiceFaceValueUsdc": 20_000,
-        "investorSettlementUsdc": 19_800,
-        "platformFeeUsdc": 200,
+        "invoiceFaceValueUsdc": terms["faceValueUsdc"],
+        "investorSettlementUsdc": terms["faceValueUsdc"] - terms["platformFeeUsdc"],
+        "platformFeeUsdc": terms["platformFeeUsdc"],
         "supplierResidualUsdc": 0,
     }
     assert settled["settlementTransaction"]["sandbox"] is True
@@ -287,6 +321,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/verifications",
         "/api/v1/verifications/{verificationId}",
         "/api/v1/verifications/{verificationId}/confirm",
+        "/api/v1/verifications/{verificationId}/reject",
         "/api/v1/invoices/{invoiceId}/risk-review-request",
         "/api/v1/invoices/{invoiceId}/offer-response",
         "/api/v1/investor/dashboard",
@@ -299,6 +334,8 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/investor/vault/deposits/confirm",
         "/api/v1/supplier/wallet",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
+        "/api/v1/invoices/{invoiceId}/buyer-payment/prepare",
+        "/api/v1/invoices/{invoiceId}/buyer-payment/confirm",
         "/api/v1/reference/investment-criteria/buyers",
     }
     assert set(schema["paths"]) == expected_paths

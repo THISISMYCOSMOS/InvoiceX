@@ -10,6 +10,7 @@ export type InvoiceStatus =
   | "BUYER_VERIFIED"
   | "RISK_ASSESSING"
   | "OFFER_READY"
+  | "REJECTED"
   | "REVIEW_REQUESTED"
   | "RWA_ISSUED"
   | "FUNDING"
@@ -17,6 +18,7 @@ export type InvoiceStatus =
   | "REPAYMENT_PENDING"
   | "SETTLING"
   | "SETTLED"
+  | "SETTLEMENT_FAILED"
   | "REVISION_REQUESTED"
   | "DISPUTED"
   | "BLOCKED"
@@ -33,6 +35,7 @@ const statusLabels: Record<InvoiceStatus, string> = {
   BUYER_VERIFIED: "구매기업 검증 완료",
   RISK_ASSESSING: "Risk Passport 생성 중",
   OFFER_READY: "조기정산 조건 확인",
+  REJECTED: "구매기업 거절",
   REVIEW_REQUESTED: "Review Requested",
   RWA_ISSUED: "RWA 발행 완료",
   FUNDING: "Treasury Agent 처리 중",
@@ -40,6 +43,7 @@ const statusLabels: Record<InvoiceStatus, string> = {
   REPAYMENT_PENDING: "만기 입금 대기",
   SETTLING: "온체인 정산 중",
   SETTLED: "만기 정산 완료",
+  SETTLEMENT_FAILED: "정산 재시도 필요",
   REVISION_REQUESTED: "보완 요청됨",
   DISPUTED: "이의 제기됨",
   BLOCKED: "진행 불가",
@@ -81,7 +85,7 @@ export interface RwaAsset {
   invoiceId: string;
   mintAddress: string;
   escrowTokenAccount: string;
-  status: "ISSUED" | "SOLD";
+  status: "ISSUED" | "SOLD" | "SETTLED";
   issueTransaction: BlockchainTransaction;
   faceValueUsdc?: number;
   issuancePriceUsdc?: number;
@@ -118,8 +122,16 @@ export interface Invoice {
   verificationId?: string;
   verificationRequestedAt?: string;
   verificationConfirmedAt?: string;
+  verificationRejectedAt?: string;
+  rejectionReasonCode?: string;
+  rejectionReasonDetail?: string;
+  reviewRequestedAt?: string;
   fundingTransaction?: BlockchainTransaction;
   settlementTransaction?: BlockchainTransaction;
+  buyerPaymentTransaction?: BlockchainTransaction;
+  investorPayoutTransaction?: BlockchainTransaction;
+  platformFeeTransaction?: BlockchainTransaction;
+  buyerPaidAt?: string;
   settlement?: SettlementResult;
   rwaAsset?: RwaAsset;
   agentDecision?: AgentDecision;
@@ -137,8 +149,32 @@ export function formatInvoiceAmount(
 export interface VerificationRequest {
   id: string;
   invoiceId: string;
-  status: "PENDING" | "CONFIRMED" | "REVISION_REQUESTED" | "DISPUTED";
+  status: "PENDING" | "CONFIRMED" | "REJECTED" | "REVISION_REQUESTED" | "DISPUTED";
   createdAt?: string;
+  rejectionReasonCode?: string;
+  rejectionReasonDetail?: string;
+  respondedAt?: string;
+}
+
+export type BuyerRejectionReason =
+  | "DUPLICATE_INVOICE"
+  | "DOCUMENT_MISMATCH"
+  | "DELIVERY_INCOMPLETE"
+  | "AMOUNT_ERROR"
+  | "DUE_DATE_ERROR"
+  | "SUSPECTED_ASSIGNMENT"
+  | "OTHER";
+
+export interface BuyerPaymentPreparation {
+  invoiceId: string;
+  buyerWalletAddress: string;
+  settlementWalletAddress: string;
+  usdcMintAddress: string;
+  amountUsdc: number;
+  amountBaseUnits: number;
+  decimals: number;
+  dueDate: string;
+  demoDueDateBypass: boolean;
 }
 
 export interface InvestorDashboard {

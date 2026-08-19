@@ -2,38 +2,45 @@ from invoicex_backend.models import RiskEligibility
 from invoicex_backend.risk_scoring import DeterministicRiskScoringProvider, RiskScoringRequest
 
 
-def _request(*, mismatch: bool) -> RiskScoringRequest:
+def _request(*, mismatch: bool, invoice_id: str = "INV-1") -> RiskScoringRequest:
     return RiskScoringRequest(
-        invoice_id="INV-1",
+        invoice_id=invoice_id,
         face_value_usdc=100,
         has_document_mismatches=mismatch,
         buyer_confirmed=True,
         remaining_term_days=90,
         document_summary="test",
+        buyer_key="BUYER-1",
+        supplier_key="SUPPLIER-1",
     )
 
 
-def test_deterministic_provider_preserves_existing_68_86_policy() -> None:
+def test_rule_engine_is_deterministic_and_respects_component_weights() -> None:
     provider = DeterministicRiskScoringProvider()
-    eligible = provider.evaluate(_request(mismatch=False))
-    review = provider.evaluate(_request(mismatch=True))
+    first = provider.evaluate(_request(mismatch=False))
+    second = provider.evaluate(_request(mismatch=False))
 
-    assert (eligible.score, eligible.eligibility, eligible.advance_amount_usdc) == (
-        86,
-        RiskEligibility.ELIGIBLE,
-        94,
-    )
-    assert (review.score, review.eligibility, review.advance_amount_usdc) == (
-        68,
-        RiskEligibility.REVIEW_REQUIRED,
-        None,
-    )
-    assert sum(factor.score or 0 for factor in eligible.factors) == eligible.score
-    assert sum(factor.score or 0 for factor in review.factors) == review.score
-    assert eligible.data_coverage_bps == 10_000
-    assert {factor.source for factor in eligible.factors} == {
+    assert first == second
+    assert first.eligibility in {RiskEligibility.ELIGIBLE, RiskEligibility.REVIEW_REQUIRED}
+    assert sum(factor.score or 0 for factor in first.factors) == first.score
+    assert {factor.key: factor.max_score for factor in first.factors} == {
+        "BUYER_CREDIT_QUALITY": 45,
+        "BUYER_PAYMENT_HISTORY": 30,
+        "SUPPLIER_BUYER_HISTORY": 15,
+        "REMAINING_MATURITY": 10,
+    }
+    assert all((factor.score or 0) <= factor.max_score for factor in first.factors)
+    assert first.data_coverage_bps == 10_000
+    assert {factor.source for factor in first.factors} == {
         "SYNTHETIC_DEMO_DATA",
         "INVOICE_DATA",
-        "INVOICEX_DATA",
-        "DOCUMENT_AGENT",
     }
+
+
+def test_rule_engine_uses_stable_identity_inputs_without_randomness() -> None:
+    provider = DeterministicRiskScoringProvider()
+    first = provider.evaluate(_request(mismatch=False, invoice_id="INV-1"))
+    other = provider.evaluate(_request(mismatch=False, invoice_id="INV-2"))
+
+    assert provider.evaluate(_request(mismatch=False, invoice_id="INV-2")) == other
+    assert first.method_version == "risk-rules-v2"

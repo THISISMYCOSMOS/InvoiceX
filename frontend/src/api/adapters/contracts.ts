@@ -3,6 +3,8 @@ import type {
   InvestorDashboard,
   InvestorDeposit,
   InvestorDepositPreparation,
+  BuyerPaymentPreparation,
+  BuyerRejectionReason,
   VerificationRequest,
 } from "../../types/invoice";
 
@@ -17,6 +19,11 @@ export interface ScenarioAdapter {
   getVerifications(): Promise<VerificationRequest[]>;
   getVerification(verificationId: string): Promise<VerificationRequest>;
   confirmVerification(verificationId: string): Promise<Invoice>;
+  rejectVerification(
+    verificationId: string,
+    reasonCode: BuyerRejectionReason,
+    detail?: string,
+  ): Promise<Invoice>;
   requestRiskReview(invoiceId: string): Promise<Invoice>;
   respondToOffer(
     invoiceId: string,
@@ -25,6 +32,8 @@ export interface ScenarioAdapter {
   ): Promise<Invoice>;
   runFunding(invoiceId: string): Promise<Invoice>;
   mockPayment(invoiceId: string): Promise<Invoice>;
+  prepareBuyerPayment(invoiceId: string): Promise<BuyerPaymentPreparation>;
+  confirmBuyerPayment(invoiceId: string, signature: string): Promise<Invoice>;
   runSettlement(invoiceId: string): Promise<Invoice>;
   getInvestorDashboard(): Promise<InvestorDashboard>;
   prepareInvestorDeposit(

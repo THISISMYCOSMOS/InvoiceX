@@ -448,34 +448,44 @@
   font-size: 11px;
 }
 
-.risk-factor-result span {
-  display: inline-block;
-  margin-top: 6px;
-  border-radius: 999px;
-  padding: 4px 7px;
-  color: #475569;
-  background: #f1f5f9;
-  font-size: 8px;
-  font-weight: 700;
-}
-
-.risk-factor-result span.is-synthetic {
-  color: #7c3aed;
-  background: #f3e8ff;
-}
-
 .offer-stage-actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
 }
 
-.offer-stage-actions.is-split {
-  justify-content: space-between;
+.offer-stage-actions--paired {
+  gap: 10px;
 }
 
 .offer-stage-actions button {
   min-width: 150px;
+}
+
+.risk-passport-actions {
+  gap: 10px;
+}
+
+.risk-review-button {
+  min-width: 150px;
+  min-height: 36px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  padding: 0 15px;
+  color: #fff;
+  background: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.risk-review-button:hover:not(:disabled) {
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+
+.risk-review-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .risk-review-modal {
@@ -818,9 +828,9 @@
     border-right: 0;
   }
 
-  .offer-stage-actions.is-split {
+  .offer-stage-actions--paired {
     align-items: stretch;
-    flex-direction: column-reverse;
+    flex-direction: column;
     gap: 9px;
   }
 
@@ -7046,4 +7056,145 @@ a {
     padding-right: 14px;
     padding-left: 14px;
   }
+}
+.buyer-reject-button,
+.buyer-reject-submit {
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: #fff;
+  color: #b91c1c;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.buyer-reject-button {
+  min-height: 40px;
+  padding: 0 18px;
+}
+
+.buyer-reject-submit {
+  justify-self: end;
+  min-height: 38px;
+  padding: 0 16px;
+  background: #dc2626;
+  color: #fff;
+}
+
+.buyer-reject-button:disabled,
+.buyer-reject-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.buyer-rejection-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff7f7;
+}
+
+.buyer-rejection-form label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.buyer-rejection-form select,
+.buyer-rejection-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.buyer-rejection-form select { min-height: 40px; padding: 0 11px; }
+.buyer-rejection-form textarea { min-height: 82px; padding: 10px 11px; resize: vertical; }
+
+.payment-information-card footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hard-gate-card {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.hard-gate-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hard-gate-card > header h2,
+.hard-gate-card > header p { margin: 0; }
+.hard-gate-card > header p { margin-top: 3px; color: #64748b; font-size: 12px; }
+.hard-gate-card.is-passed > header strong { color: #15803d; }
+.hard-gate-card.is-failed > header strong { color: #b91c1c; }
+
+.hard-gate-card > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hard-gate-card article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 9px;
+  min-height: 74px;
+  padding: 14px 16px;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hard-gate-card article svg { margin-top: 1px; color: #16a34a; }
+.hard-gate-card article.is-failed svg { color: #dc2626; }
+.hard-gate-card article span { color: #0f172a; font-size: 12px; font-weight: 700; }
+.hard-gate-card article b { grid-column: 2; color: #64748b; font-size: 11px; font-weight: 500; }
+
+.invoice-review-reasons {
+  margin: 0 24px 18px;
+  padding: 16px 18px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff7f7;
+}
+
+.invoice-review-reasons h2,
+.invoice-review-reasons p,
+.invoice-review-reasons ul { margin: 0; }
+.invoice-review-reasons h2 { margin-bottom: 7px; color: #991b1b; font-size: 12px; }
+.invoice-review-reasons strong { color: #7f1d1d; }
+.invoice-review-reasons p,
+.invoice-review-reasons ul { margin-top: 7px; color: #475569; font-size: 12px; }
+.invoice-review-reasons ul { padding-left: 18px; }
+
+.invoice-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 24px 22px;
+}
+
+@media (max-width: 900px) {
+  .hard-gate-card > div { grid-template-columns: 1fr; }
+  .payment-information-card footer { align-items: stretch; flex-direction: column; }
 }
