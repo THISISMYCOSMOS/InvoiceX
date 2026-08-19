@@ -10,6 +10,9 @@ import { App } from "../App";
 beforeEach(async () => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  Object.defineProperty(window, "isPhantomInstalled", { configurable: true, value: true });
+  Object.defineProperty(window, "phantom", { configurable: true, value: { solana: { isPhantom: true } } });
+  Object.defineProperty(window, "solflare", { configurable: true, value: { isSolflare: true } });
   await scenarioAdapter.reset();
 });
 
@@ -111,7 +114,7 @@ test("splits investor wallet, policy, and Vault across their MVP pages", async (
   expect(screen.getByRole("heading", { name: "Investment Mandate" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Review embedded wallet in Profile" })).toHaveAttribute("href", "/investor/profile");
   await user.click(screen.getByRole("tab", { name: "Investment conditions" }));
-  expect(screen.getByRole("button", { name: "Sign & save policy" })).toBeDisabled();
+  expect(screen.getByRole("link", { name: "Verify email to connect wallet" })).toHaveAttribute("href", "/signup");
   expect(screen.getByRole("button", { name: "Buyer allowlist" })).toHaveTextContent("Prime Mobility");
 
   await user.click(screen.getByRole("button", { name: "Buyer allowlist" }));

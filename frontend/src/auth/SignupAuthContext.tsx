@@ -5,6 +5,7 @@ import {
   usePrivy,
 } from "@privy-io/react-auth";
 import {
+  defaultSolanaRpcsPlugin,
   useCreateWallet as useCreatePrivySolanaWallet,
   useSignMessage as usePrivySolanaSignMessage,
   useSignTransaction as usePrivySolanaSignTransaction,
@@ -119,7 +120,13 @@ export function SignupAuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <PrivyProvider appId={appId} config={{ loginMethods: ["email"] }}>
+    <PrivyProvider
+      appId={appId}
+      config={{
+        loginMethods: ["email"],
+        plugins: [defaultSolanaRpcsPlugin()],
+      }}
+    >
       <ConfiguredSignupAuthProvider>{children}</ConfiguredSignupAuthProvider>
     </PrivyProvider>
   );
