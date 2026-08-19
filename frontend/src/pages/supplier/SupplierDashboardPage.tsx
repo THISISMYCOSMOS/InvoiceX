@@ -12,6 +12,7 @@ import { useCurrentPrivyAccount } from "../../auth/currentAccount";
 const earlySettlementStatuses = new Set<InvoiceStatus>([
   "RISK_ASSESSING",
   "OFFER_READY",
+  "REVIEW_REQUESTED",
   "RWA_ISSUED",
   "FUNDING",
 ]);
@@ -53,6 +54,7 @@ export function SupplierDashboardPage() {
       BUYER_VERIFIED: ["Buyer verified", "구매기업 검증 완료"],
       RISK_ASSESSING: ["Preparing offer", "조기정산 제안 준비 중"],
       OFFER_READY: ["Buyer verified", "구매기업 확인 완료"],
+      REVIEW_REQUESTED: ["Review Requested", "Review Requested"],
       RWA_ISSUED: ["RWA issued", "RWA 발행 완료"],
       FUNDING: ["Funding in progress", "조기정산 진행 중"],
       FUNDED: ["Funded", "정산 완료"],
@@ -62,7 +64,7 @@ export function SupplierDashboardPage() {
     return language === "ko" ? korean : english;
   };
   const statusTone = (status: string) => {
-    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY" || status === "RWA_ISSUED") return "blue";
+    if (status === "DOCUMENT_REVIEW_REQUIRED" || status === "BUYER_REVIEW" || status === "OFFER_READY" || status === "REVIEW_REQUESTED" || status === "RWA_ISSUED") return "blue";
     if (status === "FUNDING" || status === "RISK_ASSESSING") return "amber";
     if (status === "FUNDED" || status === "SETTLED") return "green";
     return "slate";

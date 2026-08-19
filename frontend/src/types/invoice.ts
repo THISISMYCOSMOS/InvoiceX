@@ -10,6 +10,7 @@ export type InvoiceStatus =
   | "BUYER_VERIFIED"
   | "RISK_ASSESSING"
   | "OFFER_READY"
+  | "REVIEW_REQUESTED"
   | "RWA_ISSUED"
   | "FUNDING"
   | "FUNDED"
@@ -32,6 +33,7 @@ const statusLabels: Record<InvoiceStatus, string> = {
   BUYER_VERIFIED: "구매기업 검증 완료",
   RISK_ASSESSING: "Risk Passport 생성 중",
   OFFER_READY: "조기정산 조건 확인",
+  REVIEW_REQUESTED: "Review Requested",
   RWA_ISSUED: "RWA 발행 완료",
   FUNDING: "Treasury Agent 처리 중",
   FUNDED: "USDC 지급 완료",

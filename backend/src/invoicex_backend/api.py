@@ -577,6 +577,21 @@ async def confirm_verification(
 
 
 @router.post(
+    "/invoices/{invoiceId}/risk-review-request",
+    response_model=InvoiceResponse,
+    responses=documented_errors(403, 404, 409),
+    tags=["Risk"],
+    summary="Supplier Risk Score 이의 신청",
+)
+async def request_risk_review(
+    invoice_id: InvoiceId,
+    service: InvoiceServiceDependency,
+    identity: AuthenticatedIdentity | None = supplier_only,
+) -> InvoiceResponse:
+    return InvoiceResponse(invoice=await service.request_risk_review(invoice_id, identity))
+
+
+@router.post(
     "/invoices/{invoiceId}/offer-response",
     response_model=InvoiceResponse,
     responses=documented_errors(403, 404, 409, 422),

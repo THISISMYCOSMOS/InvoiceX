@@ -14,7 +14,7 @@ type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Pro
 const invoiceStatuses = new Set<InvoiceStatus>([
   "DRAFT", "DOCUMENT_UPLOADING", "DOCUMENT_ANALYZING", "DOCUMENT_REVIEW_REQUIRED",
   "BUYER_REVIEW", "BUYER_VERIFIED", "RISK_ASSESSING", "OFFER_READY", "RWA_ISSUED", "FUNDING",
-  "FUNDED", "REPAYMENT_PENDING", "SETTLING", "SETTLED", "REVISION_REQUESTED",
+  "FUNDED", "REPAYMENT_PENDING", "SETTLING", "SETTLED", "REVISION_REQUESTED", "REVIEW_REQUESTED",
   "DISPUTED", "BLOCKED", "ERROR",
 ]);
 
@@ -147,6 +147,9 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     },
     async confirmVerification(verificationId) {
       return unwrapInvoice(await request<unknown>(`/verifications/${encodeURIComponent(verificationId)}/confirm`, { method: "POST" }));
+    },
+    async requestRiskReview(invoiceId) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/risk-review-request`, { method: "POST" }));
     },
     async respondToOffer(invoiceId, response: OfferResponse, supplierWalletAddress) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/offer-response`, {

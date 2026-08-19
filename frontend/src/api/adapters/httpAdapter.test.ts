@@ -50,6 +50,20 @@ test("sends the connected supplier wallet with an accepted offer", async () => {
   });
 });
 
+test("submits a Risk Score review request", async () => {
+  const fetchImpl = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ invoice: { id: "INV-2026-001", status: "REVIEW_REQUESTED" } }), { status: 200 }),
+  );
+  const adapter = createHttpAdapter(fetchImpl, "https://api.example.com/api/v1");
+
+  await adapter.requestRiskReview("INV-2026-001");
+
+  expect(fetchImpl).toHaveBeenCalledWith(
+    "https://api.example.com/api/v1/invoices/INV-2026-001/risk-review-request",
+    expect.objectContaining({ method: "POST" }),
+  );
+});
+
 test("shows the backend detail message for offer errors", async () => {
   const fetchImpl = vi.fn().mockResolvedValue(
     new Response(JSON.stringify({ message: "Solana 지갑을 연결해야 합니다." }), { status: 409 }),

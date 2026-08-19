@@ -10,6 +10,7 @@ const englishStatusLabels: Record<InvoiceStatus, string> = {
   BUYER_VERIFIED: "Buyer verified",
   RISK_ASSESSING: "Generating Risk Passport",
   OFFER_READY: "Offer ready",
+  REVIEW_REQUESTED: "Review Requested",
   RWA_ISSUED: "RWA issued",
   FUNDING: "Treasury Agent processing",
   FUNDED: "USDC funded",

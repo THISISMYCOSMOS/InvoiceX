@@ -17,6 +17,7 @@ export interface ScenarioAdapter {
   getVerifications(): Promise<VerificationRequest[]>;
   getVerification(verificationId: string): Promise<VerificationRequest>;
   confirmVerification(verificationId: string): Promise<Invoice>;
+  requestRiskReview(invoiceId: string): Promise<Invoice>;
   respondToOffer(
     invoiceId: string,
     response: OfferResponse,

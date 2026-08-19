@@ -12,10 +12,12 @@ import { SupplierInvoiceDetailContent } from "./SupplierInvoiceDetailPage";
 
 test("separates Risk Passport, settlement terms, and RWA issuance", async () => {
   const user = userEvent.setup();
+  const onRequestRiskReview = vi.fn();
   render(
     <SupplierInvoiceDetailContent
       invoice={{ ...DEMO_INVOICE, status: "OFFER_READY", riskPassport: DEMO_RISK_PASSPORT }}
       onAccept={() => undefined}
+      onRequestRiskReview={onRequestRiskReview}
     />,
   );
 
@@ -24,6 +26,8 @@ test("separates Risk Passport, settlement terms, and RWA issuance", async () => 
   expect(screen.getAllByText("Synthetic Demo Data")).toHaveLength(3);
   expect(screen.getByText("3 / 7 Risk Passport")).toHaveAttribute("aria-current", "step");
   expect(screen.queryByRole("button", { name: "Decline offer" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Request Risk Score review" }));
+  expect(onRequestRiskReview).toHaveBeenCalledTimes(1);
 
   await user.click(screen.getByRole("button", { name: "Review early-settlement terms" }));
   expect(screen.getByRole("heading", { name: "Review early-settlement terms" })).toBeInTheDocument();
@@ -36,6 +40,21 @@ test("separates Risk Passport, settlement terms, and RWA issuance", async () => 
   expect(screen.getByText("InvoiceX ID")).toBeInTheDocument();
   expect(screen.getByText("5 / 7 RWA issuance")).toHaveAttribute("aria-current", "step");
   expect(screen.getByRole("button", { name: "Request RWA issuance" })).toBeInTheDocument();
+});
+
+test("shows the review requested status and confirmation popup", async () => {
+  const user = userEvent.setup();
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "REVIEW_REQUESTED", riskPassport: DEMO_RISK_PASSPORT }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Risk Score review requested", level: 1 })).toBeInTheDocument();
+  expect(screen.getByRole("dialog")).toHaveTextContent("The invoice workflow is paused");
+  await user.click(screen.getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
 test("shows the RWA issuance request state and error instead of silently failing", async () => {

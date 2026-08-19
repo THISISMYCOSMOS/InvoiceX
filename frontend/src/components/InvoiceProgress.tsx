@@ -15,6 +15,7 @@ function getCurrentLifecycleIndex(status: InvoiceStatus, offerStage: OfferStage)
       return 1;
     case "BUYER_VERIFIED":
     case "RISK_ASSESSING":
+    case "REVIEW_REQUESTED":
       return 2;
     case "OFFER_READY":
       return offerStage === "risk" ? 2 : offerStage === "terms" ? 3 : 4;

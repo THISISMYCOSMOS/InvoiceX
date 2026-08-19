@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
 import { InvoiceProgress } from "../../components/InvoiceProgress";
@@ -6,6 +6,7 @@ import { LoadingState } from "../../components/LoadingState";
 import { useAcceptOffer } from "../../hooks/useAcceptOffer";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useRequestVerification } from "../../hooks/useRequestVerification";
+import { useRequestRiskReview } from "../../hooks/useRequestRiskReview";
 import type { Invoice } from "../../types/invoice";
 import { BuyerReviewPendingSection } from "./sections/BuyerReviewPendingSection";
 import { DocumentReviewSection } from "./sections/DocumentReviewSection";
@@ -24,6 +25,9 @@ export function SupplierInvoiceDetailContent({
   acceptError,
   onRequestVerification = () => undefined,
   isRequestingVerification = false,
+  onRequestRiskReview = () => undefined,
+  isRequestingRiskReview = false,
+  riskReviewError,
 }: {
   invoice: Invoice;
   onAccept: () => void;
@@ -31,8 +35,17 @@ export function SupplierInvoiceDetailContent({
   acceptError?: string;
   onRequestVerification?: () => void;
   isRequestingVerification?: boolean;
+  onRequestRiskReview?: () => void;
+  isRequestingRiskReview?: boolean;
+  riskReviewError?: string;
 }) {
+  const { t } = useLanguage();
   const [offerStage, setOfferStage] = useState<OfferStage>("risk");
+  const [isRiskReviewNoticeOpen, setRiskReviewNoticeOpen] = useState(invoice.status === "REVIEW_REQUESTED");
+
+  useEffect(() => {
+    if (invoice.status === "REVIEW_REQUESTED") setRiskReviewNoticeOpen(true);
+  }, [invoice.status]);
 
   const renderContent = () => {
     if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
@@ -58,6 +71,9 @@ export function SupplierInvoiceDetailContent({
           onAccept={onAccept}
           isRequesting={isAccepting}
           requestError={acceptError}
+          onRequestRiskReview={onRequestRiskReview}
+          isRequestingRiskReview={isRequestingRiskReview}
+          riskReviewError={riskReviewError}
         />
       );
     }
@@ -81,15 +97,29 @@ export function SupplierInvoiceDetailContent({
     return <InvoiceWorkflowStatusSection invoice={invoice} />;
   };
 
+  const riskReviewNotice = isRiskReviewNoticeOpen ? (
+    <div className="risk-review-modal" role="dialog" aria-modal="true" aria-labelledby="risk-review-modal-title">
+      <section className="risk-review-modal__card">
+        <span className="offer-ready-chip">REVIEW REQUESTED</span>
+        <h2 id="risk-review-modal-title">{t("Risk Score review requested", "Risk Score 이의 신청이 접수되었습니다")}</h2>
+        <p>{t("The invoice workflow is paused while the submitted Risk Score is reviewed.", "제출한 Risk Score를 검토하는 동안 인보이스 진행이 일시 중지됩니다.")}</p>
+        <button type="button" className="primary-button" onClick={() => setRiskReviewNoticeOpen(false)}>{t("Close", "확인")}</button>
+      </section>
+    </div>
+  ) : null;
+
   if (invoice.status === "DOCUMENT_REVIEW_REQUIRED") {
-    return renderContent();
+    return <>{renderContent()}{riskReviewNotice}</>;
   }
 
   return (
-    <div className="supplier-invoice-workflow">
-      {invoice.status !== "BUYER_REVIEW" && <InvoiceProgress status={invoice.status} offerStage={offerStage} />}
-      {renderContent()}
-    </div>
+    <>
+      <div className="supplier-invoice-workflow">
+        {invoice.status !== "BUYER_REVIEW" && <InvoiceProgress status={invoice.status} offerStage={offerStage} />}
+        {renderContent()}
+      </div>
+      {riskReviewNotice}
+    </>
   );
 }
 
@@ -99,6 +129,7 @@ export function SupplierInvoiceDetailPage() {
   const invoice = useInvoice(invoiceId);
   const acceptOffer = useAcceptOffer();
   const requestVerification = useRequestVerification();
+  const requestRiskReview = useRequestRiskReview();
   if (invoice.isLoading) return <LoadingState />;
   if (invoice.error || !invoice.data) return <ErrorState error={invoice.error ?? new Error(t("Invoice not found.", "인보이스를 찾을 수 없습니다."))} />;
   return (
@@ -109,6 +140,9 @@ export function SupplierInvoiceDetailPage() {
       acceptError={acceptOffer.error instanceof Error ? acceptOffer.error.message : undefined}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
       isRequestingVerification={requestVerification.isPending}
+      onRequestRiskReview={() => requestRiskReview.mutate(invoice.data.id)}
+      isRequestingRiskReview={requestRiskReview.isPending}
+      riskReviewError={requestRiskReview.error instanceof Error ? requestRiskReview.error.message : undefined}
     />
   );
 }

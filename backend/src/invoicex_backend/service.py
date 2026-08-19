@@ -697,6 +697,34 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
+    async def request_risk_review(
+        self,
+        invoice_id: str,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
+        """Pause the offer flow while the supplier's Risk Score appeal is reviewed."""
+
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
+            if invoice.status is InvoiceStatus.REVIEW_REQUESTED:
+                return self._copy_invoice(invoice)
+            if invoice.status is not InvoiceStatus.OFFER_READY:
+                raise StateConflictError(
+                    "OFFER_READY 상태에서만 Risk Score 이의 신청을 제출할 수 있습니다."
+                )
+
+            invoice.status = InvoiceStatus.REVIEW_REQUESTED
+            self._append_trace(
+                invoice,
+                source="RISK_AGENT",
+                target="RISK_AGENT",
+                status="SUBMITTED",
+                summary="공급기업이 Risk Score 이의 신청을 제출했습니다.",
+            )
+            self._save_invoice(invoice)
+            return self._copy_invoice(invoice)
+
     async def respond_to_offer(
         self,
         invoice_id: str,

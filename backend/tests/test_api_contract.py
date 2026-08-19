@@ -38,6 +38,31 @@ def test_invoice_creation_queues_analysis_without_waiting_for_agent(
     assert dispatcher.tasks == [(invoice["id"], AgentTrigger.INVOICE_CREATED)]
 
 
+def test_risk_review_request_persists_review_requested_status(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    created = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]
+    invoice_id = created["id"]
+
+    verification = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()["invoice"]
+    verification_id = verification["verificationId"]
+    offered = client.post(f"/api/v1/verifications/{verification_id}/confirm").json()["invoice"]
+    assert offered["status"] == "OFFER_READY"
+
+    requested = client.post(f"/api/v1/invoices/{invoice_id}/risk-review-request")
+    assert requested.status_code == 200
+    assert requested.json()["invoice"]["status"] == "REVIEW_REQUESTED"
+    assert requested.json()["invoice"]["agentTraces"][-1]["status"] == "SUBMITTED"
+
+    duplicate = client.post(f"/api/v1/invoices/{invoice_id}/risk-review-request")
+    assert duplicate.status_code == 200
+    assert duplicate.json()["invoice"]["status"] == "REVIEW_REQUESTED"
+    persisted = client.get(f"/api/v1/invoices/{invoice_id}")
+    assert persisted.status_code == 200
+    assert persisted.json()["invoice"]["status"] == "REVIEW_REQUESTED"
+
+
 def test_complete_frontend_contract_workflow(
     client: TestClient,
     contract_files: dict[str, tuple[str, bytes, str]],
@@ -262,6 +287,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/verifications",
         "/api/v1/verifications/{verificationId}",
         "/api/v1/verifications/{verificationId}/confirm",
+        "/api/v1/invoices/{invoiceId}/risk-review-request",
         "/api/v1/invoices/{invoiceId}/offer-response",
         "/api/v1/investor/dashboard",
         "/api/v1/investor/mandates/prepare",

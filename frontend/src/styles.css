@@ -478,6 +478,43 @@
   min-width: 150px;
 }
 
+.risk-review-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 42%);
+}
+
+.risk-review-modal__card {
+  width: min(420px, 100%);
+  padding: 26px;
+  border: 1px solid #d7e0ee;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 22%);
+}
+
+.risk-review-modal__card h2 {
+  margin: 16px 0 9px;
+  color: #0f172a;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.risk-review-modal__card p {
+  margin: 0 0 22px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.risk-review-modal__card .primary-button {
+  width: 100%;
+}
+
 .settlement-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

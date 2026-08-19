@@ -67,6 +67,9 @@ export function EarlySettlementOfferSection({
   onAccept,
   isRequesting = false,
   requestError,
+  onRequestRiskReview = () => undefined,
+  isRequestingRiskReview = false,
+  riskReviewError,
 }: {
   invoice: Invoice;
   stage: OfferStage;
@@ -74,6 +77,9 @@ export function EarlySettlementOfferSection({
   onAccept: () => void;
   isRequesting?: boolean;
   requestError?: string;
+  onRequestRiskReview?: () => void;
+  isRequestingRiskReview?: boolean;
+  riskReviewError?: string;
 }) {
   const { t } = useLanguage();
   const passport = invoice.riskPassport;
@@ -133,9 +139,13 @@ export function EarlySettlementOfferSection({
           </section>
         </div>
 
-        <footer className="offer-stage-actions">
+        <footer className="offer-stage-actions is-split">
+          <button type="button" className="secondary-button" onClick={onRequestRiskReview} disabled={isRequestingRiskReview}>
+            {isRequestingRiskReview ? t("Submitting review request…", "이의 신청 접수 중…") : t("Request Risk Score review", "Risk Score 이의 신청")}
+          </button>
           <button type="button" className="primary-button" onClick={() => onStageChange("terms")}>{t("Review early-settlement terms", "조기정산 조건 확인")}</button>
         </footer>
+        {riskReviewError && <p className="offer-request-error" role="alert">{riskReviewError}</p>}
       </section>
     );
   }

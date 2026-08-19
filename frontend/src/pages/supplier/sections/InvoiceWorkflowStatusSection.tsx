@@ -42,6 +42,12 @@ function getWorkflowCopy(invoice: Invoice): WorkflowCopy {
         description: ["Settlement records are being finalized for the invoice and investment position.", "인보이스와 투자 포지션의 정산 기록을 확정하고 있습니다."],
         tone: "processing",
       };
+    case "REVIEW_REQUESTED":
+      return {
+        title: ["Risk Score review requested", "Risk Score 검토 요청이 접수되었습니다"],
+        description: ["The workflow is paused while the submitted Risk Score appeal is reviewed.", "제출한 Risk Score 이의 신청을 검토하는 동안 진행이 일시 중지됩니다."],
+        tone: "attention",
+      };
     case "REVISION_REQUESTED":
       return {
         title: ["Additional information has been requested", "보완 정보가 요청되었습니다"],

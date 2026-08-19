@@ -137,6 +137,16 @@ export function createMockAdapter(): ScenarioAdapter {
       invoice = { ...invoice, riskPassport: clone(DEMO_RISK_PASSPORT), status: "OFFER_READY" };
       return clone(invoice);
     },
+    async requestRiskReview(invoiceId) {
+      const current = ensureInvoice(invoiceId);
+      if (current.status === "REVIEW_REQUESTED") return clone(current);
+      if (current.status !== "OFFER_READY") {
+        return invalidTransition(current, "Risk Score 이의 신청");
+      }
+
+      invoice = { ...current, status: "REVIEW_REQUESTED" };
+      return clone(invoice);
+    },
     async respondToOffer(invoiceId, response) {
       const current = ensureInvoice(invoiceId);
       if (current.status !== "OFFER_READY") {
