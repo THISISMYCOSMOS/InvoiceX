@@ -158,15 +158,16 @@ test("switches between English and Korean from login and keeps the choice across
   expect(screen.getByRole("button", { name: "Switch to English" })).toBeInTheDocument();
 });
 
-test("renders buyer profile navigation without wallet management", async () => {
+test("renders buyer profile with embedded and external wallet access", async () => {
   renderAt("/buyer/profile");
 
   expect(await screen.findByRole("heading", { name: "Company profile" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/buyer/profile");
-  expect(screen.getByText("USD")).toBeInTheDocument();
+  expect(screen.getAllByText("USDC").length).toBeGreaterThan(0);
+  expect(screen.getByRole("heading", { name: "Embedded wallet" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Connect external wallet" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
-  expect(screen.queryByText(/wallet/i)).not.toBeInTheDocument();
 });
 
 test("places the role switcher before the language control in the app topbar", async () => {
