@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { rwaApi, type VaultBalance } from "../../api/rwa.api";
 import { useCurrentPrivyAccount } from "../../auth/currentAccount";
+import { useSignupAuth } from "../../auth/SignupAuthContext";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useInvestorDashboard } from "../../hooks/useInvestorDashboard";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -29,9 +30,23 @@ export function InvestorVaultPage() {
   const { t } = useLanguage();
   const { connection } = useConnection();
   const { connected, publicKey, signTransaction, sendTransaction } = useWallet();
+  const {
+    authenticated,
+    embeddedSolanaWalletReady,
+    hasEmbeddedSolanaWallet,
+    signEmbeddedSolanaTransaction,
+  } = useSignupAuth();
   const currentAccount = useCurrentPrivyAccount();
   const embeddedWalletAddress = currentAccount?.walletAddress ?? null;
   const connectedWalletAddress = publicKey?.toBase58() ?? embeddedWalletAddress;
+  const canUseExternalWallet = Boolean(connected && publicKey && sendTransaction);
+  const canUseEmbeddedWallet = Boolean(
+    authenticated
+      && embeddedSolanaWalletReady
+      && embeddedWalletAddress
+      && hasEmbeddedSolanaWallet(embeddedWalletAddress),
+  );
+  const canDeposit = canUseExternalWallet || canUseEmbeddedWallet;
   const walletUsdcBalance = useDevnetUsdcBalance(connectedWalletAddress);
   const dashboard = useInvestorDashboard();
   const [depositAmount, setDepositAmount] = useState("1");
@@ -61,7 +76,7 @@ export function InvestorVaultPage() {
   }, [connectedWalletAddress]);
 
   const depositToVault = async () => {
-    if (!publicKey || !sendTransaction) {
+    if (!connectedWalletAddress || !canDeposit) {
       setError(t("Connect an institution wallet first.", "기관 지갑을 먼저 연결해 주세요."));
       return;
     }
@@ -76,24 +91,41 @@ export function InvestorVaultPage() {
     setPhase("PREPARING");
     setSignature(null);
     try {
-      const ownerWalletAddress = publicKey.toBase58();
+      const ownerWalletAddress = connectedWalletAddress;
       const prepared = await rwaApi.prepareVaultDeposit(ownerWalletAddress, amountUsdc);
       const transaction = VersionedTransaction.deserialize(fromBase64(prepared.transactionBase64));
       setPhase("AWAITING_SIGNATURE");
       let nextVault: VaultBalance;
-      if (prepared.sponsored) {
-        if (!signTransaction || !prepared.sponsorDepositId) {
-          throw new Error(t("This wallet does not support gasless transaction signing.", "이 지갑은 가스리스 트랜잭션 서명을 지원하지 않습니다."));
+      if (canUseExternalWallet && publicKey && sendTransaction) {
+        if (prepared.sponsored) {
+          if (!signTransaction || !prepared.sponsorDepositId) {
+            throw new Error(t("This wallet does not support gasless transaction signing.", "이 지갑은 가스리스 트랜잭션 서명을 지원하지 않습니다."));
+          }
+          const signedTransaction = await signTransaction(transaction);
+          setPhase("CONFIRMING");
+          nextVault = await rwaApi.sponsorVaultDeposit(ownerWalletAddress, prepared.sponsorDepositId, toBase64(signedTransaction.serialize()));
+        } else {
+          const transactionSignature = await sendTransaction(transaction, connection, { preflightCommitment: "confirmed" });
+          setSignature(transactionSignature);
+          setPhase("CONFIRMING");
+          await connection.confirmTransaction(transactionSignature, "confirmed");
+          nextVault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, transactionSignature);
         }
-        const signedTransaction = await signTransaction(transaction);
-        setPhase("CONFIRMING");
-        nextVault = await rwaApi.sponsorVaultDeposit(ownerWalletAddress, prepared.sponsorDepositId, toBase64(signedTransaction.serialize()));
       } else {
-        const transactionSignature = await sendTransaction(transaction, connection, { preflightCommitment: "confirmed" });
-        setSignature(transactionSignature);
-        setPhase("CONFIRMING");
-        await connection.confirmTransaction(transactionSignature, "confirmed");
-        nextVault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, transactionSignature);
+        const signedTransaction = await signEmbeddedSolanaTransaction(ownerWalletAddress, transaction.serialize());
+        if (prepared.sponsored) {
+          if (!prepared.sponsorDepositId) {
+            throw new Error(t("This wallet does not support gasless transaction signing.", "이 지갑은 가스리스 트랜잭션 서명을 지원하지 않습니다."));
+          }
+          setPhase("CONFIRMING");
+          nextVault = await rwaApi.sponsorVaultDeposit(ownerWalletAddress, prepared.sponsorDepositId, toBase64(signedTransaction));
+        } else {
+          const transactionSignature = await connection.sendRawTransaction(signedTransaction, { preflightCommitment: "confirmed" });
+          setSignature(transactionSignature);
+          setPhase("CONFIRMING");
+          await connection.confirmTransaction(transactionSignature, "confirmed");
+          nextVault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, transactionSignature);
+        }
       }
       setVault(nextVault);
       void walletUsdcBalance.refresh();
@@ -145,7 +177,7 @@ export function InvestorVaultPage() {
             {!connected && !embeddedWalletAddress ? <p className="wallet-error"><Link to="/investor/profile">{t("Connect a Solana wallet in Profile before depositing.", "예치 전 Profile에서 Solana 지갑을 연결해 주세요.")}</Link></p> : null}
             <div className="investor-vault-deposit-form">
               <label htmlFor="vaultDeposit"><span>{t("Deposit amount", "예치 금액")}</span><div><input id="vaultDeposit" inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /><small>USDC</small></div></label>
-              <button className="investor-primary-button" type="button" disabled={!connected || isDepositing} onClick={() => void depositToVault()}><Vault size={15} weight="fill" aria-hidden="true" />{isDepositing ? phaseLabel[phase] : t("Deposit USDC", "USDC 예치")}</button>
+              <button className="investor-primary-button" type="button" disabled={!canDeposit || isDepositing} onClick={() => void depositToVault()}><Vault size={15} weight="fill" aria-hidden="true" />{isDepositing ? phaseLabel[phase] : t("Deposit USDC", "USDC 예치")}</button>
             </div>
           </div>
           <div className="investor-vault-progress" role="status" aria-live="polite">
