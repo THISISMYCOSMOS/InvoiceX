@@ -4,7 +4,7 @@ substitutions:
   _SERVICE: invoicex-web
   _SERVICE_ACCOUNT: invoicex-web@${PROJECT_ID}.iam.gserviceaccount.com
   _IMAGE_TAG: manual
-  _API_BASE_URL: ''
+  _API_BASE_URL: https://invoicex-api-ew3oji7ara-du.a.run.app
 
 steps:
   - name: gcr.io/cloud-builders/docker
