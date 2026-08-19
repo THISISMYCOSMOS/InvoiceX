@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getAccessToken: vi.fn(),
   getAuthMe: vi.fn(),
   getOtpClock: vi.fn(),
+  linkEmbeddedWallet: vi.fn(),
   logout: vi.fn(),
   onboardCompany: vi.fn(),
   sendCode: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("../api/onboarding.api", async (importOriginal) => {
     ...actual,
     getAuthMe: mocks.getAuthMe,
     getOtpClock: mocks.getOtpClock,
+    linkEmbeddedWallet: mocks.linkEmbeddedWallet,
     onboardCompany: mocks.onboardCompany,
   };
 });
@@ -65,6 +67,11 @@ beforeEach(() => {
     },
     onboardingStatus: "COMPLETED",
     nextPath: "/supplier",
+  });
+  mocks.linkEmbeddedWallet.mockResolvedValue({
+    embeddedWallet: { address: "SolanaAddress" },
+    onboardingStatus: "COMPLETED",
+    nextPath: "/investor",
   });
 });
 
@@ -188,6 +195,39 @@ test("signs an existing Privy member into the stored company route", async () =>
   expect(await screen.findByRole("heading", { name: "Supplier member dashboard" }))
     .toBeInTheDocument();
   expect(window.localStorage.getItem("invoicex-demo-session")).toBeNull();
+});
+
+test("repairs a completed account whose embedded wallet record is missing", async () => {
+  mocks.getAuthMe.mockResolvedValue({
+    user: { email: "investor@company.com" },
+    company: { name: "Investor One", type: "INVESTOR" },
+    embeddedWallet: null,
+    onboardingStatus: "COMPLETED",
+    nextPath: "/investor",
+  });
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={["/signup"]}>
+      <Routes>
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/investor" element={<h1>Investor dashboard</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  await user.type(screen.getByLabelText("기업 이메일"), "investor@company.com");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  screen.getByLabelText("1번째 인증 코드").focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+
+  expect(mocks.ensureEmbeddedSolanaWallet).toHaveBeenCalledTimes(1);
+  expect(mocks.linkEmbeddedWallet).toHaveBeenCalledWith(
+    "privy-access-token",
+    "SolanaAddress",
+  );
+  expect(await screen.findByRole("heading", { name: "Investor dashboard" }))
+    .toBeInTheDocument();
 });
 
 test("does not show completion when wallet provisioning is incomplete", async () => {

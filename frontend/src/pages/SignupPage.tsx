@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   getAuthMe,
   getOtpClock,
+  linkEmbeddedWallet,
   onboardCompany,
   OnboardingApiError,
   withPrivyAccessTokenRetry,
@@ -193,6 +194,16 @@ export function SignupPage() {
       );
       setEmail(authMe.user.email);
       if (authMe.onboardingStatus === "COMPLETED") {
+        if (!authMe.embeddedWallet) {
+          const embeddedWallet = await signupAuth.ensureEmbeddedSolanaWallet();
+          const repairedProfile = await withPrivyAccessTokenRetry(
+            signupAuth.getAccessToken,
+            (accessToken) => linkEmbeddedWallet(accessToken, embeddedWallet.address),
+          );
+          if (!repairedProfile.embeddedWallet) {
+            throw new Error("임베디드 지갑 연결을 복구하지 못했습니다.");
+          }
+        }
         navigate(authMe.nextPath);
         return;
       }

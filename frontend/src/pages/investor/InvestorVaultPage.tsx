@@ -177,7 +177,14 @@ export function InvestorVaultPage() {
             {!connected && !embeddedWalletAddress ? <p className="wallet-error"><Link to="/investor/profile">{t("Connect a Solana wallet in Profile before depositing.", "예치 전 Profile에서 Solana 지갑을 연결해 주세요.")}</Link></p> : null}
             <div className="investor-vault-deposit-form">
               <label htmlFor="vaultDeposit"><span>{t("Deposit amount", "예치 금액")}</span><div><input id="vaultDeposit" inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /><small>USDC</small></div></label>
-              <button className="investor-primary-button" type="button" disabled={!canDeposit || isDepositing} onClick={() => void depositToVault()}><Vault size={15} weight="fill" aria-hidden="true" />{isDepositing ? phaseLabel[phase] : t("Deposit USDC", "USDC 예치")}</button>
+              {!canUseExternalWallet && embeddedWalletAddress && !authenticated ? (
+                <Link className="investor-primary-button" state={{ email: currentAccount?.userEmail ?? "" }} to="/signup">
+                  <Vault size={15} weight="fill" aria-hidden="true" />
+                  {t("Verify email to deposit USDC", "이메일 인증 후 USDC 예치")}
+                </Link>
+              ) : (
+                <button className="investor-primary-button" type="button" disabled={!canDeposit || isDepositing} onClick={() => void depositToVault()}><Vault size={15} weight="fill" aria-hidden="true" />{isDepositing ? phaseLabel[phase] : t("Deposit USDC", "USDC 예치")}</button>
+              )}
             </div>
           </div>
           <div className="investor-vault-progress" role="status" aria-live="polite">

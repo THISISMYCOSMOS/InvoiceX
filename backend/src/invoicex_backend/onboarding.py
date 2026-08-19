@@ -27,9 +27,9 @@ from invoicex_backend.onboarding_models import (
     UpdateSettlementWalletRequest,
     next_path,
 )
+from invoicex_backend.passwords import hash_password, verify_password
 from invoicex_backend.privy_auth import PrivyPrincipal
 from invoicex_backend.privy_users import PrivyUserGateway
-from invoicex_backend.passwords import hash_password, verify_password
 from invoicex_backend.repository import RwaRepository
 
 
@@ -151,21 +151,38 @@ class OnboardingService:
         verified = await self._privy.verify_solana_wallet(principal.user_id, address)
         current = self._repository.get_company_wallet(user.company_id)
         if current is None:
-            raise OnboardingApiError(
-                status.HTTP_409_CONFLICT,
-                "EMBEDDED_WALLET_NOT_AVAILABLE",
-                "교체할 Embedded Wallet을 찾을 수 없습니다.",
+            company = self._repository.get_company(user.company_id)
+            if company is None:
+                raise OnboardingApiError(
+                    status.HTTP_409_CONFLICT,
+                    "COMPANY_PROFILE_NOT_FOUND",
+                    "Embedded Wallet을 연결할 기업 정보를 찾을 수 없습니다.",
+                )
+            wallet = CompanyWallet(
+                id=_id("wal"),
+                company_id=company.id,
+                privy_user_id=principal.user_id,
+                privy_wallet_id=verified.id,
+                address=verified.address,
             )
-        self._repository.replace_company_wallet(
-            principal.user_id,
-            current.model_copy(
-                update={
-                    "privy_wallet_id": verified.id,
-                    "address": verified.address,
-                    "status": "ACTIVE",
-                }
-            ),
-        )
+            vault = (
+                LogicalVault(id=_id("vlt"), investor_company_id=company.id)
+                if company.type is CompanyType.INVESTOR
+                and self._repository.get_company_vault(company.id) is None
+                else None
+            )
+            self._repository.complete_onboarding(principal.user_id, wallet, vault)
+        else:
+            self._repository.replace_company_wallet(
+                principal.user_id,
+                current.model_copy(
+                    update={
+                        "privy_wallet_id": verified.id,
+                        "address": verified.address,
+                        "status": "ACTIVE",
+                    }
+                ),
+            )
         return await self.auth_me(principal)
 
     def authenticate_password_login(

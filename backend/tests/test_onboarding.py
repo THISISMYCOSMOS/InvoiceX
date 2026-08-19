@@ -288,6 +288,47 @@ def test_completed_account_can_replace_an_unusable_server_wallet(tmp_path: Path)
     assert saved_wallet.address == replacement_address
 
 
+def test_completed_investor_can_restore_a_missing_wallet_and_vault(tmp_path: Path) -> None:
+    gateway = FakePrivyGateway()
+    user_id = "did:privy:wallet-restore"
+    replacement_address = str(Keypair().pubkey())
+
+    with onboarding_client(tmp_path, gateway) as (client, private_key, repository):
+        account_headers = headers(private_key, user_id)
+        created = client.post(
+            "/api/v1/onboarding/company",
+            headers=account_headers,
+            json=company_payload(
+                company_type="INVESTOR",
+                registration_number="12-3456789",
+                country_code="US",
+            ),
+        )
+        company_id = created.json()["company"]["id"]
+        with repository._connection:
+            repository._connection.execute(
+                "DELETE FROM wallets WHERE company_id = ?", (company_id,)
+            )
+            repository._connection.execute(
+                "DELETE FROM company_vaults WHERE investor_company_id = ?", (company_id,)
+            )
+
+        repaired = client.put(
+            "/api/v1/auth/embedded-wallet",
+            headers=account_headers,
+            json={"address": replacement_address},
+        )
+
+        saved_wallet = repository.get_company_wallet(company_id)
+        saved_vault = repository.get_company_vault(company_id)
+
+    assert repaired.status_code == 200
+    assert repaired.json()["embeddedWallet"]["address"] == replacement_address
+    assert saved_wallet is not None
+    assert saved_wallet.address == replacement_address
+    assert saved_vault is not None
+
+
 def test_completed_supplier_can_update_company_profile(tmp_path: Path) -> None:
     gateway = FakePrivyGateway()
     profile_headers: dict[str, str]

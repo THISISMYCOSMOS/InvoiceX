@@ -402,11 +402,16 @@ class BackendSettings(BaseSettings):
             "PRIVY_RWA_ISSUER_WALLET_ID": self.privy_rwa_issuer_wallet_id,
             "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (self.investor_settlement_wallet_address),
         }
-        return [
+        missing = [
             name
             for name, value in values.items()
             if not self._non_blank(value) or str(value).startswith("DEMO_")
         ]
+        if not self._non_blank(self.privy_verification_key) and not self._non_blank(
+            self.privy_jwks_url
+        ):
+            missing.append("PRIVY_VERIFICATION_KEY or PRIVY_JWKS_URL")
+        return missing
 
     def missing_gasless_configuration(self) -> list[str]:
         values = {

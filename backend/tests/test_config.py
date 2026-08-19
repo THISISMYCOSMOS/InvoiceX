@@ -36,6 +36,7 @@ def test_auto_mode_prefers_complete_privy_configuration() -> None:
         SOLANA_MODE="auto",
         PRIVY_APP_ID="app-id",
         PRIVY_APP_SECRET="app-secret",
+        PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
         PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
@@ -72,6 +73,19 @@ def test_explicit_privy_mode_requires_complete_configuration() -> None:
         )
 
 
+def test_explicit_privy_mode_requires_an_access_token_verifier() -> None:
+    with pytest.raises(ValidationError, match="PRIVY_VERIFICATION_KEY or PRIVY_JWKS_URL"):
+        BackendSettings(
+            _env_file=None,
+            SOLANA_MODE="privy",
+            PRIVY_APP_ID="app-id",
+            PRIVY_APP_SECRET="app-secret",
+            PRIVY_TREASURY_WALLET_ID="treasury",
+            PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+            PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+        )
+
+
 def test_gasless_mode_requires_a_separate_privy_sponsor_wallet() -> None:
     with pytest.raises(ValidationError, match="GASLESS_ENABLED"):
         BackendSettings(
@@ -80,6 +94,7 @@ def test_gasless_mode_requires_a_separate_privy_sponsor_wallet() -> None:
             GASLESS_ENABLED=True,
             PRIVY_APP_ID="app-id",
             PRIVY_APP_SECRET="app-secret",
+            PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
             PRIVY_TREASURY_WALLET_ID="treasury",
             PRIVY_RWA_ISSUER_WALLET_ID="issuer",
             PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
