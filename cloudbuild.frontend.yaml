@@ -5,6 +5,7 @@ substitutions:
   _SERVICE_ACCOUNT: invoicex-web@${PROJECT_ID}.iam.gserviceaccount.com
   _IMAGE_TAG: manual
   _API_BASE_URL: https://invoicex-api-ew3oji7ara-du.a.run.app
+  _PRIVY_APP_ID: cms678zqw007k0cjkq4jhxn9q
 
 steps:
   - name: gcr.io/cloud-builders/docker
@@ -13,6 +14,7 @@ steps:
       - --file=frontend/Dockerfile
       - --build-arg=VITE_API_BASE_URL=${_API_BASE_URL}
       - --build-arg=VITE_USE_MOCK_API=false
+      - --build-arg=VITE_PRIVY_APP_ID=${_PRIVY_APP_ID}
       - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${_IMAGE_TAG}
       - .
   - name: gcr.io/cloud-builders/docker
