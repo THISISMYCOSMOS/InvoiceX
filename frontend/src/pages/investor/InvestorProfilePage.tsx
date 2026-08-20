@@ -105,7 +105,7 @@ export function InvestorProfilePage() {
         company: {
           name: profileForm.companyName,
           type: currentAccount.role,
-          countryCode: currentAccount.countryCode,
+          countryCode: "US",
           registrationNumber: profileForm.registrationNumber,
         },
         representative: {
@@ -193,7 +193,7 @@ export function InvestorProfilePage() {
               </label>
               <label className="company-profile-field">
                 <span>{t("Country code", "국가 코드")}</span>
-                <input value={currentAccount?.countryCode ?? "US"} readOnly aria-readonly="true" />
+                <input value="US" readOnly aria-readonly="true" />
               </label>
               <label className="company-profile-field">
                 <span>{t("US EIN", "미국 EIN")}</span>
@@ -225,7 +225,7 @@ export function InvestorProfilePage() {
             <>
               <dl className="company-details">
                 <div><dt>{t("Legal company name", "법인명")}</dt><dd>{currentAccount?.companyName ?? "—"}</dd></div>
-                <div><dt>{t("Country code", "국가 코드")}</dt><dd>{currentAccount?.countryCode ?? "US"}</dd></div>
+                <div><dt>{t("Country code", "국가 코드")}</dt><dd>US</dd></div>
                 <div><dt>{t("US EIN", "미국 EIN")}</dt><dd>{displayUsEin(currentAccount?.registrationNumber ?? "")}</dd></div>
                 <div><dt>{t("Representative", "대표자")}</dt><dd>{currentAccount?.userName ?? "—"}</dd></div>
                 <div><dt>{t("Company email", "회사 이메일")}</dt><dd>{currentAccount?.userEmail ?? "—"}</dd></div>

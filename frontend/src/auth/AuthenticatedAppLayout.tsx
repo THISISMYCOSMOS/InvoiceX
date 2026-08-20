@@ -8,6 +8,10 @@ import { CurrentAccountProvider } from "./CurrentAccountProvider";
 import { clearDemoSession, getDemoSession } from "./demoAccounts";
 import { useSignupAuth } from "./SignupAuthContext";
 
+function fixedCountryCode(companyType: CompanyType) {
+  return companyType === "SUPPLIER" ? "KR" : "US";
+}
+
 export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
   const { authenticated, getAccessToken, ready } = useSignupAuth();
   const location = useLocation();
@@ -49,7 +53,7 @@ export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
             return;
           }
           setAccount({
-            countryCode: profile.company.countryCode,
+            countryCode: fixedCountryCode(profile.company.type),
             registrationNumber: profile.company.registrationNumber,
             companyName: profile.company.name,
             role: profile.company.type as CompanyType,
@@ -94,7 +98,7 @@ export function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
           return;
         }
         setAccount({
-          countryCode: profile.company.countryCode,
+          countryCode: fixedCountryCode(profile.company.type),
           registrationNumber: profile.company.registrationNumber,
           companyName: profile.company.name,
           role: profile.company.type as CompanyType,

@@ -39,6 +39,7 @@ def test_auto_mode_prefers_complete_privy_configuration() -> None:
         PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
         PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
     )
     assert settings.resolved_solana_mode() == "privy"
@@ -82,6 +83,7 @@ def test_explicit_privy_mode_requires_an_access_token_verifier() -> None:
             PRIVY_APP_SECRET="app-secret",
             PRIVY_TREASURY_WALLET_ID="treasury",
             PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+            PRIVY_SETTLEMENT_WALLET_ID="settlement",
             PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
         )
 
@@ -92,6 +94,21 @@ def test_gasless_mode_requires_a_separate_privy_sponsor_wallet() -> None:
             _env_file=None,
             SOLANA_MODE="privy",
             GASLESS_ENABLED=True,
+            PRIVY_APP_ID="app-id",
+            PRIVY_APP_SECRET="app-secret",
+            PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
+            PRIVY_TREASURY_WALLET_ID="treasury",
+            PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+            PRIVY_SETTLEMENT_WALLET_ID="settlement",
+            PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+        )
+
+
+def test_privy_mode_requires_the_settlement_vault_wallet() -> None:
+    with pytest.raises(ValidationError, match="PRIVY_SETTLEMENT_WALLET_ID"):
+        BackendSettings(
+            _env_file=None,
+            SOLANA_MODE="privy",
             PRIVY_APP_ID="app-id",
             PRIVY_APP_SECRET="app-secret",
             PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
@@ -149,20 +166,7 @@ def test_mock_settlement_can_be_disabled_for_the_gcp_auto_investment_scope() -> 
     assert settings.mock_settlement_enabled is False
 
 
-def test_gcp_mock_settlement_requires_its_separate_wallets() -> None:
-    with pytest.raises(ValidationError, match="GCP mock settlement"):
-        BackendSettings(
-            _env_file=None,
-            DEPLOYMENT_TARGET="gcp",
-            PERSISTENCE_BACKEND="cloud_sql",
-            DOCUMENT_STORAGE_BACKEND="gcs",
-            API_AUTH_REQUIRED=True,
-            AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
-            GCP_PROJECT_ID="invoicex-demo",
-            CLOUD_SQL_INSTANCE_CONNECTION_NAME="invoicex-demo:asia-northeast3:invoicex",
-            CLOUD_SQL_DATABASE="invoicex",
-            CLOUD_SQL_USER="invoicex_app",
-            CLOUD_SQL_PASSWORD="cloud-sql-password-from-secret-manager",
-            GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
-            GCS_SIGNING_SERVICE_ACCOUNT="invoicex-api@invoicex-demo.iam.gserviceaccount.com",
-        )
+def test_demo_early_payment_is_opt_in() -> None:
+    assert BackendSettings(_env_file=None).demo_early_payment_enabled is False
+    settings = BackendSettings(_env_file=None, DEMO_EARLY_PAYMENT_ENABLED=True)
+    assert settings.demo_early_payment_enabled is True

@@ -77,9 +77,12 @@ test("shows the embedded-wallet maturity-payment action for a funded invoice", a
 
   expect(screen.getByRole("heading", { name: "Pay invoice amount" })).toBeInTheDocument();
   expect(screen.getByText("3 USDC")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Copy address" })).toBeInTheDocument();
   expect(screen.getByText("SettlementWallet")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Pay with embedded wallet" }));
+  expect(screen.queryByRole("button", { name: "Copy address" })).not.toBeInTheDocument();
+  expect(screen.queryByText("The amount, asset, and settlement address must match for automatic processing.")).not.toBeInTheDocument();
+  const paymentButton = screen.getByRole("button", { name: "Pay with embedded wallet" });
+  expect(paymentButton).toHaveClass("buyer-confirm-button--full");
+  await user.click(paymentButton);
   expect(onPay).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("link", { name: "Download payment guide" })).not.toBeInTheDocument();
 });

@@ -340,9 +340,7 @@ class InvoiceService:
             if self._matching_prior_invoice_numbers(invoice):
                 invoice.status = InvoiceStatus.BLOCKED
                 invoice.rejection_reason_code = "DUPLICATE_INVOICE"
-                invoice.rejection_reason_detail = (
-                    "동일한 인보이스 번호가 이미 등록되어 있습니다."
-                )
+                invoice.rejection_reason_detail = "동일한 인보이스 번호가 이미 등록되어 있습니다."
             else:
                 invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
             self._append_trace(
@@ -385,7 +383,9 @@ class InvoiceService:
             try:
                 stored_documents = await asyncio.gather(
                     *[
-                        self._storage.store(document_id=document_id, invoice_id=invoice_id, upload=upload)
+                        self._storage.store(
+                            document_id=document_id, invoice_id=invoice_id, upload=upload
+                        )
                         for document_id, upload in zip(document_ids, uploads, strict=True)
                     ]
                 )
@@ -587,8 +587,7 @@ class InvoiceService:
             update={
                 "available_usdc": current.available_usdc + request.amount_usdc,
                 "available_base_units": base_units_string(
-                    int(current.available_base_units)
-                    + usdc_to_base_units(request.amount_usdc)
+                    int(current.available_base_units) + usdc_to_base_units(request.amount_usdc)
                 ),
                 "updated_at": datetime.now(UTC).isoformat(),
             }
@@ -715,7 +714,9 @@ class InvoiceService:
                     has_document_mismatches=bool(agent_analysis.mismatches),
                     buyer_confirmed=True,
                     remaining_term_days=remaining_term_days,
-                    document_summary="mismatch" if agent_analysis.mismatches else "documents consistent",
+                    document_summary="mismatch"
+                    if agent_analysis.mismatches
+                    else "documents consistent",
                     buyer_key=invoice.buyer.id or invoice.buyer.name,
                     supplier_key=invoice.supplier.id or invoice.supplier.name,
                 )
@@ -824,7 +825,9 @@ class InvoiceService:
                 suggested_advance_rate_bps=decision.advance_rate_bps,
                 suggested_advance_amount_usdc=decision.advance_amount_usdc,
                 suggested_advance_base_units=(
-                    base_units_string(advance_base_units) if advance_base_units is not None else None
+                    base_units_string(advance_base_units)
+                    if advance_base_units is not None
+                    else None
                 ),
                 invoice_face_value_usdc=valuation.face_value_usdc,
                 invoice_face_value_base_units=base_units_string(valuation.face_value_base_units),
@@ -917,11 +920,18 @@ class InvoiceService:
         async with self._invoice_lock(verification.invoice_id):
             invoice = self._invoice(verification.invoice_id)
             self.assert_invoice_access(invoice, identity)
-            if identity is not None and identity.source != "DEMO" and identity.role is not LoginRole.BUYER:
+            if (
+                identity is not None
+                and identity.source != "DEMO"
+                and identity.role is not LoginRole.BUYER
+            ):
                 raise StateConflictError("구매기업만 인보이스 확인을 거절할 수 있습니다.")
             if verification.status is VerificationStatus.REJECTED:
                 return self._copy_invoice(invoice)
-            if verification.status is not VerificationStatus.PENDING or invoice.status is not InvoiceStatus.BUYER_REVIEW:
+            if (
+                verification.status is not VerificationStatus.PENDING
+                or invoice.status is not InvoiceStatus.BUYER_REVIEW
+            ):
                 raise StateConflictError("구매기업 검토 중인 인보이스만 거절할 수 있습니다.")
 
             now = datetime.now(UTC).isoformat()
@@ -995,14 +1005,18 @@ class InvoiceService:
                     amount_base_units=0,
                     to_address=issued.escrow_token_account,
                 ),
-                face_value_usdc=invoice.risk_passport.invoice_face_value_usdc if invoice.risk_passport else None,
+                face_value_usdc=invoice.risk_passport.invoice_face_value_usdc
+                if invoice.risk_passport
+                else None,
                 face_value_base_units=(
                     invoice.risk_passport.invoice_face_value_base_units
                     if invoice.risk_passport
                     else None
                 ),
                 issuance_price_usdc=(
-                    invoice.risk_passport.suggested_advance_amount_usdc if invoice.risk_passport else None
+                    invoice.risk_passport.suggested_advance_amount_usdc
+                    if invoice.risk_passport
+                    else None
                 ),
                 issuance_price_base_units=(
                     invoice.risk_passport.suggested_advance_base_units
@@ -1188,7 +1202,9 @@ class InvoiceService:
                     title="자동 업무 진행" if role == "Supplier" else "Orchestrator 실행",
                     summary=run.plan_summary,
                     created_at=run.created_at,
-                    method_version=(invoice.risk_passport.policy_version if role == "Investor" else None),
+                    method_version=(
+                        invoice.risk_passport.policy_version if role == "Investor" else None
+                    ),
                 )
             )
             for call in self._repository.list_agent_tool_calls(run.id):
@@ -1200,7 +1216,9 @@ class InvoiceService:
                         title=("업무 단계 완료" if role == "Supplier" else call.tool_name),
                         summary=call.output_summary,
                         created_at=call.completed_at or call.started_at or run.created_at,
-                        method_version=(invoice.risk_passport.policy_version if role == "Investor" else None),
+                        method_version=(
+                            invoice.risk_passport.policy_version if role == "Investor" else None
+                        ),
                     )
                 )
         if role == "Investor" and invoice.agent_decision is not None:
@@ -1278,7 +1296,11 @@ class InvoiceService:
     ) -> BuyerPaymentPreparation:
         invoice = self._invoice(invoice_id)
         self.assert_invoice_access(invoice, identity)
-        if identity is not None and identity.source != "DEMO" and identity.role is not LoginRole.BUYER:
+        if (
+            identity is not None
+            and identity.source != "DEMO"
+            and identity.role is not LoginRole.BUYER
+        ):
             raise StateConflictError("구매기업만 만기 USDC 결제를 준비할 수 있습니다.")
         if invoice.status not in {
             InvoiceStatus.FUNDED,
@@ -1289,48 +1311,28 @@ class InvoiceService:
             raise StateConflictError("펀딩 완료된 인보이스만 만기 결제를 진행할 수 있습니다.")
         today = date.today()
         due_date = self._parse_iso_date(invoice.due_date, "인보이스 만기일")
-        bypass = self._settings.mock_settlement_enabled
+        bypass = self._settings.demo_early_payment_enabled
         if today < due_date and not bypass:
             raise StateConflictError("인보이스 만기일부터 결제를 진행할 수 있습니다.")
-        buyer_wallet = identity.wallet_address if identity and identity.wallet_address else invoice.buyer.wallet_address
+        buyer_wallet = (
+            identity.wallet_address
+            if identity and identity.wallet_address
+            else invoice.buyer.wallet_address
+        )
         if not buyer_wallet:
             raise StateConflictError("구매기업 Embedded Wallet을 찾을 수 없습니다.")
         invoice.buyer.wallet_address = buyer_wallet
         face_value_base_units = self._invoice_face_value_base_units(invoice)
         face_value = base_units_to_usdc(face_value_base_units)
         decimals = self._settings.solana_usdc_decimals
-        transfers: list[BuyerPaymentTransfer]
-        if self._solana.mode == "direct":
-            terms = invoice.risk_passport.early_settlement_terms if invoice.risk_passport else None
-            investor_wallet = invoice.rwa_asset.owner_wallet_address if invoice.rwa_asset else None
-            if terms is None or not investor_wallet:
-                raise StateConflictError("RWA 보유 투자자 지갑과 정산 조건을 찾을 수 없습니다.")
-            platform_fee_base_units = int(terms.platform_fee_base_units)
-            investor_base_units = face_value_base_units - platform_fee_base_units
-            transfers = [
-                BuyerPaymentTransfer(
-                    recipient_wallet_address=investor_wallet,
-                    amount_usdc=base_units_to_usdc(investor_base_units),
-                    amount_base_units=base_units_string(investor_base_units),
-                )
-            ]
-            if platform_fee_base_units > 0:
-                transfers.append(
-                    BuyerPaymentTransfer(
-                        recipient_wallet_address=self._settings.platform_fee_wallet_address,
-                        amount_usdc=terms.platform_fee_usdc,
-                        amount_base_units=base_units_string(platform_fee_base_units),
-                    )
-                )
-        else:
-            settlement_wallet = await self._solana.settlement_wallet_address()
-            transfers = [
-                BuyerPaymentTransfer(
-                    recipient_wallet_address=settlement_wallet,
-                    amount_usdc=face_value,
-                    amount_base_units=base_units_string(face_value_base_units),
-                )
-            ]
+        settlement_wallet = await self._solana.settlement_wallet_address()
+        transfers = [
+            BuyerPaymentTransfer(
+                recipient_wallet_address=settlement_wallet,
+                amount_usdc=face_value,
+                amount_base_units=base_units_string(face_value_base_units),
+            )
+        ]
         return BuyerPaymentPreparation(
             invoice_id=invoice.id,
             buyer_wallet_address=buyer_wallet,
@@ -1355,7 +1357,10 @@ class InvoiceService:
             invoice = self._invoice(invoice_id)
             self.assert_invoice_access(invoice, identity)
             if invoice.status is InvoiceStatus.SETTLED:
-                if invoice.buyer_payment_transaction and invoice.buyer_payment_transaction.signature == signature:
+                if (
+                    invoice.buyer_payment_transaction
+                    and invoice.buyer_payment_transaction.signature == signature
+                ):
                     return self._copy_invoice(invoice)
                 raise StateConflictError("이미 정산 완료된 인보이스입니다.")
             for other in self._invoices.values():
@@ -1389,7 +1394,13 @@ class InvoiceService:
                 raise StateConflictError(
                     "USDC 결제 트랜잭션의 보내는 지갑, 수령 지갑, Mint 또는 금액이 일치하지 않습니다."
                 )
-            provider = "PRIVY" if self._solana.mode == "privy" else "DIRECT" if self._solana.mode == "direct" else "MOCK"
+            provider = (
+                "PRIVY"
+                if self._solana.mode == "privy"
+                else "DIRECT"
+                if self._solana.mode == "direct"
+                else "MOCK"
+            )
             invoice.buyer_payment_transaction = BlockchainTransaction(
                 signature=signature,
                 status=TransactionStatus.CONFIRMED,
@@ -1421,86 +1432,45 @@ class InvoiceService:
         platform_fee = base_units_to_usdc(platform_fee_base_units)
         investor_amount = base_units_to_usdc(investor_base_units)
         invoice.status = InvoiceStatus.SETTLING
-        if self._solana.mode == "direct":
-            investor_wallet = invoice.rwa_asset.owner_wallet_address if invoice.rwa_asset else None
-            if not investor_wallet:
-                raise StateConflictError("RWA 보유 투자자 지갑을 찾을 수 없습니다.")
+        investor_wallet = (
+            invoice.rwa_asset.owner_wallet_address
+            if invoice.rwa_asset and invoice.rwa_asset.owner_wallet_address
+            else invoice.rwa_asset.owner_vault_address
+            if invoice.rwa_asset and invoice.rwa_asset.owner_vault_address
+            else self._settings.investor_settlement_wallet_address
+        )
+        settlement_wallet_id = (
+            "DIRECT_SETTLEMENT"
+            if self._solana.mode == "direct"
+            else self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT"
+        )
+        try:
             if invoice.investor_payout_transaction is None:
-                invoice.investor_payout_transaction = invoice.buyer_payment_transaction.model_copy(
-                    update={
-                        "amount_usdc": investor_amount,
-                        "amount_base_units": base_units_string(investor_base_units),
-                        "to_address": investor_wallet,
-                    }
+                result = await self._solana.send_usdc(
+                    wallet_id=settlement_wallet_id,
+                    transfers=[
+                        ChainTransfer(
+                            to_address=investor_wallet,
+                            amount_base_units=investor_base_units,
+                        )
+                    ],
+                    reference_id=f"investor-payout-{invoice.id}",
+                )
+                invoice.investor_payout_transaction = self._transaction(
+                    result=result,
+                    amount_base_units=investor_base_units,
+                    to_address=investor_wallet,
                 )
                 invoice.settlement_transaction = invoice.investor_payout_transaction
                 self._save_invoice(invoice)
-            if platform_fee_base_units > 0 and invoice.platform_fee_transaction is None:
-                invoice.platform_fee_transaction = invoice.buyer_payment_transaction.model_copy(
-                    update={
-                        "amount_usdc": platform_fee,
-                        "amount_base_units": base_units_string(platform_fee_base_units),
-                        "to_address": self._settings.platform_fee_wallet_address,
-                    }
-                )
-                self._save_invoice(invoice)
-        else:
-            investor_wallet = (
-                invoice.rwa_asset.owner_wallet_address
-                if invoice.rwa_asset and invoice.rwa_asset.owner_wallet_address
-                else invoice.rwa_asset.owner_vault_address
-                if invoice.rwa_asset and invoice.rwa_asset.owner_vault_address
-                else self._settings.investor_settlement_wallet_address
-            )
-            settlement_wallet_id = self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT"
-            try:
-                if invoice.investor_payout_transaction is None:
-                    result = await self._solana.send_usdc(
-                        wallet_id=settlement_wallet_id,
-                        transfers=[
-                            ChainTransfer(
-                                to_address=investor_wallet,
-                                amount_base_units=investor_base_units,
-                            )
-                        ],
-                        reference_id=f"investor-payout-{invoice.id}",
-                    )
-                    invoice.investor_payout_transaction = self._transaction(
-                        result=result,
-                        amount_base_units=investor_base_units,
-                        to_address=investor_wallet,
-                    )
-                    invoice.settlement_transaction = invoice.investor_payout_transaction
-                    self._save_invoice(invoice)
-                if platform_fee_base_units > 0 and invoice.platform_fee_transaction is None:
-                    result = await self._solana.send_usdc(
-                        wallet_id=settlement_wallet_id,
-                        transfers=[
-                            ChainTransfer(
-                                to_address=self._settings.platform_fee_wallet_address,
-                                amount_base_units=platform_fee_base_units,
-                            )
-                        ],
-                        reference_id=f"platform-fee-{invoice.id}",
-                    )
-                    invoice.platform_fee_transaction = self._transaction(
-                        result=result,
-                        amount_base_units=platform_fee_base_units,
-                        to_address=self._settings.platform_fee_wallet_address,
-                    )
-                    self._save_invoice(invoice)
-            except IntegrationError:
-                invoice.status = InvoiceStatus.SETTLEMENT_FAILED
-                self._save_invoice(invoice)
-                raise
+        except IntegrationError:
+            invoice.status = InvoiceStatus.SETTLEMENT_FAILED
+            self._save_invoice(invoice)
+            raise
 
         if (
             invoice.investor_payout_transaction
             and invoice.investor_payout_transaction.status is TransactionStatus.CONFIRMED
-            and (platform_fee_base_units == 0 or (
-                invoice.platform_fee_transaction
-                and invoice.platform_fee_transaction.status is TransactionStatus.CONFIRMED
-            ))
         ):
             invoice.settlement = Settlement(
                 invoice_face_value_usdc=face_value,
@@ -1521,16 +1491,17 @@ class InvoiceService:
                 source="SETTLEMENT_AGENT",
                 target="SETTLEMENT_AGENT",
                 status="COMPLETED",
-                summary="구매기업 USDC 결제 확인과 투자자·플랫폼 정산을 완료했습니다.",
+                summary=(
+                    "구매기업 USDC 결제 확인 후 투자자 정산을 완료하고 플랫폼 수수료는 "
+                    "Settlement Vault에 보관했습니다."
+                ),
             )
             self._save_invoice(invoice)
 
     @staticmethod
     def _invoice_face_value_base_units(invoice: Invoice) -> int:
         value = (
-            invoice.risk_passport.invoice_face_value_base_units
-            if invoice.risk_passport
-            else None
+            invoice.risk_passport.invoice_face_value_base_units if invoice.risk_passport else None
         )
         if value is None or int(value) <= 0:
             raise StateConflictError("확정된 인보이스 USDC 액면가를 찾을 수 없습니다.")
@@ -1654,7 +1625,9 @@ class InvoiceService:
             converter: Callable[[object], object] | None = None,
             preferred_types: tuple[DocumentType, ...] = (),
         ) -> dict[str, object]:
-            preference = {document_type: index for index, document_type in enumerate(preferred_types)}
+            preference = {
+                document_type: index for index, document_type in enumerate(preferred_types)
+            }
             ordered_documents = sorted(
                 result.documents,
                 key=lambda document: preference.get(
@@ -1706,18 +1679,14 @@ class InvoiceService:
             supplier_name=field(
                 "supplier_name", "supplierName", preferred_types=(DocumentType.INVOICE,)
             ),
-            buyer_name=field(
-                "buyer_name", "buyerName", preferred_types=(DocumentType.INVOICE,)
-            ),
+            buyer_name=field("buyer_name", "buyerName", preferred_types=(DocumentType.INVOICE,)),
             amount=field(
                 "total_amount",
                 "totalAmount",
                 self._parse_amount,
                 (DocumentType.INVOICE, DocumentType.PURCHASE_ORDER),
             ),
-            currency=field(
-                "currency", "currency", preferred_types=(DocumentType.INVOICE,)
-            ),
+            currency=field("currency", "currency", preferred_types=(DocumentType.INVOICE,)),
             due_date=field("due_date", "dueDate", preferred_types=(DocumentType.INVOICE,)),
             contract_number=field(
                 "contract_number",
@@ -1955,12 +1924,12 @@ class InvoiceService:
                 supplier_verified=company_active(supplier),
                 buyer_verified=company_active(buyer),
                 delivery_completed=bool(
-                    invoice.analysis
-                    and invoice.analysis.delivery_completed.value is True
+                    invoice.analysis and invoice.analysis.delivery_completed.value is True
                 ),
                 dispute_free=verification.status is not VerificationStatus.DISPUTED,
                 duplicate_free=not matches,
-                not_overdue=self._parse_iso_date(invoice.due_date, "인보이스 만기일") >= date.today(),
+                not_overdue=self._parse_iso_date(invoice.due_date, "인보이스 만기일")
+                >= date.today(),
                 prior_assignment_free=not any(other.rwa_asset is not None for other in matches),
                 # External sanctions data is explicitly out of MVP scope. The
                 # adapter supplies a deterministic clear result until integrated.
@@ -1970,9 +1939,7 @@ class InvoiceService:
 
     def _matching_prior_invoice_numbers(self, invoice: Invoice) -> list[Invoice]:
         invoice_number = (
-            invoice.analysis.invoice_number.value
-            if invoice.analysis is not None
-            else None
+            invoice.analysis.invoice_number.value if invoice.analysis is not None else None
         )
         if not invoice_number:
             return []
@@ -2040,9 +2007,7 @@ class InvoiceService:
         if pricing is None:
             return
 
-        discount_base_units = (
-            pricing.face_value_base_units - pricing.supplier_settlement_base_units
-        )
+        discount_base_units = pricing.face_value_base_units - pricing.supplier_settlement_base_units
         discount_amount = base_units_to_usdc(discount_base_units)
         refreshed_terms = EarlySettlementTerms(
             face_value_usdc=pricing.face_value_usdc,
@@ -2092,9 +2057,7 @@ class InvoiceService:
                     pricing.supplier_settlement_base_units
                 ),
                 "suggested_advance_rate_bps": (
-                    pricing.supplier_settlement_base_units
-                    * 10_000
-                    // pricing.face_value_base_units
+                    pricing.supplier_settlement_base_units * 10_000 // pricing.face_value_base_units
                     if pricing.face_value_base_units
                     else 0
                 ),

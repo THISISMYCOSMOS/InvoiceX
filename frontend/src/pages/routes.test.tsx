@@ -7,6 +7,8 @@ import { scenarioAdapter } from "../api/client";
 import { getDemoSession } from "../auth/demoAccounts";
 import { App } from "../App";
 
+const supplierDashboardIntro = "Track invoices and access working capital faster.";
+
 beforeEach(async () => {
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -22,7 +24,7 @@ function renderAt(path: string) {
 }
 
 test.each([
-  ["/supplier", "Good morning, Minjun"],
+  ["/supplier", supplierDashboardIntro],
   ["/supplier/company-wallet", "Company & Wallet"],
   ["/buyer", "Invoice verification"],
   ["/buyer/verification", "Verification requests"],
@@ -33,7 +35,10 @@ test.each([
 ])("renders %s", async (path, expectedText) => {
   renderAt(path);
 
-  expect(await screen.findByRole("heading", { name: expectedText })).toBeInTheDocument();
+  const target = expectedText === supplierDashboardIntro
+    ? await screen.findByText(expectedText)
+    : await screen.findByRole("heading", { name: expectedText });
+  expect(target).toBeInTheDocument();
 });
 
 test("renders the Figma login form", () => {
@@ -48,7 +53,7 @@ test("renders the Figma login form", () => {
 });
 
 test.each([
-  ["Supplier", "supplier@company.com", "supplier", "Good morning, Minjun"],
+  ["Supplier", "supplier@company.com", "supplier", supplierDashboardIntro],
   ["Buyer", "buyer@company.com", "buyer", "Invoice verification"],
   ["Investor", "investor@company.com", "investor", "Dashboard"],
 ])("signs the %s demo account into its dashboard", async (role, email, password, expectedText) => {
@@ -60,7 +65,10 @@ test.each([
   await user.type(screen.getByLabelText("Password"), password);
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-  expect(await screen.findByRole("heading", { name: expectedText })).toBeInTheDocument();
+  const target = expectedText === supplierDashboardIntro
+    ? await screen.findByText(expectedText)
+    : await screen.findByRole("heading", { name: expectedText });
+  expect(target).toBeInTheDocument();
 });
 
 test("rejects credentials that do not match the selected role", async () => {
@@ -150,7 +158,7 @@ test("switches between English and Korean from login and keeps the choice across
   unmount();
   renderAt("/supplier");
 
-  expect(await screen.findByRole("heading", { name: "좋은 아침이에요, 민준님" })).toBeInTheDocument();
+  expect(await screen.findByText("인보이스를 관리하고 운용자금을 더 빠르게 확보하세요.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "대시보드" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "인보이스 등록" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "프로필" })).toBeInTheDocument();

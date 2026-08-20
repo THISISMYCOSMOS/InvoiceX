@@ -78,7 +78,7 @@ export function BuyerProfilePage() {
       const token = getDemoSession()?.accessToken ?? await getAccessToken();
       if (!token) throw new Error(t("Your login session is unavailable.", "로그인 세션을 확인할 수 없습니다."));
       const updated = await updateCompanyProfile(token, {
-        company: { name: profileForm.companyName, type: currentAccount.role, countryCode: currentAccount.countryCode, registrationNumber: profileForm.registrationNumber },
+        company: { name: profileForm.companyName, type: currentAccount.role, countryCode: "US", registrationNumber: profileForm.registrationNumber },
         representative: { name: profileForm.representativeName, title: profileForm.representativeTitle, phone: profileForm.representativePhone },
       });
       if (!updated.company) throw new Error(t("The updated company profile was not returned.", "수정된 회사 정보를 확인할 수 없습니다."));
@@ -157,7 +157,7 @@ export function BuyerProfilePage() {
           {isEditingProfile ? (
             <form className="company-profile-form" onSubmit={(event) => { event.preventDefault(); void handleSaveProfile(); }}>
               <label className="company-profile-field"><span>{t("Legal company name", "법인명")}</span><input aria-label={t("Legal company name", "법인명")} value={profileForm.companyName} maxLength={200} onChange={(event) => setProfileForm((current) => ({ ...current, companyName: event.target.value }))} required /></label>
-              <label className="company-profile-field"><span>{t("Country code", "국가 코드")}</span><input value={currentAccount?.countryCode ?? "US"} readOnly aria-readonly="true" /></label>
+              <label className="company-profile-field"><span>{t("Country code", "국가 코드")}</span><input value="US" readOnly aria-readonly="true" /></label>
               <label className="company-profile-field"><span>{t("US EIN", "미국 EIN")}</span><input aria-label={t("US EIN", "미국 EIN")} inputMode="numeric" maxLength={10} value={profileForm.registrationNumber} onChange={(event) => setProfileForm((current) => ({ ...current, registrationNumber: formatUsEin(event.target.value) }))} placeholder="12-3456789" required /></label>
               <label className="company-profile-field"><span>{t("Representative", "담당자")}</span><input aria-label={t("Representative", "담당자")} value={profileForm.representativeName} maxLength={100} onChange={(event) => setProfileForm((current) => ({ ...current, representativeName: event.target.value }))} required /></label>
               <label className="company-profile-field"><span>{t("Representative title", "담당자 직책")}</span><input aria-label={t("Representative title", "담당자 직책")} value={profileForm.representativeTitle} maxLength={100} onChange={(event) => setProfileForm((current) => ({ ...current, representativeTitle: event.target.value }))} required /></label>
@@ -174,7 +174,7 @@ export function BuyerProfilePage() {
             </div>
             <div>
               <dt>{t("Country code", "국가 코드")}</dt>
-              <dd>{currentAccount?.countryCode ?? "US"}</dd>
+              <dd>US</dd>
             </div>
             <div>
               <dt>{t("Employer Identification Number", "미국 EIN")}</dt>

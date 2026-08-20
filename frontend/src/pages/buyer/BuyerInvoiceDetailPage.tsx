@@ -288,14 +288,7 @@ function MaturityPaymentSection({
   paymentComplete?: boolean;
 }) {
   const { language, t } = useLanguage();
-  const [copied, setCopied] = useState(false);
   const accountNumber = preparation?.settlementWalletAddress ?? "—";
-
-  const copyAccount = async () => {
-    if (!preparation) return;
-    await navigator.clipboard?.writeText(accountNumber);
-    setCopied(true);
-  };
 
   return (
     <section className="buyer-payment">
@@ -321,14 +314,11 @@ function MaturityPaymentSection({
             </div>
             <div><dt>{t("Payment deadline", "결제 기한")}</dt><dd>{formatDate(preparation?.dueDate ?? invoice.dueDate, language === "ko" ? "ko-KR" : "en-US")}</dd></div>
             <div><dt>{t("Network", "네트워크")}</dt><dd>Solana Devnet</dd></div>
-            <div><dt>{t("Settlement address", "정산 주소")}</dt><dd>{accountNumber}</dd></div>
+            <div><dt>{t("Settlement address", "정산 주소")}</dt><dd className="settlement-wallet-address">{accountNumber}</dd></div>
             <div><dt>{t("Asset", "결제 자산")}</dt><dd>Devnet USDC</dd></div>
           </dl>
           <footer>
-            <button type="button" className="copy-account-button" onClick={copyAccount} disabled={!preparation}>
-              {copied ? t("Address copied", "주소 복사 완료") : t("Copy address", "주소 복사")}
-            </button>
-            <button type="button" className="buyer-confirm-button" onClick={onPay} disabled={!preparation || !onPay || isPaying}>
+            <button type="button" className="buyer-confirm-button buyer-confirm-button--full" onClick={onPay} disabled={!preparation || !onPay || isPaying}>
               {isPaying ? t("Confirming payment...", "결제 확인 중...") : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
             </button>
           </footer>
@@ -345,7 +335,6 @@ function MaturityPaymentSection({
       </div>
       {paymentError && <p className="wallet-error" role="alert">{paymentError}</p>}
       {paymentComplete && <p className="inline-status" role="status">{t("USDC payment and settlement were confirmed.", "USDC 결제와 정산이 확인되었습니다.")}</p>}
-      <p className="payment-processing-note">{t("The amount, asset, and settlement address must match for automatic processing.", "자동 처리를 위해 금액, 통화 자산, 정산 주소가 정확히 일치해야 합니다.")}</p>
     </section>
   );
 }

@@ -48,7 +48,7 @@ test("derives supplier dashboard statistics from actual invoice states and links
   await scenarioAdapter.requestVerification("INV-2026-001");
   renderDashboard();
 
-  expect(await screen.findByRole("heading", { name: "Good morning, Jiyoon" })).toBeInTheDocument();
+  expect(await screen.findByText("Track invoices and access working capital faster.")).toBeInTheDocument();
   expect(screen.getByText("USDC wallet balance")).toBeInTheDocument();
   expect(screen.getByText("In early settlement")).toBeInTheDocument();
   expect(screen.getByText("Waiting for buyer")).toBeInTheDocument();

@@ -164,8 +164,12 @@ class MockSolanaGateway:
                 signature=str(Signature.from_bytes(digest)),
                 status=TransactionStatus.CONFIRMED,
                 from_address=(
-                    "DEMO_SETTLEMENT_PARTNER"
-                    if wallet_id == self._settings.privy_settlement_wallet_id
+                    "DEMO_SETTLEMENT_WALLET"
+                    if wallet_id
+                    in {
+                        "MOCK_SETTLEMENT",
+                        self._settings.privy_settlement_wallet_id,
+                    }
                     else "DEMO_AGENT_VAULT"
                 ),
                 provider="MOCK",
@@ -293,13 +297,19 @@ class DirectSolanaGateway:
     async def send_usdc(
         self, *, wallet_id: str, transfers: list[ChainTransfer], reference_id: str
     ) -> ChainTransferResult:
-        if wallet_id not in {"AGENT_VAULT", "MOCK_TREASURY"}:
-            raise IntegrationError("Direct Devnet mode can only execute from the Agent Vault")
+        if wallet_id in {"AGENT_VAULT", "MOCK_TREASURY"}:
+            source_wallet = self._agent_vault
+        elif wallet_id == "DIRECT_SETTLEMENT":
+            source_wallet = self._platform
+        else:
+            raise IntegrationError(
+                "Direct Devnet mode can only execute from the Agent Vault or Settlement Vault"
+            )
         if len(transfers) != 1:
             raise IntegrationError("Direct Devnet funding requires exactly one recipient")
         transfer = transfers[0]
         supplier = Pubkey.from_string(transfer.to_address)
-        source = get_associated_token_address(self._agent_vault.pubkey(), self._stablecoin_mint)
+        source = get_associated_token_address(source_wallet.pubkey(), self._stablecoin_mint)
         destination = get_associated_token_address(supplier, self._stablecoin_mint)
         instructions = [
             create_idempotent_associated_token_account(
@@ -311,7 +321,7 @@ class DirectSolanaGateway:
                     source=source,
                     mint=self._stablecoin_mint,
                     dest=destination,
-                    owner=self._agent_vault.pubkey(),
+                    owner=source_wallet.pubkey(),
                     amount=transfer.amount_base_units,
                     decimals=self._settings.solana_usdc_decimals,
                 )
@@ -319,8 +329,12 @@ class DirectSolanaGateway:
         ]
         return await self._send_and_confirm(
             instructions=instructions,
-            signers=[self._platform, self._agent_vault],
-            from_address=self.vault_address,
+            signers=(
+                [self._platform]
+                if source_wallet is self._platform
+                else [self._platform, self._agent_vault]
+            ),
+            from_address=str(source_wallet.pubkey()),
             to_address=transfer.to_address,
         )
 
@@ -531,7 +545,14 @@ class DirectSolanaGateway:
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
-            [signature, {"encoding": "jsonParsed", "commitment": "confirmed", "maxSupportedTransactionVersion": 0}],
+            [
+                signature,
+                {
+                    "encoding": "jsonParsed",
+                    "commitment": "confirmed",
+                    "maxSupportedTransactionVersion": 0,
+                },
+            ],
         )
         return self._payment_matches(
             payload,
@@ -570,7 +591,13 @@ class DirectSolanaGateway:
             and isinstance(instruction["parsed"].get("info"), dict)
             and instruction["parsed"]["info"].get("authority") == sender_wallet_address
             and instruction["parsed"]["info"].get("destination") == expected_destination
-            and int((instruction["parsed"]["info"].get("tokenAmount") or {"amount": instruction["parsed"]["info"].get("amount", 0)}).get("amount", 0)) == expected_raw
+            and int(
+                (
+                    instruction["parsed"]["info"].get("tokenAmount")
+                    or {"amount": instruction["parsed"]["info"].get("amount", 0)}
+                ).get("amount", 0)
+            )
+            == expected_raw
             for instruction in instructions
         )
 
@@ -1088,7 +1115,14 @@ class PrivySolanaGateway:
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
-            [signature, {"encoding": "jsonParsed", "commitment": "confirmed", "maxSupportedTransactionVersion": 0}],
+            [
+                signature,
+                {
+                    "encoding": "jsonParsed",
+                    "commitment": "confirmed",
+                    "maxSupportedTransactionVersion": 0,
+                },
+            ],
         )
         if not isinstance(payload, dict):
             return False
@@ -1111,15 +1145,23 @@ class PrivySolanaGateway:
             and isinstance(instruction["parsed"].get("info"), dict)
             and instruction["parsed"]["info"].get("authority") == sender_wallet_address
             and instruction["parsed"]["info"].get("destination") == destination
-            and int((instruction["parsed"]["info"].get("tokenAmount") or {"amount": instruction["parsed"]["info"].get("amount", 0)}).get("amount", 0)) == expected_raw
+            and int(
+                (
+                    instruction["parsed"]["info"].get("tokenAmount")
+                    or {"amount": instruction["parsed"]["info"].get("amount", 0)}
+                ).get("amount", 0)
+            )
+            == expected_raw
             for instruction in instructions
         )
         pre_balances = meta.get("preTokenBalances", [])
         post_balances = meta.get("postTokenBalances", [])
         return (
             has_transfer
-            and self._token_balance_delta(pre_balances, post_balances, sender_wallet_address) == -expected_raw
-            and self._token_balance_delta(pre_balances, post_balances, recipient_wallet_address) == expected_raw
+            and self._token_balance_delta(pre_balances, post_balances, sender_wallet_address)
+            == -expected_raw
+            and self._token_balance_delta(pre_balances, post_balances, recipient_wallet_address)
+            == expected_raw
         )
 
     async def send_usdc(
@@ -1135,10 +1177,27 @@ class PrivySolanaGateway:
             raise IntegrationError("Privy reference_id must not exceed 64 characters")
 
         from_address = await self._wallet_address(wallet_id)
-        serialized_transaction = await self._build_transaction(from_address, transfers)
-        return await self._sign_and_send(
+        owner = Pubkey.from_string(from_address)
+        fee_payer, fee_payer_wallet_id = await self._platform_fee_payer(fallback=owner)
+        serialized_transaction = await self._build_transaction(
+            from_address,
+            transfers,
+            fee_payer=fee_payer,
+        )
+        if fee_payer_wallet_id is None:
+            return await self._sign_and_send(
+                wallet_id=wallet_id,
+                transaction=serialized_transaction,
+                reference_id=reference_id,
+                from_address=from_address,
+            )
+        owner_signed = await self._sign_transaction(
             wallet_id=wallet_id,
             transaction=serialized_transaction,
+        )
+        return await self._sign_and_send(
+            wallet_id=fee_payer_wallet_id,
+            transaction=owner_signed,
             reference_id=reference_id,
             from_address=from_address,
         )
@@ -1458,8 +1517,11 @@ class PrivySolanaGateway:
         self,
         from_address: str,
         transfers: list[ChainTransfer],
+        *,
+        fee_payer: Pubkey | None = None,
     ) -> bytes:
         owner = Pubkey.from_string(from_address)
+        payer = fee_payer or owner
         mint = Pubkey.from_string(self._settings.solana_usdc_mint)
         source_account = get_associated_token_address(owner, mint, TOKEN_PROGRAM_ID)
         instructions = []
@@ -1472,7 +1534,7 @@ class PrivySolanaGateway:
             )
             instructions.append(
                 create_idempotent_associated_token_account(
-                    payer=owner,
+                    payer=payer,
                     owner=destination_owner,
                     mint=mint,
                     token_program_id=TOKEN_PROGRAM_ID,
@@ -1494,12 +1556,15 @@ class PrivySolanaGateway:
 
         recent_blockhash = Hash.from_string(await self._latest_blockhash())
         message = MessageV0.try_compile(
-            payer=owner,
+            payer=payer,
             instructions=instructions,
             address_lookup_table_accounts=[],
             recent_blockhash=recent_blockhash,
         )
-        unsigned = VersionedTransaction.populate(message, [Signature.default()])
+        unsigned = VersionedTransaction.populate(
+            message,
+            [Signature.default()] * message.header.num_required_signatures,
+        )
         return bytes(unsigned)
 
     async def _minimum_rent(self, size: int) -> int:

@@ -1509,11 +1509,12 @@ class CloudSqlRwaRepository:
 
     @staticmethod
     def _company(row: tuple[object, ...]) -> Company:
+        company_type = str(row[2])
         return Company(
             id=str(row[0]),
             name=str(row[1]),
-            type=str(row[2]),
-            country_code="KR",
+            type=company_type,
+            country_code="KR" if company_type == "SUPPLIER" else "US",
             registration_number=str(row[3]),
             kyb_status=str(row[4]),
             status=str(row[5]),

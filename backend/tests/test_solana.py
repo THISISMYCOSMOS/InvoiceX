@@ -23,7 +23,7 @@ from spl.token.instructions import (
 from spl.token.models import TransferCheckedParams
 
 from invoicex_backend.config import BackendSettings
-from invoicex_backend.models import ChainTransfer, TransactionStatus
+from invoicex_backend.models import ChainTransfer, ChainTransferResult, TransactionStatus
 from invoicex_backend.solana import (
     DirectSolanaGateway,
     MockSolanaGateway,
@@ -143,6 +143,74 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
 
 
 @pytest.mark.asyncio
+async def test_privy_settlement_uses_the_sponsor_as_fee_payer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settlement = str(Pubkey.new_unique())
+    sponsor = str(Pubkey.new_unique())
+    investor = str(Pubkey.new_unique())
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="privy",
+        GASLESS_ENABLED=True,
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
+        PRIVY_SPONSOR_WALLET_ID="sponsor",
+        PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
+    )
+    gateway = PrivySolanaGateway(settings)
+    signed_by: list[str] = []
+    submitted: dict[str, object] = {}
+
+    async def wallet_address(wallet_id: str) -> str:
+        return sponsor if wallet_id == "sponsor" else settlement
+
+    async def latest_blockhash() -> str:
+        return str(Hash.default())
+
+    async def sign_transaction(*, wallet_id: str, transaction: bytes) -> bytes:
+        signed_by.append(wallet_id)
+        return transaction
+
+    async def sign_and_send(**kwargs: object) -> ChainTransferResult:
+        submitted.update(kwargs)
+        return ChainTransferResult(
+            signature=str(Signature.default()),
+            status=TransactionStatus.CONFIRMED,
+            from_address=str(kwargs["from_address"]),
+            provider="PRIVY",
+            sandbox=False,
+        )
+
+    monkeypatch.setattr(gateway, "_wallet_address", wallet_address)
+    monkeypatch.setattr(gateway, "_latest_blockhash", latest_blockhash)
+    monkeypatch.setattr(gateway, "_sign_transaction", sign_transaction)
+    monkeypatch.setattr(gateway, "_sign_and_send", sign_and_send)
+
+    result = await gateway.send_usdc(
+        wallet_id="settlement",
+        transfers=[ChainTransfer(to_address=investor, amount_base_units=4_992_876)],
+        reference_id="investor-payout-INV-2026-001",
+    )
+    await gateway.aclose()
+
+    transaction = VersionedTransaction.from_bytes(submitted["transaction"])  # type: ignore[arg-type]
+    assert result.from_address == settlement
+    assert signed_by == ["settlement"]
+    assert submitted["wallet_id"] == "sponsor"
+    assert transaction.message.account_keys[0] == Pubkey.from_string(sponsor)
+    assert transaction.message.header.num_required_signatures == 2
+
+
+@pytest.mark.asyncio
 async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
     tmp_path: Path,
 ) -> None:
@@ -179,6 +247,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
         PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
         PRIVY_TREASURY_WALLET_ADDRESS=treasury,
         PRIVY_SPONSOR_WALLET_ID="sponsor",
         PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
@@ -231,7 +300,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
                         Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
                     ),
                     owner=investor.pubkey(),
-                        amount=2_000_000,
+                    amount=2_000_000,
                     decimals=6,
                 )
             ),
@@ -266,7 +335,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
                         Pubkey.from_string(treasury), Pubkey.from_string(settings.solana_usdc_mint)
                     ),
                     owner=investor.pubkey(),
-                        amount=2_000_000,
+                    amount=2_000_000,
                     decimals=6,
                 )
             ),
@@ -395,6 +464,7 @@ async def test_privy_gateway_verifies_versioned_vault_deposit(tmp_path: Path) ->
         PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
         PRIVY_TREASURY_WALLET_ADDRESS=treasury,
         PRIVY_API_BASE_URL="https://privy.test",
         SOLANA_RPC_URL="https://rpc.test",
@@ -469,6 +539,7 @@ async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
         PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
         PRIVY_TREASURY_WALLET_ADDRESS=treasury,
         PRIVY_SPONSOR_WALLET_ID="sponsor",
         PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
@@ -497,9 +568,7 @@ async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
         ("/v1/wallets/sponsor/rpc", "signAndSendTransaction"),
     ]
     submitted_by_sponsor = [
-        encoded
-        for path, encoded in submitted_transactions
-        if path == "/v1/wallets/sponsor/rpc"
+        encoded for path, encoded in submitted_transactions if path == "/v1/wallets/sponsor/rpc"
     ]
     assert len(submitted_by_sponsor) == 2
     for encoded in submitted_by_sponsor:
@@ -565,6 +634,7 @@ async def test_privy_gateway_funds_development_wallet_with_sponsor(
         PRIVY_TREASURY_WALLET_ID="treasury",
         PRIVY_TREASURY_WALLET_ADDRESS=treasury,
         PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
         PRIVY_SPONSOR_WALLET_ID="sponsor",
         PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
         PRIVY_API_BASE_URL="https://privy.test",
@@ -591,9 +661,7 @@ async def test_privy_gateway_funds_development_wallet_with_sponsor(
         "sendTransaction",
         "getSignatureStatuses",
     ]
-    sponsor_transaction = VersionedTransaction.from_bytes(
-        base64.b64decode(submitted[-1][1])
-    )
+    sponsor_transaction = VersionedTransaction.from_bytes(base64.b64decode(submitted[-1][1]))
     assert str(sponsor_transaction.message.account_keys[0]) == sponsor
     assert treasury in {str(key) for key in sponsor_transaction.message.account_keys}
     assert recipient in {str(key) for key in sponsor_transaction.message.account_keys}
@@ -618,9 +686,7 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
         elif method == "getLatestBlockhash":
             result = {"value": {"blockhash": str(Hash.default())}}
         elif method == "sendTransaction":
-            transaction = VersionedTransaction.from_bytes(
-                base64.b64decode(payload["params"][0])
-            )
+            transaction = VersionedTransaction.from_bytes(base64.b64decode(payload["params"][0]))
             signatures.append(str(transaction.signatures[0]))
             raw_transfers.extend(
                 int.from_bytes(bytes(instruction.data)[1:9], "little")
@@ -655,10 +721,23 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
         supplier_wallet_address=str(supplier),
         amount_base_units=4_921_640,
     )
+    settlement_payout = await gateway.send_usdc(
+        wallet_id="DIRECT_SETTLEMENT",
+        transfers=[
+            ChainTransfer(
+                to_address=str(supplier),
+                amount_base_units=5_000_000,
+            )
+        ],
+        reference_id="investor-payout-INV-2026-001",
+    )
     await client.aclose()
 
     assert issued.transaction.status is TransactionStatus.CONFIRMED
     assert purchase.status is TransactionStatus.CONFIRMED
     assert purchase.provider == "DIRECT"
-    assert len(signatures) == 2
+    assert settlement_payout.status is TransactionStatus.CONFIRMED
+    assert settlement_payout.from_address == str(platform.pubkey())
+    assert len(signatures) == 3
     assert 4_921_640 in raw_transfers
+    assert 5_000_000 in raw_transfers

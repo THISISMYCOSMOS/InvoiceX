@@ -113,7 +113,9 @@ class BackendSettings(BaseSettings):
     )
     vertex_ai_project_id: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("VERTEX_AI_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT_ID"),
+        validation_alias=AliasChoices(
+            "VERTEX_AI_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "GCP_PROJECT_ID"
+        ),
     )
     vertex_ai_location: str = Field(
         default="global",
@@ -165,7 +167,9 @@ class BackendSettings(BaseSettings):
     )
     cloud_tasks_queue: str | None = Field(default=None, validation_alias="CLOUD_TASKS_QUEUE")
     cloud_tasks_location: str | None = Field(default=None, validation_alias="CLOUD_TASKS_LOCATION")
-    cloud_run_task_audience: str | None = Field(default=None, validation_alias="CLOUD_RUN_TASK_AUDIENCE")
+    cloud_run_task_audience: str | None = Field(
+        default=None, validation_alias="CLOUD_RUN_TASK_AUDIENCE"
+    )
     cloud_tasks_service_account_email: str | None = Field(
         default=None, validation_alias="CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL"
     )
@@ -232,6 +236,10 @@ class BackendSettings(BaseSettings):
     mock_settlement_enabled: bool = Field(
         default=True,
         validation_alias="MOCK_SETTLEMENT_ENABLED",
+    )
+    demo_early_payment_enabled: bool = Field(
+        default=False,
+        validation_alias="DEMO_EARLY_PAYMENT_ENABLED",
     )
     privy_api_base_url: str = Field(
         default="https://api.privy.io",
@@ -373,20 +381,6 @@ class BackendSettings(BaseSettings):
                 absent = [name for name, value in task_values.items() if not self._non_blank(value)]
                 if absent:
                     raise ValueError("Cloud Tasks requires configuration: " + ", ".join(absent))
-            if self.mock_settlement_enabled:
-                settlement_values = {
-                    "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
-                    "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
-                }
-                absent = [
-                    name
-                    for name, value in settlement_values.items()
-                    if not self._non_blank(value) or str(value).startswith("DEMO_")
-                ]
-                if absent:
-                    raise ValueError(
-                        "GCP mock settlement requires configuration: " + ", ".join(absent)
-                    )
         if self.agent_mode == "real" and not self._non_blank(self.vertex_ai_project_id):
             raise ValueError("AGENT_MODE=real requires VERTEX_AI_PROJECT_ID")
         if self.solana_mode == "privy":
@@ -435,6 +429,7 @@ class BackendSettings(BaseSettings):
             "PRIVY_APP_SECRET": self.privy_app_secret,
             "PRIVY_WALLET_ID": self.privy_treasury_wallet_id,
             "PRIVY_RWA_ISSUER_WALLET_ID": self.privy_rwa_issuer_wallet_id,
+            "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
             "INVESTOR_SETTLEMENT_WALLET_ADDRESS": (self.investor_settlement_wallet_address),
         }
         missing = [

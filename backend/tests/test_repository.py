@@ -65,6 +65,22 @@ def test_cloud_sql_skips_startup_ddl_when_schema_is_current() -> None:
     assert connection.closed is True
 
 
+def test_cloud_sql_restores_country_code_from_the_fixed_company_role_policy() -> None:
+    buyer = CloudSqlRwaRepository._company(
+        ("buyer-id", "Buyer Inc", "BUYER", "123456789", "VERIFIED", "ACTIVE")
+    )
+    investor = CloudSqlRwaRepository._company(
+        ("investor-id", "Investor LP", "INVESTOR", "987654321", "VERIFIED", "ACTIVE")
+    )
+    supplier = CloudSqlRwaRepository._company(
+        ("supplier-id", "Supplier Ltd", "SUPPLIER", "1234567890", "VERIFIED", "ACTIVE")
+    )
+
+    assert buyer.country_code == "US"
+    assert investor.country_code == "US"
+    assert supplier.country_code == "KR"
+
+
 def test_new_mandate_replaces_the_previous_active_mandate_for_one_wallet(tmp_path) -> None:
     repository = SQLiteRwaRepository(tmp_path / "rwa.sqlite3")
     policy = MandatePolicy(

@@ -7,12 +7,15 @@ from fastapi.testclient import TestClient
 
 from invoicex_backend.agents import create_agent_gateway
 from invoicex_backend.app import create_app, create_document_storage, create_repository
-from invoicex_backend.errors import IntegrationError
-from invoicex_backend.models import BlockchainTransaction, InvoiceStatus, RwaAsset, TransactionStatus
+from invoicex_backend.models import (
+    BlockchainTransaction,
+    InvoiceStatus,
+    RwaAsset,
+    TransactionStatus,
+)
 from invoicex_backend.service import InvoiceService
 from invoicex_backend.solana import MockSolanaGateway
 from tests.conftest import mock_settings
-
 
 BUYER_WALLET = "DemoBuyerEmbeddedWallet"
 INVESTOR_WALLET = "DemoInvestorEmbeddedWallet"
@@ -22,7 +25,7 @@ class RecordingPaymentGateway(MockSolanaGateway):
     def __init__(self, settings) -> None:
         super().__init__(settings)
         self.send_counts: Counter[str] = Counter()
-        self.fail_platform_fee_once = True
+        self.sent_transfers: list[tuple[str, str, int]] = []
 
     async def verify_usdc_payment(
         self,
@@ -41,9 +44,9 @@ class RecordingPaymentGateway(MockSolanaGateway):
 
     async def send_usdc(self, *, wallet_id, transfers, reference_id):
         self.send_counts[reference_id] += 1
-        if reference_id.startswith("platform-fee-") and self.fail_platform_fee_once:
-            self.fail_platform_fee_once = False
-            raise IntegrationError("temporary platform fee payout failure")
+        self.sent_transfers.extend(
+            (wallet_id, transfer.to_address, transfer.amount_base_units) for transfer in transfers
+        )
         return await super().send_usdc(
             wallet_id=wallet_id,
             transfers=transfers,
@@ -62,15 +65,21 @@ class DirectBuyerPaymentGateway(RecordingPaymentGateway):
         recipient_wallet_address: str,
         amount_base_units: int,
     ) -> bool:
-        return signature == "direct-payment-signature" and sender_wallet_address == BUYER_WALLET and (
-            (recipient_wallet_address == INVESTOR_WALLET and amount_base_units == 9_900_000_000)
-            or (recipient_wallet_address == self._settings.platform_fee_wallet_address and amount_base_units == 100_000_000)
+        return (
+            signature == "direct-payment-signature"
+            and sender_wallet_address == BUYER_WALLET
+            and (
+                recipient_wallet_address == await self.settlement_wallet_address()
+                and amount_base_units == 10_000_000_000
+            )
         )
 
 
 def _funded_invoice(client: TestClient, service: InvoiceService, contract_files) -> str:
     invoice_id = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]["id"]
-    verification = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()["invoice"]
+    verification = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()[
+        "invoice"
+    ]
     client.post(f"/api/v1/verifications/{verification['verificationId']}/confirm")
 
     invoice = service._invoice(invoice_id)
@@ -142,11 +151,14 @@ def _funded_invoice(client: TestClient, service: InvoiceService, contract_files)
     return invoice_id
 
 
-def test_buyer_payment_validation_and_idempotent_partial_settlement(
+def test_buyer_payment_moves_face_value_to_vault_and_only_pays_the_investor(
     tmp_path: Path,
     contract_files: dict[str, tuple[str, bytes, str]],
 ) -> None:
-    settings = mock_settings(tmp_path / "uploads")
+    settings = mock_settings(
+        tmp_path / "uploads",
+        DEMO_EARLY_PAYMENT_ENABLED=True,
+    )
     gateway = RecordingPaymentGateway(settings)
     service = InvoiceService(
         settings=settings,
@@ -162,6 +174,14 @@ def test_buyer_payment_validation_and_idempotent_partial_settlement(
         assert preparation.json()["buyerWalletAddress"] == BUYER_WALLET
         assert preparation.json()["amountUsdc"] == 10_000
         assert preparation.json()["amountBaseUnits"] == "10000000000"
+        assert preparation.json()["settlementWalletAddress"] == "DEMO_SETTLEMENT_WALLET"
+        assert preparation.json()["transfers"] == [
+            {
+                "recipientWalletAddress": "DEMO_SETTLEMENT_WALLET",
+                "amountUsdc": 10_000,
+                "amountBaseUnits": "10000000000",
+            }
+        ]
 
         for invalid_signature in ("wrong-amount-signature-0001", "wrong-wallet-signature-0001"):
             rejected = client.post(
@@ -170,28 +190,26 @@ def test_buyer_payment_validation_and_idempotent_partial_settlement(
             )
             assert rejected.status_code == 409
 
-        partial = client.post(
+        response = client.post(
             f"/api/v1/invoices/{invoice_id}/buyer-payment/confirm",
             json={"signature": "valid-payment-signature"},
         )
-        assert partial.status_code == 502
-        failed = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
-        assert failed["status"] == "SETTLEMENT_FAILED"
-        assert failed["buyerPaymentTransaction"]["signature"] == "valid-payment-signature"
-        assert failed["investorPayoutTransaction"] is not None
-        assert failed["investorPayoutTransaction"]["toAddress"] == INVESTOR_WALLET
-        assert failed["platformFeeTransaction"] is None
-
-        retried = client.post(
-            f"/api/v1/invoices/{invoice_id}/buyer-payment/confirm",
-            json={"signature": "valid-payment-signature"},
-        )
-        assert retried.status_code == 200
-        settled = retried.json()["invoice"]
+        assert response.status_code == 200
+        settled = response.json()["invoice"]
         assert settled["status"] == "SETTLED"
         assert settled["rwaAsset"] is None or settled["rwaAsset"]["status"] == "SETTLED"
+        assert settled["buyerPaymentTransaction"]["amountBaseUnits"] == "10000000000"
+        assert settled["buyerPaymentTransaction"]["toAddress"] == "DEMO_SETTLEMENT_WALLET"
+        assert settled["investorPayoutTransaction"]["amountBaseUnits"] == "9900000000"
+        assert settled["investorPayoutTransaction"]["toAddress"] == INVESTOR_WALLET
+        assert settled["platformFeeTransaction"] is None
+        assert settled["settlement"]["platformFeeBaseUnits"] == "100000000"
+        assert int(settled["buyerPaymentTransaction"]["amountBaseUnits"]) - int(
+            settled["investorPayoutTransaction"]["amountBaseUnits"]
+        ) == int(settled["settlement"]["platformFeeBaseUnits"])
         assert gateway.send_counts[f"investor-payout-{invoice_id}"] == 1
-        assert gateway.send_counts[f"platform-fee-{invoice_id}"] == 2
+        assert not any(reference.startswith("platform-fee-") for reference in gateway.send_counts)
+        assert gateway.sent_transfers == [("MOCK_SETTLEMENT", INVESTOR_WALLET, 9_900_000_000)]
 
         duplicate = client.post(
             f"/api/v1/invoices/{invoice_id}/buyer-payment/confirm",
@@ -214,11 +232,14 @@ def test_buyer_payment_validation_and_idempotent_partial_settlement(
         assert reused.status_code == 409
 
 
-def test_direct_buyer_payment_sends_proceeds_to_the_rwa_owner_wallet(
+def test_direct_buyer_payment_uses_the_same_settlement_vault_flow(
     tmp_path: Path,
     contract_files: dict[str, tuple[str, bytes, str]],
 ) -> None:
-    settings = mock_settings(tmp_path / "uploads")
+    settings = mock_settings(
+        tmp_path / "uploads",
+        DEMO_EARLY_PAYMENT_ENABLED=True,
+    )
     gateway = DirectBuyerPaymentGateway(settings)
     service = InvoiceService(
         settings=settings,
@@ -233,14 +254,9 @@ def test_direct_buyer_payment_sends_proceeds_to_the_rwa_owner_wallet(
         assert preparation.status_code == 200
         assert preparation.json()["transfers"] == [
             {
-                "recipientWalletAddress": INVESTOR_WALLET,
-                "amountUsdc": 9_900,
-                    "amountBaseUnits": "9900000000",
-            },
-            {
-                "recipientWalletAddress": settings.platform_fee_wallet_address,
-                "amountUsdc": 100,
-                    "amountBaseUnits": "100000000",
+                "recipientWalletAddress": "DEMO_SETTLEMENT_WALLET",
+                "amountUsdc": 10_000,
+                "amountBaseUnits": "10000000000",
             },
         ]
 
@@ -252,5 +268,52 @@ def test_direct_buyer_payment_sends_proceeds_to_the_rwa_owner_wallet(
         invoice = settled.json()["invoice"]
         assert invoice["status"] == "SETTLED"
         assert invoice["investorPayoutTransaction"]["toAddress"] == INVESTOR_WALLET
-        assert invoice["platformFeeTransaction"]["toAddress"] == settings.platform_fee_wallet_address
-        assert gateway.send_counts == Counter()
+        assert invoice["platformFeeTransaction"] is None
+        assert gateway.sent_transfers == [("DIRECT_SETTLEMENT", INVESTOR_WALLET, 9_900_000_000)]
+
+
+def test_maturity_gate_is_explicitly_bypassed_only_for_the_live_demo(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    strict_settings = mock_settings(
+        tmp_path / "strict-uploads",
+        DEMO_EARLY_PAYMENT_ENABLED=False,
+    )
+    strict_gateway = RecordingPaymentGateway(strict_settings)
+    strict_service = InvoiceService(
+        settings=strict_settings,
+        agent_gateway=create_agent_gateway(strict_settings),
+        solana_gateway=strict_gateway,
+        storage=create_document_storage(strict_settings),
+        repository=create_repository(strict_settings),
+    )
+    with TestClient(create_app(settings=strict_settings, service=strict_service)) as client:
+        invoice_id = _funded_invoice(client, strict_service, contract_files)
+        invoice = strict_service._invoice(invoice_id)
+        invoice.due_date = "2099-12-31"
+        strict_service._save_invoice(invoice)
+        response = client.get(f"/api/v1/invoices/{invoice_id}/buyer-payment/prepare")
+        assert response.status_code == 409
+        assert "만기일부터" in response.json()["message"]
+
+    demo_settings = mock_settings(
+        tmp_path / "demo-uploads",
+        DEMO_EARLY_PAYMENT_ENABLED=True,
+    )
+    demo_gateway = RecordingPaymentGateway(demo_settings)
+    demo_service = InvoiceService(
+        settings=demo_settings,
+        agent_gateway=create_agent_gateway(demo_settings),
+        solana_gateway=demo_gateway,
+        storage=create_document_storage(demo_settings),
+        repository=create_repository(demo_settings),
+    )
+    with TestClient(create_app(settings=demo_settings, service=demo_service)) as client:
+        invoice_id = _funded_invoice(client, demo_service, contract_files)
+        invoice = demo_service._invoice(invoice_id)
+        invoice.due_date = "2099-12-31"
+        demo_service._save_invoice(invoice)
+        response = client.get(f"/api/v1/invoices/{invoice_id}/buyer-payment/prepare")
+        assert response.status_code == 200
+        assert response.json()["demoDueDateBypass"] is True

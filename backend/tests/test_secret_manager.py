@@ -78,6 +78,7 @@ def test_enabled_injects_missing_keys_from_secret_manager(
             "privy-app-secret": "sm-privy-app-secret",
             "privy-wallet-id": "sm-privy-wallet-id",
             "privy-rwa-issuer-wallet-id": "sm-privy-issuer-id",
+            "privy-settlement-wallet-id": "sm-privy-settlement-id",
             "privy-sponsor-wallet-id": "sm-privy-sponsor-id",
         }
     )
@@ -86,6 +87,7 @@ def test_enabled_injects_missing_keys_from_secret_manager(
 
     assert settings.solana_rpc_url == "https://sm.example.com/rpc"
     assert settings.privy_app_id == "sm-privy-app-id"
+    assert settings.privy_settlement_wallet_id == "sm-privy-settlement-id"
 
 
 def test_enabled_does_not_overwrite_existing_env_value(

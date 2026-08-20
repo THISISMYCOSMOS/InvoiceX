@@ -26,10 +26,11 @@ vi.mock("./SignupAuthContext", () => ({
 vi.mock("../components/AppLayout", () => ({
   AppLayout: ({ children, currentPrivyAccount }: {
     children: ReactNode;
-    currentPrivyAccount?: { companyName: string };
+    currentPrivyAccount?: { companyName: string; countryCode: string };
   }) => (
     <div>
       <span>{currentPrivyAccount?.companyName}</span>
+      <span data-testid="account-country-code">{currentPrivyAccount?.countryCode}</span>
       {children}
     </div>
   ),
@@ -72,6 +73,29 @@ test("loads the completed Privy company before rendering business pages", async 
   expect(await screen.findByText("Supplier One")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Supplier dashboard" })).toBeInTheDocument();
   expect(mocks.getAuthMe).toHaveBeenCalledWith("privy-token");
+});
+
+test("normalizes buyer and investor accounts to the fixed US country policy", async () => {
+  mocks.getAuthMe.mockResolvedValue({
+    company: {
+      countryCode: "KR",
+      registrationNumber: "123456789",
+      name: "Buyer One",
+      type: "BUYER",
+    },
+    embeddedWallet: { address: "buyer-wallet-address" },
+    onboardingStatus: "COMPLETED",
+    nextPath: "/buyer",
+    user: { email: "owner@buyer.test", name: "Buyer Owner", title: "CFO" },
+  });
+
+  render(
+    <MemoryRouter initialEntries={["/buyer"]}>
+      <AuthenticatedAppLayout><h1>Buyer dashboard</h1></AuthenticatedAppLayout>
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByTestId("account-country-code")).toHaveTextContent("US");
 });
 
 test("keeps the authenticated profile while navigating within the same role", async () => {

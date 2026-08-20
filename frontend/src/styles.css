@@ -5284,6 +5284,249 @@ a {
   line-height: 1.6;
 }
 
+.investor-activity-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 20px;
+  border-bottom: 1px solid #d9dee8;
+}
+
+.investor-activity-tabs button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 12px;
+  color: #64748b;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.investor-activity-tabs button.is-active {
+  border-bottom-color: #7c3aed;
+  color: #6d28d9;
+}
+
+.investor-activity-tabs button span {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  color: #6d28d9;
+  background: #ede9fe;
+  font-size: 9px;
+}
+
+.agent-activity-timeline {
+  margin-top: 18px;
+  border: 1px solid #d9dee8;
+  border-radius: 12px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fafaff 0%, #fff 56%);
+}
+
+.agent-activity-timeline__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.agent-activity-timeline__header span,
+.agent-activity-timeline__type {
+  color: #7c3aed;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agent-activity-timeline__header h2 {
+  margin: 4px 0 0;
+  color: #172033;
+  font-size: 17px;
+}
+
+.agent-activity-timeline__header p {
+  margin: 0;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: #5b21b6;
+  background: #ede9fe;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.agent-activity-timeline ol {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-activity-timeline ol::before {
+  position: absolute;
+  top: 20px;
+  bottom: 20px;
+  left: 15px;
+  width: 2px;
+  background: #ddd6fe;
+  content: "";
+}
+
+.agent-activity-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.agent-activity-timeline__marker {
+  z-index: 1;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  color: #15803d;
+  background: #dcfce7;
+  box-shadow: 0 0 0 1px #bbf7d0;
+}
+
+.agent-activity-timeline__item--working .agent-activity-timeline__marker {
+  color: #7c3aed;
+  background: #ede9fe;
+  box-shadow: 0 0 0 1px #ddd6fe;
+}
+
+.agent-activity-timeline__item--failed .agent-activity-timeline__marker {
+  color: #b42318;
+  background: #fee4e2;
+  box-shadow: 0 0 0 1px #fecaca;
+}
+
+.agent-activity-timeline__item article {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 13px 14px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 0.04);
+}
+
+.agent-activity-timeline__item article > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agent-activity-timeline__item h3 {
+  margin: 4px 0 0;
+  color: #172033;
+  font-size: 13px;
+}
+
+.agent-activity-timeline__meta {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.agent-activity-timeline__meta time {
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+.agent-activity-timeline__meta b {
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: #15803d;
+  background: #dcfce7;
+  font-size: 8px;
+}
+
+.agent-activity-timeline__item--working .agent-activity-timeline__meta b {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.agent-activity-timeline__item--failed .agent-activity-timeline__meta b {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.agent-activity-timeline__item article > p {
+  margin: 9px 0 0;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.agent-activity-timeline__details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 11px;
+}
+
+.agent-activity-timeline__details span,
+.agent-activity-timeline__details a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  border-radius: 5px;
+  padding: 4px 6px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 8.5px;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.agent-activity-timeline__details .is-pass {
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.agent-activity-timeline__details .is-fail {
+  color: #b42318;
+  background: #fef2f2;
+}
+
+.agent-activity-timeline__details a {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.agent-activity-timeline__details svg {
+  flex: 0 0 auto;
+}
+
+.agent-activity-empty {
+  margin: 18px 0 0;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 26px;
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 11px;
+  text-align: center;
+}
+
 @media (max-width: 900px) {
   .investor-page-heading,
   .investor-decision__heading {
@@ -5309,6 +5552,21 @@ a {
   .investor-stats,
   .investor-policy-grid {
     grid-template-columns: 1fr;
+  }
+
+  .agent-activity-timeline {
+    padding: 15px;
+  }
+
+  .agent-activity-timeline__header,
+  .agent-activity-timeline__item article > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .agent-activity-timeline__meta {
+    align-items: flex-start;
+    flex-direction: row;
   }
 
   .investor-activity-card {
@@ -5793,6 +6051,14 @@ a {
   text-align: right;
 }
 
+.payment-information-card .settlement-wallet-address {
+  max-width: 72%;
+  overflow-wrap: anywhere;
+  color: #15803d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.4;
+}
+
 .payment-information-card .payment-amount-row {
   min-height: 58px;
 }
@@ -5811,6 +6077,11 @@ a {
 .copy-account-button {
   min-height: 34px;
   padding: 0 15px;
+}
+
+.buyer-confirm-button--full {
+  width: 100%;
+  min-height: 40px;
 }
 
 .payment-status-card > div {

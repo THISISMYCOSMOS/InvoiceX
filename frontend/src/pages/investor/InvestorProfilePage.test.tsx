@@ -7,7 +7,7 @@ import { InvestorProfilePage } from "./InvestorProfilePage";
 const mocks = vi.hoisted(() => ({
   currentAccount: {
     companyName: "Nova Capital",
-    countryCode: "US",
+    countryCode: "KR",
     registrationNumber: "123456789",
     role: "INVESTOR",
     userEmail: "investor@company.com",
@@ -67,6 +67,8 @@ test("shows the authenticated investor embedded wallet", () => {
   expect(screen.getByText("Embedded wallet")).toBeInTheDocument();
   expect(screen.getByText("InvestorEmbeddedWalletAddress")).toBeInTheDocument();
   expect(screen.getByText("125.5")).toBeInTheDocument();
+  expect(screen.getByText("US")).toBeInTheDocument();
+  expect(screen.queryByText("KR")).not.toBeInTheDocument();
   expect(screen.queryByText("No wallet connected")).not.toBeInTheDocument();
 });
 

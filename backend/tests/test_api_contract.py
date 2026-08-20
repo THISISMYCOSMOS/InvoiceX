@@ -319,7 +319,10 @@ def test_complete_frontend_contract_workflow(
     assert settled["settlementTransaction"]["sandbox"] is True
     assert settled["buyerPaymentTransaction"]["amountBaseUnits"] == terms["faceValueBaseUnits"]
     assert settled["investorPayoutTransaction"]["amountBaseUnits"] == terms["investorSettlementBaseUnits"]
-    assert settled["platformFeeTransaction"]["amountBaseUnits"] == terms["platformFeeBaseUnits"]
+    assert settled["platformFeeTransaction"] is None
+    assert int(settled["buyerPaymentTransaction"]["amountBaseUnits"]) - int(
+        settled["investorPayoutTransaction"]["amountBaseUnits"]
+    ) == int(terms["platformFeeBaseUnits"])
     settlement_signature = settled["settlementTransaction"]["signature"]
 
     duplicate_settlement = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")

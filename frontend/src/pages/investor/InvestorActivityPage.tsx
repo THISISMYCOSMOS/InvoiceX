@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
@@ -5,6 +6,7 @@ import { useInvoice } from "../../hooks/useInvoice";
 import { useAgentActivity } from "../../hooks/useAgentActivity";
 import { AgentActivityTimeline } from "../../components/AgentActivityTimeline";
 import { useLanguage } from "../../i18n/LanguageContext";
+import type { AgentActivityTimeline as AgentTimelineData } from "../../types/agents";
 import type { AgentDecision, Invoice } from "../../types/invoice";
 import { investorActivityResult } from "./investorActivityStatus";
 
@@ -87,8 +89,15 @@ function policyChecks(decision: AgentDecision | undefined, t: (english: string, 
   });
 }
 
-export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
+export function InvestorActivityContent({
+  invoice,
+  activity,
+}: {
+  invoice: Invoice;
+  activity?: AgentTimelineData | null;
+}) {
   const { t, language } = useLanguage();
+  const [activeTab, setActiveTab] = useState<"summary" | "timeline">("summary");
   const decision = invoice.agentDecision;
   const checks = policyChecks(decision, t);
   const passedChecks = checks.filter((check) => check.passed).length;
@@ -112,56 +121,89 @@ export function InvestorActivityContent({ invoice }: { invoice: Invoice }) {
         <span>{checks.length > 0 ? `${passedChecks} / ${checks.length} ${t("PASSED", "통과")}` : t("PENDING", "대기")}</span>
       </header>
 
-      <div className="investor-decision__grid">
-        <section className="investor-policy-card">
-          <header>
-            <h2>{t("Mandate evaluation", "Mandate 평가")}</h2>
-            <time dateTime={decision?.createdAt}>{formatTimestamp(decision?.createdAt, language === "ko" ? "ko-KR" : "en-US")}</time>
-          </header>
-          <div className="investor-policy-grid">
-            {checks.length > 0 ? checks.map((check) => (
-              <article key={check.label}>
-                <div>
-                  <span>{check.label}</span>
-                  <b>{check.passed ? t("PASS", "통과") : t("NOT MET", "미충족")}</b>
-                </div>
-                <strong>{check.passed ? t("Within mandate", "Mandate 충족") : t("Outside mandate", "Mandate 미충족")}</strong>
-              </article>
-            )) : (
-              <p className="investor-activity-empty">{t("No mandate evaluation has been recorded yet.", "아직 기록된 Mandate 평가가 없습니다.")}</p>
-            )}
-          </div>
-        </section>
-
-        <div className="investor-execution-column">
-          <section className="investor-execution-card">
-            <header>
-              <h2>{t("Execution summary", "실행 요약")}</h2>
-            </header>
-            <dl>
-              <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={rwaId}>{rwaId ? shortAddress(rwaId) : "—"}</dd></div>
-              <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
-              <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
-              <div><dt>{t("Decision", "결정")}</dt><dd>{t(result.english, result.korean)}</dd></div>
-              <div>
-                <dt>{t("Transaction", "트랜잭션")}</dt>
-                <dd>{transaction ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{shortAddress(transaction.signature)}</a> : "—"}</dd>
-              </div>
-            </dl>
-            {transaction ? (
-              <a
-                className="investor-primary-button investor-position-button"
-                href={transaction.explorerUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("View RWA position", "RWA 포지션 보기")}
-              </a>
-            ) : null}
-          </section>
-          <p className="investor-agent-notice">{copy.notice}</p>
-        </div>
+      <div className="investor-activity-tabs" role="tablist" aria-label={t("Investment activity views", "투자 활동 보기")}>
+        <button
+          id="investor-activity-summary-tab"
+          className={activeTab === "summary" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          aria-selected={activeTab === "summary"}
+          aria-controls="investor-activity-summary-panel"
+          onClick={() => setActiveTab("summary")}
+        >
+          {t("Decision summary", "투자 결정")}
+        </button>
+        <button
+          id="investor-activity-timeline-tab"
+          className={activeTab === "timeline" ? "is-active" : ""}
+          role="tab"
+          type="button"
+          aria-selected={activeTab === "timeline"}
+          aria-controls="investor-activity-timeline-panel"
+          aria-label={t("Agent timeline", "에이전트 진행 기록")}
+          onClick={() => setActiveTab("timeline")}
+        >
+          {t("Agent timeline", "에이전트 진행 기록")}
+          {activity?.timeline.length ? <span>{activity.timeline.length}</span> : null}
+        </button>
       </div>
+
+      {activeTab === "summary" ? (
+        <div id="investor-activity-summary-panel" role="tabpanel" aria-labelledby="investor-activity-summary-tab" className="investor-decision__grid">
+          <section className="investor-policy-card">
+            <header>
+              <h2>{t("Mandate evaluation", "Mandate 평가")}</h2>
+              <time dateTime={decision?.createdAt}>{formatTimestamp(decision?.createdAt, language === "ko" ? "ko-KR" : "en-US")}</time>
+            </header>
+            <div className="investor-policy-grid">
+              {checks.length > 0 ? checks.map((check) => (
+                <article key={check.label}>
+                  <div>
+                    <span>{check.label}</span>
+                    <b>{check.passed ? t("PASS", "통과") : t("NOT MET", "미충족")}</b>
+                  </div>
+                  <strong>{check.passed ? t("Within mandate", "Mandate 충족") : t("Outside mandate", "Mandate 미충족")}</strong>
+                </article>
+              )) : (
+                <p className="investor-activity-empty">{t("No mandate evaluation has been recorded yet.", "아직 기록된 Mandate 평가가 없습니다.")}</p>
+              )}
+            </div>
+          </section>
+
+          <div className="investor-execution-column">
+            <section className="investor-execution-card">
+              <header>
+                <h2>{t("Execution summary", "실행 요약")}</h2>
+              </header>
+              <dl>
+                <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={rwaId}>{rwaId ? shortAddress(rwaId) : "—"}</dd></div>
+                <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
+                <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
+                <div><dt>{t("Decision", "결정")}</dt><dd>{t(result.english, result.korean)}</dd></div>
+                <div>
+                  <dt>{t("Transaction", "트랜잭션")}</dt>
+                  <dd>{transaction ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{shortAddress(transaction.signature)}</a> : "—"}</dd>
+                </div>
+              </dl>
+              {transaction ? (
+                <a
+                  className="investor-primary-button investor-position-button"
+                  href={transaction.explorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("View RWA position", "RWA 포지션 보기")}
+                </a>
+              ) : null}
+            </section>
+            <p className="investor-agent-notice">{copy.notice}</p>
+          </div>
+        </div>
+      ) : (
+        <div id="investor-activity-timeline-panel" role="tabpanel" aria-labelledby="investor-activity-timeline-tab">
+          <AgentActivityTimeline activity={activity} />
+        </div>
+      )}
     </section>
   );
 }
@@ -181,5 +223,5 @@ export function InvestorActivityPage() {
     );
   }
 
-  return <><InvestorActivityContent invoice={invoice.data} /><AgentActivityTimeline activity={activity.data} /></>;
+  return <InvestorActivityContent invoice={invoice.data} activity={activity.data} />;
 }
