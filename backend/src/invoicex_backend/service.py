@@ -412,7 +412,7 @@ class InvoiceService:
         self,
         identity: AuthenticatedIdentity | None = None,
     ) -> list[Invoice]:
-        self._reconcile_buyer_invoices(identity)
+        self._reconcile_legacy_company_invoices(identity)
         invoices: list[Invoice] = []
         for invoice in sorted(
             self._invoices.values(),
@@ -430,7 +430,7 @@ class InvoiceService:
         invoice_id: str,
         identity: AuthenticatedIdentity | None = None,
     ) -> Invoice:
-        self._reconcile_buyer_invoices(identity)
+        self._reconcile_legacy_company_invoices(identity)
         invoice = self._invoice(invoice_id)
         self.assert_invoice_access(invoice, identity)
         self._ensure_dynamic_pricing(invoice)
@@ -2103,14 +2103,14 @@ class InvoiceService:
         )
         self._save_invoice(invoice)
 
-    def _reconcile_buyer_invoices(
+    def _reconcile_legacy_company_invoices(
         self,
         identity: AuthenticatedIdentity | None,
     ) -> None:
         if (
             identity is None
-            or identity.source != "PRIVY"
-            or identity.role is not LoginRole.BUYER
+            or identity.source not in {"PRIVY", "MEMBER"}
+            or identity.role not in {LoginRole.SUPPLIER, LoginRole.BUYER}
             or identity.company_id is None
             or not identity.company_name
         ):
@@ -2118,13 +2118,12 @@ class InvoiceService:
 
         company_name = identity.company_name.strip().casefold()
         for invoice in self._invoices.values():
-            if (
-                invoice.buyer.id != identity.company_id
-                and invoice.buyer.name.strip().casefold() == company_name
-            ):
-                invoice.buyer = invoice.buyer.model_copy(
-                    update={"id": identity.company_id}
-                )
+            party = invoice.supplier if identity.role is LoginRole.SUPPLIER else invoice.buyer
+            if party.id != identity.company_id and party.name.strip().casefold() == company_name:
+                if identity.role is LoginRole.SUPPLIER:
+                    invoice.supplier = party.model_copy(update={"id": identity.company_id})
+                else:
+                    invoice.buyer = party.model_copy(update={"id": identity.company_id})
                 self._save_invoice(invoice)
 
     def assert_wallet_ownership(

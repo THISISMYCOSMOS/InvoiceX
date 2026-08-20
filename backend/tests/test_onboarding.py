@@ -793,9 +793,14 @@ def test_password_member_uses_its_saved_settlement_wallet_for_rwa_issuance(
         assert confirmed.status_code == 200
         assert confirmed.json()["invoice"]["status"] == "OFFER_READY"
 
-        # Simulate a legacy invoice that still has the obsolete demo address.
+        # Simulate a legacy invoice that still has demo identity data.
         stored_invoice = client.app.state.invoice_service._invoice(invoice_id)
-        stored_invoice.supplier.wallet_address = "DEMO_SUPPLIER_WALLET"
+        stored_invoice.supplier = stored_invoice.supplier.model_copy(
+            update={
+                "id": "SUPPLIER_ALPHA",
+                "wallet_address": "DEMO_SUPPLIER_WALLET",
+            }
+        )
         client.app.state.invoice_service._save_invoice(stored_invoice)
 
         password_login = client.post(
@@ -810,6 +815,9 @@ def test_password_member_uses_its_saved_settlement_wallet_for_rwa_issuance(
         member_headers = {
             "Authorization": f"Bearer {password_login.json()['accessToken']}"
         }
+        listed = client.get("/api/v1/invoices", headers=member_headers)
+        assert listed.status_code == 200
+        assert [item["id"] for item in listed.json()["items"]] == [invoice_id]
 
         issued = client.post(
             f"/api/v1/invoices/{invoice_id}/offer-response",
