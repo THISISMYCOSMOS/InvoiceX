@@ -1,4 +1,5 @@
 import { createMockAdapter } from "./mockAdapter";
+import { DEMO_SETTLEMENT } from "../../mocks/demoScenario";
 
 test("progresses the demo invoice from analysis to settled", async () => {
   const adapter = createMockAdapter();
@@ -15,5 +16,5 @@ test("progresses the demo invoice from analysis to settled", async () => {
   const invoice = await adapter.getInvoice("INV-2026-001");
 
   expect(invoice.status).toBe("SETTLED");
-  expect(invoice.settlement?.investorSettlementUsdc).toBe(1);
+  expect(invoice.settlement?.investorSettlementUsdc).toBe(DEMO_SETTLEMENT.investorSettlementUsdc);
 });

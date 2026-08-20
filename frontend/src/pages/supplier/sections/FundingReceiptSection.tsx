@@ -1,7 +1,7 @@
 import { Coins, Wallet } from "@phosphor-icons/react";
 import { TransactionReceipt } from "../../../components/TransactionReceipt";
 import { useLanguage } from "../../../i18n/LanguageContext";
-import type { Invoice } from "../../../types/invoice";
+import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 
 export function FundingReceiptSection({ invoice }: { invoice: Invoice }) {
   const { t } = useLanguage();
@@ -30,7 +30,7 @@ export function FundingReceiptSection({ invoice }: { invoice: Invoice }) {
           </span>
           <div>
             <span>{t("Early settlement received", "조기정산 수령액")}</span>
-            <strong>{amount?.toLocaleString() ?? "—"} <small>USDC</small></strong>
+            <strong>{amount === undefined || amount === null ? "—" : formatInvoiceAmount(amount, "USDC")}</strong>
           </div>
         </article>
         <dl className="funding-receipt__details">

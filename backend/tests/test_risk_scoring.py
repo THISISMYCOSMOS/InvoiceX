@@ -5,7 +5,7 @@ from invoicex_backend.risk_scoring import DeterministicRiskScoringProvider, Risk
 def _request(*, mismatch: bool, invoice_id: str = "INV-1") -> RiskScoringRequest:
     return RiskScoringRequest(
         invoice_id=invoice_id,
-        face_value_usdc=100,
+        face_value_base_units=100_000_000,
         has_document_mismatches=mismatch,
         buyer_confirmed=True,
         remaining_term_days=90,

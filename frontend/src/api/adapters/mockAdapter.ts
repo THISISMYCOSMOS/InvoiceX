@@ -218,19 +218,20 @@ export function createMockAdapter(): ScenarioAdapter {
     async prepareBuyerPayment(invoiceId) {
       const current = ensureInvoice(invoiceId);
       const amountUsdc = current.riskPassport?.invoiceFaceValueUsdc ?? current.invoiceAmount;
+      const amountBaseUnits = current.riskPassport?.invoiceFaceValueBaseUnits ?? "0";
       return {
         invoiceId,
         buyerWalletAddress: current.buyer.walletAddress ?? "11111111111111111111111111111111",
         settlementWalletAddress: "11111111111111111111111111111111",
         usdcMintAddress: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
         amountUsdc,
-        amountBaseUnits: amountUsdc * 1_000_000,
+        amountBaseUnits,
         decimals: 6,
         dueDate: current.dueDate,
         transfers: [{
           recipientWalletAddress: "11111111111111111111111111111111",
           amountUsdc,
-          amountBaseUnits: amountUsdc * 1_000_000,
+          amountBaseUnits,
         }],
         demoDueDateBypass: true,
       };
@@ -251,9 +252,14 @@ export function createMockAdapter(): ScenarioAdapter {
         settlementTransaction: clone(DEMO_SETTLEMENT_TRANSACTION),
         settlement: {
           invoiceFaceValueUsdc: DEMO_SETTLEMENT.invoiceFaceValueUsdc,
+          invoiceFaceValueBaseUnits: current.riskPassport?.invoiceFaceValueBaseUnits ?? "0",
           investorSettlementUsdc: DEMO_SETTLEMENT.investorSettlementUsdc,
+          investorSettlementBaseUnits:
+            current.riskPassport?.earlySettlementTerms?.investorSettlementBaseUnits ?? "0",
           platformFeeUsdc: DEMO_SETTLEMENT.platformFeeUsdc,
+          platformFeeBaseUnits: current.riskPassport?.earlySettlementTerms?.platformFeeBaseUnits ?? "0",
           supplierResidualUsdc: 0,
+          supplierResidualBaseUnits: "0",
         },
         status: "SETTLED",
       };

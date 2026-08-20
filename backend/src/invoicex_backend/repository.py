@@ -50,7 +50,7 @@ class RwaRepository(Protocol):
     def claim_execution(self, invoice_id: str) -> bool: ...
     def finish_execution(self, invoice_id: str, status: str) -> None: ...
     def claim_deposit(self, signature: str) -> bool: ...
-    def committed_for_mandate(self, mandate_id: str) -> int: ...
+    def committed_base_units_for_mandate(self, mandate_id: str) -> int: ...
     def save_invoice(self, invoice: Invoice) -> None: ...
     def list_invoices(self) -> list[Invoice]: ...
     def save_analysis(self, invoice_id: str, analysis: DocumentAnalysisResult) -> None: ...
@@ -394,12 +394,12 @@ class SQLiteRwaRepository:
                 return False
         return True
 
-    def committed_for_mandate(self, mandate_id: str) -> int:
+    def committed_base_units_for_mandate(self, mandate_id: str) -> int:
         with self._lock:
             rows = self._connection.execute("SELECT document FROM agent_decisions").fetchall()
         decisions = [AgentDecision.model_validate_json(row["document"]) for row in rows]
         return sum(
-            decision.amount_usdc
+            int(decision.amount_base_units)
             for decision in decisions
             if decision.mandate_id == mandate_id and decision.status in {"APPROVED", "EXECUTED"}
         )
@@ -1332,11 +1332,11 @@ class CloudSqlRwaRepository:
         )
         return row is not None
 
-    def committed_for_mandate(self, mandate_id: str) -> int:
+    def committed_base_units_for_mandate(self, mandate_id: str) -> int:
         rows = self._read_all("SELECT document FROM agent_decisions")
         decisions = [self._decode(AgentDecision, row[0]) for row in rows]
         return sum(
-            decision.amount_usdc
+            int(decision.amount_base_units)
             for decision in decisions
             if decision.mandate_id == mandate_id and decision.status in {"APPROVED", "EXECUTED"}
         )

@@ -20,13 +20,13 @@ describe("buyer payment transaction", () => {
       settlementWalletAddress: settlement.toBase58(),
       usdcMintAddress: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
       amountUsdc: 96_000,
-      amountBaseUnits: 96_000_000_000,
+      amountBaseUnits: "96000000000",
       decimals: 6,
       dueDate: "2026-09-18",
       transfers: [{
         recipientWalletAddress: settlement.toBase58(),
         amountUsdc: 96_000,
-        amountBaseUnits: 96_000_000_000,
+        amountBaseUnits: "96000000000",
       }],
       demoDueDateBypass: true,
     };

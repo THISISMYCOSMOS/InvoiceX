@@ -13,7 +13,9 @@ import { useLanguage } from "../../i18n/LanguageContext";
 type VaultDepositPhase = "IDLE" | "PREPARING" | "AWAITING_SIGNATURE" | "CONFIRMING" | "CONFIRMED" | "FAILED";
 
 function parseAmount(value: string): number {
-  return /^\d+$/.test(value.trim()) ? Number(value) : Number.NaN;
+  return /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value.trim())
+    ? Number(value)
+    : Number.NaN;
 }
 
 function fromBase64(value: string): Uint8Array {
@@ -81,8 +83,8 @@ export function InvestorVaultPage() {
       return;
     }
     const amountUsdc = parseAmount(depositAmount);
-    if (!Number.isInteger(amountUsdc) || amountUsdc <= 0) {
-      setError(t("Enter a valid whole-USDC amount.", "예치할 USDC 수량을 정수로 입력해 주세요."));
+    if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) {
+      setError(t("Enter a valid USDC amount with up to 6 decimals.", "소수점 이하 최대 6자리의 올바른 USDC 수량을 입력해 주세요."));
       return;
     }
     setError(null);

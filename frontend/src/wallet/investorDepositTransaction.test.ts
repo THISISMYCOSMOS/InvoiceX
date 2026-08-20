@@ -20,6 +20,7 @@ describe("investor deposit transaction", () => {
       treasuryWalletAddress: treasury.toBase58(),
       usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
       amountUsdc: 20,
+      amountBaseUnits: "20000000",
       decimals: 6,
       network: "SOLANA_DEVNET",
     };

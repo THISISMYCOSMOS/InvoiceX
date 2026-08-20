@@ -14,8 +14,7 @@ export function buildInvestorDepositTransaction(
   const treasury = new PublicKey(preparation.treasuryWalletAddress);
   const investorTokenAccount = getAssociatedTokenAddressSync(mint, investor);
   const treasuryTokenAccount = getAssociatedTokenAddressSync(mint, treasury);
-  const rawAmount = BigInt(preparation.amountUsdc)
-    * (10n ** BigInt(preparation.decimals));
+  const rawAmount = BigInt(preparation.amountBaseUnits);
 
   return new Transaction().add(
     createAssociatedTokenAccountIdempotentInstruction(

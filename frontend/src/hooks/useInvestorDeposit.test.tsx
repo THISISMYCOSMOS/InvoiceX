@@ -70,6 +70,7 @@ beforeEach(() => {
     treasuryWalletAddress: treasuryAddress,
     usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
     amountUsdc: 20,
+    amountBaseUnits: "20000000",
     decimals: 6,
     network: "SOLANA_DEVNET",
   });
@@ -85,6 +86,7 @@ beforeEach(() => {
     investorWalletAddress: investorAddress,
     treasuryWalletAddress: treasuryAddress,
     amountUsdc: 20,
+    amountBaseUnits: "20000000",
     signature: "deposit-signature",
     status: "CONFIRMED",
     network: "SOLANA_DEVNET",

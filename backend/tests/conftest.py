@@ -17,6 +17,9 @@ def mock_settings(upload_directory: Path, **overrides: object) -> BackendSetting
         "UPLOAD_DIRECTORY": upload_directory,
         "RWA_DATABASE_PATH": upload_directory.parent / "invoicex-rwa.sqlite3",
         "PUBLIC_BASE_URL": "http://testserver",
+        "MVP_SOFR_BPS": 362,
+        "SOFR_AS_OF": "2026-08-14",
+        "SOFR_SOURCE": "Federal Reserve Bank of New York",
     }
     values.update(overrides)
     return BackendSettings(_env_file=None, **values)

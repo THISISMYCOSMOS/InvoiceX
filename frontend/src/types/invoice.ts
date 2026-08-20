@@ -76,9 +76,13 @@ export interface InvoiceParty {
 
 export interface SettlementResult {
   invoiceFaceValueUsdc: number;
+  invoiceFaceValueBaseUnits: string;
   investorSettlementUsdc: number;
+  investorSettlementBaseUnits: string;
   platformFeeUsdc: number;
+  platformFeeBaseUnits: string;
   supplierResidualUsdc: number;
+  supplierResidualBaseUnits: string;
 }
 
 export interface RwaAsset {
@@ -88,7 +92,11 @@ export interface RwaAsset {
   status: "ISSUED" | "SOLD" | "SETTLED";
   issueTransaction: BlockchainTransaction;
   faceValueUsdc?: number;
+  faceValueBaseUnits?: string;
   issuancePriceUsdc?: number;
+  issuancePriceBaseUnits?: string;
+  purchasePriceUsdc?: number;
+  purchasePriceBaseUnits?: string;
   purchaseTransaction?: BlockchainTransaction;
   ownerVaultAddress?: string;
 }
@@ -99,6 +107,7 @@ export interface AgentDecision {
   status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED";
   checks: Record<string, boolean>;
   amountUsdc: number;
+  amountBaseUnits: string;
   reason?: string;
   createdAt: string;
 }
@@ -171,13 +180,13 @@ export interface BuyerPaymentPreparation {
   settlementWalletAddress: string;
   usdcMintAddress: string;
   amountUsdc: number;
-  amountBaseUnits: number;
+  amountBaseUnits: string;
   decimals: number;
   dueDate: string;
   transfers: Array<{
     recipientWalletAddress: string;
     amountUsdc: number;
-    amountBaseUnits: number;
+    amountBaseUnits: string;
   }>;
   demoDueDateBypass: boolean;
 }
@@ -202,6 +211,7 @@ export interface InvestorDepositPreparation {
   treasuryWalletAddress: string;
   usdcMint: string;
   amountUsdc: number;
+  amountBaseUnits: string;
   decimals: number;
   network: "SOLANA_DEVNET";
 }
@@ -211,6 +221,7 @@ export interface InvestorDeposit {
   investorWalletAddress: string;
   treasuryWalletAddress: string;
   amountUsdc: number;
+  amountBaseUnits: string;
   signature: string;
   status: "PENDING" | "CONFIRMED" | "FAILED";
   network: "SOLANA_DEVNET";

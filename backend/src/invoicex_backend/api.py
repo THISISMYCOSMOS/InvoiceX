@@ -29,9 +29,9 @@ from invoicex_backend.auth import (
 from invoicex_backend.config import BackendSettings
 from invoicex_backend.errors import DocumentValidationError, NotFoundError, OnboardingApiError
 from invoicex_backend.models import (
-    ConfirmVaultDepositRequest,
     BuyerPaymentConfirmRequest,
     BuyerPaymentPreparation,
+    ConfirmVaultDepositRequest,
     CreateMandateRequest,
     DocumentType,
     ErrorResponse,
@@ -56,6 +56,7 @@ from invoicex_backend.models import (
     VerificationListResponse,
     VerificationResponse,
 )
+from invoicex_backend.money import usdc_to_base_units
 from invoicex_backend.onboarding import OnboardingService
 from invoicex_backend.onboarding_models import (
     AuthMeResponse,
@@ -781,6 +782,8 @@ async def prepare_vault_deposit(
         transaction_base64=prepared.transaction_base64,
         vault_address=prepared.vault_address,
         stablecoin_mint_address=prepared.stablecoin_mint_address,
+        amount_usdc=payload.amount_usdc,
+        amount_base_units=str(usdc_to_base_units(payload.amount_usdc)),
         provider=service.vault_provider,
         sponsored=prepared.sponsored,
         sponsor_deposit_id=prepared.sponsor_deposit_id,

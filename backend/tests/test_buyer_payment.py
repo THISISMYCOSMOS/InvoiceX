@@ -30,13 +30,13 @@ class RecordingPaymentGateway(MockSolanaGateway):
         signature: str,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool:
         return (
             signature == "valid-payment-signature"
             and sender_wallet_address == BUYER_WALLET
             and recipient_wallet_address == await self.settlement_wallet_address()
-            and amount_usdc == 10_000
+            and amount_base_units == 10_000_000_000
         )
 
     async def send_usdc(self, *, wallet_id, transfers, reference_id):
@@ -60,11 +60,11 @@ class DirectBuyerPaymentGateway(RecordingPaymentGateway):
         signature: str,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool:
         return signature == "direct-payment-signature" and sender_wallet_address == BUYER_WALLET and (
-            (recipient_wallet_address == INVESTOR_WALLET and amount_usdc == 9_900)
-            or (recipient_wallet_address == self._settings.platform_fee_wallet_address and amount_usdc == 100)
+            (recipient_wallet_address == INVESTOR_WALLET and amount_base_units == 9_900_000_000)
+            or (recipient_wallet_address == self._settings.platform_fee_wallet_address and amount_base_units == 100_000_000)
         )
 
 
@@ -88,13 +88,26 @@ def _funded_invoice(client: TestClient, service: InvoiceService, contract_files)
     terms = source_passport.early_settlement_terms.model_copy(
         update={
             "face_value_usdc": 10_000,
-            "purchase_amount_usdc": 9_500,
+            "face_value_base_units": "10000000000",
+            "purchase_amount_usdc": 8_900,
+            "purchase_amount_base_units": "8900000000",
             "platform_fee_usdc": 100,
-            "supplier_expected_settlement_usdc": 9_400,
+            "platform_fee_base_units": "100000000",
+            "supplier_expected_settlement_usdc": 8_900,
+            "supplier_settlement_base_units": "8900000000",
+            "expected_investor_return_usdc": 1_000,
+            "investor_net_return_base_units": "1000000000",
+            "investor_settlement_usdc": 9_900,
+            "investor_settlement_base_units": "9900000000",
         }
     )
     invoice.risk_passport = source_passport.model_copy(
-        update={"invoice_id": invoice.id, "invoice_face_value_usdc": 10_000, "early_settlement_terms": terms}
+        update={
+            "invoice_id": invoice.id,
+            "invoice_face_value_usdc": 10_000,
+            "invoice_face_value_base_units": "10000000000",
+            "early_settlement_terms": terms,
+        }
     )
     invoice.buyer.wallet_address = BUYER_WALLET
     invoice.rwa_asset = RwaAsset(
@@ -106,6 +119,7 @@ def _funded_invoice(client: TestClient, service: InvoiceService, contract_files)
             signature="demo-rwa-issue-signature",
             status=TransactionStatus.CONFIRMED,
             amount_usdc=0,
+            amount_base_units="0",
             from_address="DEMO_PLATFORM",
             to_address="DEMO_RWA_ESCROW",
             explorer_url="https://explorer.solana.com",
@@ -115,6 +129,12 @@ def _funded_invoice(client: TestClient, service: InvoiceService, contract_files)
         ),
         owner_vault_address="DEMO_AGENT_VAULT",
         owner_wallet_address=INVESTOR_WALLET,
+        face_value_usdc=10_000,
+        face_value_base_units="10000000000",
+        issuance_price_usdc=8_900,
+        issuance_price_base_units="8900000000",
+        purchase_price_usdc=8_900,
+        purchase_price_base_units="8900000000",
     )
     service._repository.save_rwa_asset(invoice.rwa_asset)
     invoice.status = InvoiceStatus.FUNDED
@@ -141,7 +161,7 @@ def test_buyer_payment_validation_and_idempotent_partial_settlement(
         assert preparation.status_code == 200
         assert preparation.json()["buyerWalletAddress"] == BUYER_WALLET
         assert preparation.json()["amountUsdc"] == 10_000
-        assert preparation.json()["amountBaseUnits"] == 10_000 * 10**settings.solana_usdc_decimals
+        assert preparation.json()["amountBaseUnits"] == "10000000000"
 
         for invalid_signature in ("wrong-amount-signature-0001", "wrong-wallet-signature-0001"):
             rejected = client.post(
@@ -215,12 +235,12 @@ def test_direct_buyer_payment_sends_proceeds_to_the_rwa_owner_wallet(
             {
                 "recipientWalletAddress": INVESTOR_WALLET,
                 "amountUsdc": 9_900,
-                "amountBaseUnits": 9_900 * 10**settings.solana_usdc_decimals,
+                    "amountBaseUnits": "9900000000",
             },
             {
                 "recipientWalletAddress": settings.platform_fee_wallet_address,
                 "amountUsdc": 100,
-                "amountBaseUnits": 100 * 10**settings.solana_usdc_decimals,
+                    "amountBaseUnits": "100000000",
             },
         ]
 

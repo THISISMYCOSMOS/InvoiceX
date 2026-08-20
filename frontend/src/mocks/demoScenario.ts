@@ -1,6 +1,7 @@
 import type { AgentTrace, BlockchainTransaction, RiskPassport } from "../types/agents";
 import type { DocumentAnalysis, DocumentType, ExtractedField, InvoiceDocument } from "../types/documents";
 import type { AgentDecision, Invoice, InvestorDashboard, RwaAsset } from "../types/invoice";
+import pricing from "./generatedPricingFixture.json";
 
 export const REQUIRED_DOCUMENT_TYPES: readonly DocumentType[] = [
   "INVOICE",
@@ -11,12 +12,12 @@ export const REQUIRED_DOCUMENT_TYPES: readonly DocumentType[] = [
 
 export const DEMO_SETTLEMENT = {
   mockKrwPerUsdc: 1_500,
-  invoiceFaceValueUsdc: 3,
-  advanceRateBps: 9_400,
-  supplierAdvanceUsdc: 2,
-  investorSettlementUsdc: 1,
-  platformFeeUsdc: 1,
-  earlySettlementCostUsdc: 1,
+  invoiceFaceValueUsdc: pricing.faceValueUsdc,
+  advanceRateBps: pricing.purchaseRateBps,
+  supplierAdvanceUsdc: pricing.supplierSettlementUsdc,
+  investorSettlementUsdc: pricing.investorSettlementUsdc,
+  platformFeeUsdc: pricing.platformFeeUsdc,
+  earlySettlementCostUsdc: pricing.discountAmountUsdc,
 } as const;
 
 export const DEMO_INVOICE: Invoice = {
@@ -79,7 +80,9 @@ export const DEMO_RISK_PASSPORT: RiskPassport = {
   riskFactors: [{ severity: "LOW", title: "단일 데모 거래", description: "해커톤 데모용 고정 시나리오입니다." }],
   suggestedAdvanceRateBps: DEMO_SETTLEMENT.advanceRateBps,
   suggestedAdvanceAmountUsdc: DEMO_SETTLEMENT.supplierAdvanceUsdc,
+  suggestedAdvanceBaseUnits: pricing.supplierSettlementBaseUnits,
   invoiceFaceValueUsdc: DEMO_SETTLEMENT.invoiceFaceValueUsdc,
+  invoiceFaceValueBaseUnits: pricing.faceValueBaseUnits,
   sourceCurrencyToUsdcRate: 1,
   dataCoverageBps: 10_000,
   scoreFactors: [
@@ -104,24 +107,35 @@ export const DEMO_RISK_PASSPORT: RiskPassport = {
     failureReasons: [],
   },
   earlySettlementTerms: {
-    faceValueUsdc: 3,
-    discountAmountUsdc: 1,
-    discountRateBps: 3_333,
-    investorRequiredReturnUsdc: 0,
-    platformFeeUsdc: 1,
+    faceValueUsdc: pricing.faceValueUsdc,
+    faceValueBaseUnits: pricing.faceValueBaseUnits,
+    discountAmountUsdc: pricing.discountAmountUsdc,
+    discountRateBps: pricing.discountRateBps,
+    investorRequiredReturnUsdc: pricing.investorNetReturnUsdc,
+    platformFeeUsdc: pricing.platformFeeUsdc,
+    platformFeeBaseUnits: pricing.platformFeeBaseUnits,
     reserveAmountUsdc: 0,
     reserveRateBps: 0,
-    initialAdvanceUsdc: 2,
+    initialAdvanceUsdc: pricing.purchaseAmountUsdc,
     expectedReserveReturnUsdc: 0,
-    expectedFinalProceedsUsdc: 2,
-    remainingTermDays: 90,
-    sofrRateBps: 500,
-    riskSpreadBps: 300,
-    countryLegalSpreadBps: 100,
-    annualExpectedYieldBps: 900,
-    expectedInvestorReturnUsdc: 1,
-    purchaseAmountUsdc: 2,
-    supplierExpectedSettlementUsdc: 2,
+    expectedFinalProceedsUsdc: pricing.purchaseAmountUsdc,
+    remainingTermDays: pricing.remainingTermDays,
+    sofrRateBps: pricing.sofrRateBps,
+    sofrAsOf: pricing.sofrAsOf,
+    sofrSource: pricing.sofrSource,
+    buyerRiskScore: pricing.buyerRiskScore,
+    riskSpreadBps: pricing.riskSpreadBps,
+    countryLegalSpreadBps: pricing.countryLegalSpreadBps,
+    annualExpectedYieldBps: pricing.annualExpectedYieldBps,
+    platformFeeShareBps: pricing.platformFeeShareBps,
+    expectedInvestorReturnUsdc: pricing.investorNetReturnUsdc,
+    investorNetReturnBaseUnits: pricing.investorNetReturnBaseUnits,
+    investorSettlementUsdc: pricing.investorSettlementUsdc,
+    investorSettlementBaseUnits: pricing.investorSettlementBaseUnits,
+    purchaseAmountUsdc: pricing.purchaseAmountUsdc,
+    purchaseAmountBaseUnits: pricing.purchaseAmountBaseUnits,
+    supplierExpectedSettlementUsdc: pricing.supplierSettlementUsdc,
+    supplierSettlementBaseUnits: pricing.supplierSettlementBaseUnits,
     settlementAsset: "USDC",
     network: "SOLANA_DEVNET",
   },
@@ -135,6 +149,7 @@ export const DEMO_FUNDING_TRANSACTION: BlockchainTransaction = {
   network: "SOLANA_DEVNET",
   status: "CONFIRMED",
   amountUsdc: DEMO_SETTLEMENT.supplierAdvanceUsdc,
+  amountBaseUnits: pricing.supplierSettlementBaseUnits,
   fromAddress: "DEMO_AGENT_VAULT",
   toAddress: "DEMO_SUPPLIER_WALLET",
   explorerUrl: "https://explorer.solana.com/tx/5igDemoFundingSignature?cluster=devnet",
@@ -147,6 +162,12 @@ export const DEMO_RWA_ASSET: RwaAsset = {
   escrowTokenAccount: "DemoRwaEscrow7H4cZ8xPmN2vLq5aYtK3eW9s",
   status: "ISSUED",
   issueTransaction: DEMO_FUNDING_TRANSACTION,
+  faceValueUsdc: pricing.faceValueUsdc,
+  faceValueBaseUnits: pricing.faceValueBaseUnits,
+  issuancePriceUsdc: pricing.purchaseAmountUsdc,
+  issuancePriceBaseUnits: pricing.purchaseAmountBaseUnits,
+  purchasePriceUsdc: pricing.purchaseAmountUsdc,
+  purchasePriceBaseUnits: pricing.purchaseAmountBaseUnits,
 };
 
 export const DEMO_AGENT_DECISION: AgentDecision = {
@@ -154,6 +175,7 @@ export const DEMO_AGENT_DECISION: AgentDecision = {
   status: "PENDING",
   checks: { activeMandate: false },
   amountUsdc: DEMO_SETTLEMENT.supplierAdvanceUsdc,
+  amountBaseUnits: pricing.purchaseAmountBaseUnits,
   reason: "활성화된 투자 Mandate를 기다리고 있습니다.",
   createdAt: "2026-07-30T09:09:00.000Z",
 };
@@ -163,6 +185,7 @@ export const DEMO_SETTLEMENT_TRANSACTION: BlockchainTransaction = {
   network: "SOLANA_DEVNET",
   status: "CONFIRMED",
   amountUsdc: DEMO_SETTLEMENT.invoiceFaceValueUsdc,
+  amountBaseUnits: pricing.faceValueBaseUnits,
   fromAddress: "DEMO_SETTLEMENT_PARTNER",
   toAddress: "DEMO_SETTLEMENT_VAULT",
   explorerUrl: "https://explorer.solana.com/tx/5igDemoSettlementSignature?cluster=devnet",

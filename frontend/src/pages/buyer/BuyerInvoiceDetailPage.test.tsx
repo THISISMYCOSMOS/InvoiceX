@@ -61,13 +61,13 @@ test("shows the embedded-wallet maturity-payment action for a funded invoice", a
         settlementWalletAddress: "SettlementWallet",
         usdcMintAddress: "UsdcMint",
         amountUsdc: 3,
-        amountBaseUnits: 3_000_000,
+        amountBaseUnits: "3000000",
         decimals: 6,
         dueDate: DEMO_INVOICE.dueDate,
         transfers: [{
           recipientWalletAddress: "SettlementWallet",
           amountUsdc: 3,
-          amountBaseUnits: 3_000_000,
+          amountBaseUnits: "3000000",
         }],
         demoDueDateBypass: true,
       }}

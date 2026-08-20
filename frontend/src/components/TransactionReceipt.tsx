@@ -1,6 +1,7 @@
 import type { BlockchainTransaction } from "../types/agents";
 import { ExplorerLink } from "./ExplorerLink";
 import { useLanguage } from "../i18n/LanguageContext";
+import { formatInvoiceAmount } from "../types/invoice";
 
 export function TransactionReceipt({ transaction }: { transaction: BlockchainTransaction }) {
   const { t } = useLanguage();
@@ -15,7 +16,7 @@ export function TransactionReceipt({ transaction }: { transaction: BlockchainTra
       </header>
       <dl>
         <div className="transaction-receipt__signature"><dt>{t("Transaction signature", "트랜잭션 해시")}</dt><dd>{transaction.signature}</dd></div>
-        <div><dt>{t("Amount", "지급 금액")}</dt><dd>{transaction.amountUsdc.toLocaleString()} USDC</dd></div>
+        <div><dt>{t("Amount", "지급 금액")}</dt><dd>{formatInvoiceAmount(transaction.amountUsdc, "USDC")}</dd></div>
         <div><dt>{t("From address", "발신 주소")}</dt><dd>{transaction.fromAddress}</dd></div>
         <div><dt>{t("To address", "수신 주소")}</dt><dd>{transaction.toAddress}</dd></div>
         <div><dt>{t("Network", "네트워크")}</dt><dd>{transaction.network.replace("_", " · ")}</dd></div>

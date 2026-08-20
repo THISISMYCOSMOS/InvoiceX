@@ -9,7 +9,7 @@ import logging
 import re
 import secrets
 from collections.abc import Callable, Iterable
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal
@@ -79,11 +79,16 @@ from invoicex_backend.models import (
     Verification,
     VerificationStatus,
 )
+from invoicex_backend.money import (
+    base_units_string,
+    base_units_to_usdc,
+    parse_usdc,
+    usdc_to_base_units,
+)
 from invoicex_backend.policy import RiskDecision
 from invoicex_backend.pricing import (
     PricingPolicy,
     calculate_dynamic_pricing,
-    fraction_to_bps,
 )
 from invoicex_backend.repository import RwaRepository, SQLiteRwaRepository
 from invoicex_backend.risk_scoring import (
@@ -112,7 +117,7 @@ TraceStatus = Literal["SUBMITTED", "WORKING", "COMPLETED", "FAILED"]
 @dataclass(frozen=True, slots=True)
 class PendingSponsoredDeposit:
     owner_wallet_address: str
-    amount_usdc: int
+    amount_base_units: int
     prepared_transaction_base64: str
     expires_at: datetime
 
@@ -137,18 +142,16 @@ class InvoiceService:
         self._repository = repository or SQLiteRwaRepository(settings.rwa_database_path)
         self._risk_scoring = risk_scoring_provider or DeterministicRiskScoringProvider()
         self._pricing_policy = PricingPolicy(
-            sofr_rate=Decimal(str(settings.mvp_sofr_rate)),
-            risk_spreads=(
-                (90, Decimal(str(settings.risk_spread_90))),
-                (80, Decimal(str(settings.risk_spread_80))),
-                (70, Decimal(str(settings.risk_spread_70))),
+            sofr_bps=settings.mvp_sofr_bps,
+            sofr_as_of=settings.sofr_as_of,
+            sofr_source=settings.sofr_source,
+            risk_spreads_bps=(
+                (90, settings.risk_spread_90_bps),
+                (80, settings.risk_spread_80_bps),
+                (70, settings.risk_spread_70_bps),
             ),
-            country_spreads=(
-                ("LOW", Decimal(str(settings.country_spread_low))),
-                ("MEDIUM", Decimal(str(settings.country_spread_medium))),
-                ("HIGH", Decimal(str(settings.country_spread_high))),
-            ),
-            platform_fee_rate=Decimal(str(settings.platform_fee_rate)),
+            country_legal_spread_bps=settings.pilot_country_legal_spread_bps,
+            platform_fee_share_bps=settings.platform_fee_share_bps,
         )
         self._invoices: dict[str, Invoice] = {}
         self._agent_analyses: dict[str, DocumentAnalysisResult] = {}
@@ -515,6 +518,7 @@ class InvoiceService:
             owner_wallet_address=owner_wallet_address,
             vault_address=self._solana.vault_address,
             available_usdc=0,
+            available_base_units="0",
             updated_at=datetime.now(UTC).isoformat(),
         )
         self._repository.save_vault(vault)
@@ -524,10 +528,12 @@ class InvoiceService:
     def vault_provider(self) -> Literal["PRIVY", "DIRECT", "MOCK"]:
         return {"privy": "PRIVY", "direct": "DIRECT", "mock": "MOCK"}[self._solana.mode]  # type: ignore[return-value]
 
-    async def prepare_vault_deposit(self, *, owner_wallet_address: str, amount_usdc: int):
+    async def prepare_vault_deposit(self, *, owner_wallet_address: str, amount_usdc: Decimal):
         self._validate_wallet_address(owner_wallet_address)
+        amount_base_units = usdc_to_base_units(amount_usdc)
         prepared = await self._solana.prepare_vault_deposit(
-            owner_wallet_address=owner_wallet_address, amount_usdc=amount_usdc
+            owner_wallet_address=owner_wallet_address,
+            amount_base_units=amount_base_units,
         )
         if not prepared.sponsored:
             return prepared
@@ -535,7 +541,7 @@ class InvoiceService:
         async with self._sponsored_deposit_lock:
             self._sponsored_deposit_intents[sponsor_deposit_id] = PendingSponsoredDeposit(
                 owner_wallet_address=owner_wallet_address,
-                amount_usdc=amount_usdc,
+                amount_base_units=amount_base_units,
                 prepared_transaction_base64=prepared.transaction_base64,
                 expires_at=datetime.now(UTC) + timedelta(minutes=5),
             )
@@ -553,7 +559,7 @@ class InvoiceService:
             raise StateConflictError("가스리스 예치 요청의 지갑 주소가 일치하지 않습니다.")
         result = await self._solana.sponsor_vault_deposit(
             owner_wallet_address=intent.owner_wallet_address,
-            amount_usdc=intent.amount_usdc,
+            amount_base_units=intent.amount_base_units,
             prepared_transaction_base64=intent.prepared_transaction_base64,
             signed_transaction_base64=request.signed_transaction_base64,
             reference_id=f"gasless-deposit-{request.sponsor_deposit_id[:20]}",
@@ -561,7 +567,7 @@ class InvoiceService:
         return await self.confirm_vault_deposit(
             ConfirmVaultDepositRequest(
                 owner_wallet_address=intent.owner_wallet_address,
-                amount_usdc=intent.amount_usdc,
+                amount_usdc=base_units_to_usdc(intent.amount_base_units),
                 signature=result.signature,
             )
         )
@@ -571,7 +577,7 @@ class InvoiceService:
         if not await self._solana.verify_vault_deposit(
             signature=request.signature,
             owner_wallet_address=request.owner_wallet_address,
-            amount_usdc=request.amount_usdc,
+            amount_base_units=usdc_to_base_units(request.amount_usdc),
         ):
             raise StateConflictError("Agent Vault 예치 트랜잭션을 확인하지 못했습니다.")
         if not self._repository.claim_deposit(request.signature):
@@ -580,6 +586,10 @@ class InvoiceService:
         updated = current.model_copy(
             update={
                 "available_usdc": current.available_usdc + request.amount_usdc,
+                "available_base_units": base_units_string(
+                    int(current.available_base_units)
+                    + usdc_to_base_units(request.amount_usdc)
+                ),
                 "updated_at": datetime.now(UTC).isoformat(),
             }
         )
@@ -701,7 +711,7 @@ class InvoiceService:
             score_result = self._risk_scoring.evaluate(
                 RiskScoringRequest(
                     invoice_id=invoice.id,
-                    face_value_usdc=valuation.face_value_usdc,
+                    face_value_base_units=valuation.face_value_base_units,
                     has_document_mismatches=bool(agent_analysis.mismatches),
                     buyer_confirmed=True,
                     remaining_term_days=remaining_term_days,
@@ -711,23 +721,20 @@ class InvoiceService:
                 )
             )
             pricing = calculate_dynamic_pricing(
-                face_value_usdc=valuation.face_value_usdc,
+                face_value_base_units=valuation.face_value_base_units,
                 remaining_term_days=remaining_term_days,
                 risk_score=score_result.score,
-                country_risk_tier=self._country_risk_tier(
-                    invoice.buyer.id,
-                    invoice.buyer.name,
-                ),
                 policy=self._pricing_policy,
             )
             advance_amount = pricing.supplier_expected_settlement_usdc if pricing else None
+            advance_base_units = pricing.supplier_settlement_base_units if pricing else None
             decision = RiskDecision(
                 score=score_result.score,
                 level=score_result.eligibility.value,
                 eligibility=score_result.eligibility,
                 advance_rate_bps=(
-                    advance_amount * 10_000 // valuation.face_value_usdc
-                    if advance_amount is not None and valuation.face_value_usdc
+                    advance_base_units * 10_000 // valuation.face_value_base_units
+                    if advance_base_units is not None and valuation.face_value_base_units
                     else None
                 ),
                 advance_amount_usdc=advance_amount,
@@ -746,34 +753,49 @@ class InvoiceService:
             early_terms = (
                 EarlySettlementTerms(
                     face_value_usdc=pricing.face_value_usdc,
+                    face_value_base_units=base_units_string(pricing.face_value_base_units),
                     discount_amount_usdc=pricing.face_value_usdc
                     - pricing.supplier_expected_settlement_usdc,
                     discount_rate_bps=(
-                        (pricing.face_value_usdc - pricing.supplier_expected_settlement_usdc)
+                        (pricing.face_value_base_units - pricing.supplier_settlement_base_units)
                         * 10_000
-                        // pricing.face_value_usdc
-                        if pricing.face_value_usdc
+                        // pricing.face_value_base_units
+                        if pricing.face_value_base_units
                         else 0
                     ),
                     investor_required_return_usdc=pricing.expected_investor_return_usdc,
                     platform_fee_usdc=pricing.platform_fee_usdc,
+                    platform_fee_base_units=base_units_string(pricing.platform_fee_base_units),
                     reserve_amount_usdc=0,
                     reserve_rate_bps=0,
                     initial_advance_usdc=pricing.supplier_expected_settlement_usdc,
                     expected_reserve_return_usdc=0,
                     expected_final_proceeds_usdc=pricing.supplier_expected_settlement_usdc,
                     remaining_term_days=pricing.remaining_term_days,
-                    sofr_rate_bps=fraction_to_bps(pricing.sofr_rate),
-                    risk_spread_bps=fraction_to_bps(pricing.risk_spread),
-                    country_legal_spread_bps=fraction_to_bps(
-                        pricing.country_legal_spread
-                    ),
-                    annual_expected_yield_bps=fraction_to_bps(
-                        pricing.annual_expected_yield
-                    ),
+                    sofr_rate_bps=pricing.sofr_bps,
+                    sofr_as_of=pricing.sofr_as_of,
+                    sofr_source=pricing.sofr_source,
+                    buyer_risk_score=pricing.buyer_risk_score,
+                    risk_spread_bps=pricing.buyer_risk_spread_bps,
+                    country_legal_spread_bps=pricing.country_legal_spread_bps,
+                    annual_expected_yield_bps=pricing.investor_net_annual_yield_bps,
+                    platform_fee_share_bps=pricing.platform_fee_share_bps,
                     expected_investor_return_usdc=pricing.expected_investor_return_usdc,
+                    investor_net_return_base_units=base_units_string(
+                        pricing.investor_net_return_base_units
+                    ),
+                    investor_settlement_usdc=pricing.investor_settlement_usdc,
+                    investor_settlement_base_units=base_units_string(
+                        pricing.investor_settlement_base_units
+                    ),
                     purchase_amount_usdc=pricing.purchase_amount_usdc,
+                    purchase_amount_base_units=base_units_string(
+                        pricing.purchase_amount_base_units
+                    ),
                     supplier_expected_settlement_usdc=pricing.supplier_expected_settlement_usdc,
+                    supplier_settlement_base_units=base_units_string(
+                        pricing.supplier_settlement_base_units
+                    ),
                 )
                 if pricing is not None
                 else None
@@ -801,7 +823,11 @@ class InvoiceService:
                 ],
                 suggested_advance_rate_bps=decision.advance_rate_bps,
                 suggested_advance_amount_usdc=decision.advance_amount_usdc,
+                suggested_advance_base_units=(
+                    base_units_string(advance_base_units) if advance_base_units is not None else None
+                ),
                 invoice_face_value_usdc=valuation.face_value_usdc,
+                invoice_face_value_base_units=base_units_string(valuation.face_value_base_units),
                 source_currency_to_usdc_rate=valuation.source_currency_to_usdc_rate,
                 data_coverage_bps=score_result.data_coverage_bps,
                 score_factors=[
@@ -966,12 +992,32 @@ class InvoiceService:
                 status="ISSUED",
                 issue_transaction=self._transaction(
                     result=issued.transaction,
-                    amount_usdc=0,
+                    amount_base_units=0,
                     to_address=issued.escrow_token_account,
                 ),
                 face_value_usdc=invoice.risk_passport.invoice_face_value_usdc if invoice.risk_passport else None,
+                face_value_base_units=(
+                    invoice.risk_passport.invoice_face_value_base_units
+                    if invoice.risk_passport
+                    else None
+                ),
                 issuance_price_usdc=(
                     invoice.risk_passport.suggested_advance_amount_usdc if invoice.risk_passport else None
+                ),
+                issuance_price_base_units=(
+                    invoice.risk_passport.suggested_advance_base_units
+                    if invoice.risk_passport
+                    else None
+                ),
+                purchase_price_usdc=(
+                    invoice.risk_passport.suggested_advance_amount_usdc
+                    if invoice.risk_passport
+                    else None
+                ),
+                purchase_price_base_units=(
+                    invoice.risk_passport.suggested_advance_base_units
+                    if invoice.risk_passport
+                    else None
                 ),
             )
             self._repository.save_rwa_asset(asset)
@@ -1045,14 +1091,14 @@ class InvoiceService:
                 status="WORKING",
                 summary="Mandate 기준을 통과해 Agent Vault 자동 매수를 실행합니다.",
             )
-            amount = decision.amount_usdc
+            amount_base_units = int(decision.amount_base_units)
             try:
                 result = await self._solana.purchase_rwa(
                     invoice_id=invoice.id,
                     rwa_mint_address=asset.mint_address,
                     escrow_token_account=asset.escrow_token_account,
                     supplier_wallet_address=invoice.supplier.wallet_address or "",
-                    amount_usdc=amount,
+                    amount_base_units=amount_base_units,
                 )
             except IntegrationError as exc:
                 invoice.status = InvoiceStatus.ERROR
@@ -1070,7 +1116,9 @@ class InvoiceService:
                 return
 
             invoice.funding_transaction = self._transaction(
-                result=result, amount_usdc=amount, to_address=invoice.supplier.wallet_address or ""
+                result=result,
+                amount_base_units=amount_base_units,
+                to_address=invoice.supplier.wallet_address or "",
             )
             if result.status is TransactionStatus.CONFIRMED:
                 sold_asset = asset.model_copy(
@@ -1087,7 +1135,12 @@ class InvoiceService:
                 self._repository.save_vault(
                     vault.model_copy(
                         update={
-                            "available_usdc": vault.available_usdc - amount,
+                            "available_usdc": base_units_to_usdc(
+                                int(vault.available_base_units) - amount_base_units
+                            ),
+                            "available_base_units": base_units_string(
+                                int(vault.available_base_units) - amount_base_units
+                            ),
                             "updated_at": datetime.now(UTC).isoformat(),
                         }
                     )
@@ -1195,7 +1248,7 @@ class InvoiceService:
             }:
                 raise StateConflictError("펀딩 완료 후에만 Mock 입금과 정산을 처리할 수 있습니다.")
 
-            face_value = self._invoice_face_value(invoice)
+            face_value_base_units = self._invoice_face_value_base_units(invoice)
             signature = str(
                 Signature.from_bytes(
                     hashlib.sha512(f"buyer-payment-{invoice.id}".encode()).digest()
@@ -1205,7 +1258,8 @@ class InvoiceService:
             invoice.buyer_payment_transaction = BlockchainTransaction(
                 signature=signature,
                 status=TransactionStatus.CONFIRMED,
-                amount_usdc=face_value,
+                amount_usdc=base_units_to_usdc(face_value_base_units),
+                amount_base_units=base_units_string(face_value_base_units),
                 from_address=invoice.buyer.wallet_address or "DEMO_BUYER_WALLET",
                 to_address=settlement_wallet,
                 explorer_url=f"https://explorer.solana.com/tx/{signature}?cluster=devnet",
@@ -1242,7 +1296,8 @@ class InvoiceService:
         if not buyer_wallet:
             raise StateConflictError("구매기업 Embedded Wallet을 찾을 수 없습니다.")
         invoice.buyer.wallet_address = buyer_wallet
-        face_value = self._invoice_face_value(invoice)
+        face_value_base_units = self._invoice_face_value_base_units(invoice)
+        face_value = base_units_to_usdc(face_value_base_units)
         decimals = self._settings.solana_usdc_decimals
         transfers: list[BuyerPaymentTransfer]
         if self._solana.mode == "direct":
@@ -1250,20 +1305,21 @@ class InvoiceService:
             investor_wallet = invoice.rwa_asset.owner_wallet_address if invoice.rwa_asset else None
             if terms is None or not investor_wallet:
                 raise StateConflictError("RWA 보유 투자자 지갑과 정산 조건을 찾을 수 없습니다.")
-            investor_amount = face_value - terms.platform_fee_usdc
+            platform_fee_base_units = int(terms.platform_fee_base_units)
+            investor_base_units = face_value_base_units - platform_fee_base_units
             transfers = [
                 BuyerPaymentTransfer(
                     recipient_wallet_address=investor_wallet,
-                    amount_usdc=investor_amount,
-                    amount_base_units=investor_amount * 10**decimals,
+                    amount_usdc=base_units_to_usdc(investor_base_units),
+                    amount_base_units=base_units_string(investor_base_units),
                 )
             ]
-            if terms.platform_fee_usdc > 0:
+            if platform_fee_base_units > 0:
                 transfers.append(
                     BuyerPaymentTransfer(
                         recipient_wallet_address=self._settings.platform_fee_wallet_address,
                         amount_usdc=terms.platform_fee_usdc,
-                        amount_base_units=terms.platform_fee_usdc * 10**decimals,
+                        amount_base_units=base_units_string(platform_fee_base_units),
                     )
                 )
         else:
@@ -1272,7 +1328,7 @@ class InvoiceService:
                 BuyerPaymentTransfer(
                     recipient_wallet_address=settlement_wallet,
                     amount_usdc=face_value,
-                    amount_base_units=face_value * 10**decimals,
+                    amount_base_units=base_units_string(face_value_base_units),
                 )
             ]
         return BuyerPaymentPreparation(
@@ -1281,7 +1337,7 @@ class InvoiceService:
             settlement_wallet_address=transfers[0].recipient_wallet_address,
             usdc_mint_address=self._solana.stablecoin_mint_address,
             amount_usdc=face_value,
-            amount_base_units=face_value * 10**decimals,
+            amount_base_units=base_units_string(face_value_base_units),
             decimals=decimals,
             due_date=invoice.due_date,
             transfers=transfers,
@@ -1323,7 +1379,7 @@ class InvoiceService:
                             signature=signature,
                             sender_wallet_address=preparation.buyer_wallet_address,
                             recipient_wallet_address=transfer.recipient_wallet_address,
-                            amount_usdc=transfer.amount_usdc,
+                            amount_base_units=int(transfer.amount_base_units),
                         )
                         for transfer in preparation.transfers
                     )
@@ -1338,6 +1394,7 @@ class InvoiceService:
                 signature=signature,
                 status=TransactionStatus.CONFIRMED,
                 amount_usdc=preparation.transfers[0].amount_usdc,
+                amount_base_units=preparation.transfers[0].amount_base_units,
                 from_address=preparation.buyer_wallet_address,
                 to_address=preparation.transfers[0].recipient_wallet_address,
                 explorer_url=f"https://explorer.solana.com/tx/{signature}?cluster=devnet",
@@ -1357,9 +1414,12 @@ class InvoiceService:
             raise StateConflictError("영속화된 조기정산 가격 정보를 찾을 수 없습니다.")
         if invoice.buyer_payment_transaction is None:
             raise StateConflictError("구매기업 USDC 결제가 먼저 확인되어야 합니다.")
-        face_value = terms.face_value_usdc
-        platform_fee = terms.platform_fee_usdc
-        investor_amount = face_value - platform_fee
+        face_value_base_units = int(terms.face_value_base_units)
+        platform_fee_base_units = int(terms.platform_fee_base_units)
+        investor_base_units = face_value_base_units - platform_fee_base_units
+        face_value = base_units_to_usdc(face_value_base_units)
+        platform_fee = base_units_to_usdc(platform_fee_base_units)
+        investor_amount = base_units_to_usdc(investor_base_units)
         invoice.status = InvoiceStatus.SETTLING
         if self._solana.mode == "direct":
             investor_wallet = invoice.rwa_asset.owner_wallet_address if invoice.rwa_asset else None
@@ -1367,14 +1427,19 @@ class InvoiceService:
                 raise StateConflictError("RWA 보유 투자자 지갑을 찾을 수 없습니다.")
             if invoice.investor_payout_transaction is None:
                 invoice.investor_payout_transaction = invoice.buyer_payment_transaction.model_copy(
-                    update={"amount_usdc": investor_amount, "to_address": investor_wallet}
+                    update={
+                        "amount_usdc": investor_amount,
+                        "amount_base_units": base_units_string(investor_base_units),
+                        "to_address": investor_wallet,
+                    }
                 )
                 invoice.settlement_transaction = invoice.investor_payout_transaction
                 self._save_invoice(invoice)
-            if platform_fee > 0 and invoice.platform_fee_transaction is None:
+            if platform_fee_base_units > 0 and invoice.platform_fee_transaction is None:
                 invoice.platform_fee_transaction = invoice.buyer_payment_transaction.model_copy(
                     update={
                         "amount_usdc": platform_fee,
+                        "amount_base_units": base_units_string(platform_fee_base_units),
                         "to_address": self._settings.platform_fee_wallet_address,
                     }
                 )
@@ -1392,23 +1457,35 @@ class InvoiceService:
                 if invoice.investor_payout_transaction is None:
                     result = await self._solana.send_usdc(
                         wallet_id=settlement_wallet_id,
-                        transfers=[ChainTransfer(to_address=investor_wallet, amount_usdc=investor_amount)],
+                        transfers=[
+                            ChainTransfer(
+                                to_address=investor_wallet,
+                                amount_base_units=investor_base_units,
+                            )
+                        ],
                         reference_id=f"investor-payout-{invoice.id}",
                     )
                     invoice.investor_payout_transaction = self._transaction(
-                        result=result, amount_usdc=investor_amount, to_address=investor_wallet
+                        result=result,
+                        amount_base_units=investor_base_units,
+                        to_address=investor_wallet,
                     )
                     invoice.settlement_transaction = invoice.investor_payout_transaction
                     self._save_invoice(invoice)
-                if platform_fee > 0 and invoice.platform_fee_transaction is None:
+                if platform_fee_base_units > 0 and invoice.platform_fee_transaction is None:
                     result = await self._solana.send_usdc(
                         wallet_id=settlement_wallet_id,
-                        transfers=[ChainTransfer(to_address=self._settings.platform_fee_wallet_address, amount_usdc=platform_fee)],
+                        transfers=[
+                            ChainTransfer(
+                                to_address=self._settings.platform_fee_wallet_address,
+                                amount_base_units=platform_fee_base_units,
+                            )
+                        ],
                         reference_id=f"platform-fee-{invoice.id}",
                     )
                     invoice.platform_fee_transaction = self._transaction(
                         result=result,
-                        amount_usdc=platform_fee,
+                        amount_base_units=platform_fee_base_units,
                         to_address=self._settings.platform_fee_wallet_address,
                     )
                     self._save_invoice(invoice)
@@ -1420,16 +1497,20 @@ class InvoiceService:
         if (
             invoice.investor_payout_transaction
             and invoice.investor_payout_transaction.status is TransactionStatus.CONFIRMED
-            and (platform_fee == 0 or (
+            and (platform_fee_base_units == 0 or (
                 invoice.platform_fee_transaction
                 and invoice.platform_fee_transaction.status is TransactionStatus.CONFIRMED
             ))
         ):
             invoice.settlement = Settlement(
                 invoice_face_value_usdc=face_value,
+                invoice_face_value_base_units=base_units_string(face_value_base_units),
                 investor_settlement_usdc=investor_amount,
+                investor_settlement_base_units=base_units_string(investor_base_units),
                 platform_fee_usdc=platform_fee,
+                platform_fee_base_units=base_units_string(platform_fee_base_units),
                 supplier_residual_usdc=0,
+                supplier_residual_base_units="0",
             )
             invoice.status = InvoiceStatus.SETTLED
             if invoice.rwa_asset is not None:
@@ -1445,11 +1526,15 @@ class InvoiceService:
             self._save_invoice(invoice)
 
     @staticmethod
-    def _invoice_face_value(invoice: Invoice) -> int:
-        value = invoice.risk_passport.invoice_face_value_usdc if invoice.risk_passport else None
-        if value is None or value <= 0:
+    def _invoice_face_value_base_units(invoice: Invoice) -> int:
+        value = (
+            invoice.risk_passport.invoice_face_value_base_units
+            if invoice.risk_passport
+            else None
+        )
+        if value is None or int(value) <= 0:
             raise StateConflictError("확정된 인보이스 USDC 액면가를 찾을 수 없습니다.")
-        return value
+        return int(value)
 
     def investor_dashboard(
         self,
@@ -1746,13 +1831,14 @@ class InvoiceService:
     def _transaction(
         *,
         result: ChainTransferResult,
-        amount_usdc: int,
+        amount_base_units: int,
         to_address: str,
     ) -> BlockchainTransaction:
         return BlockchainTransaction(
             signature=result.signature,
             status=result.status,
-            amount_usdc=amount_usdc,
+            amount_usdc=base_units_to_usdc(amount_base_units),
+            amount_base_units=base_units_string(amount_base_units),
             from_address=result.from_address,
             to_address=to_address,
             explorer_url=(f"https://explorer.solana.com/tx/{result.signature}?cluster=devnet"),
@@ -1908,12 +1994,21 @@ class InvoiceService:
         complete_fields = (
             "remaining_term_days",
             "sofr_rate_bps",
+            "sofr_as_of",
+            "sofr_source",
+            "buyer_risk_score",
             "risk_spread_bps",
             "country_legal_spread_bps",
             "annual_expected_yield_bps",
+            "platform_fee_share_bps",
             "expected_investor_return_usdc",
+            "investor_net_return_base_units",
+            "investor_settlement_usdc",
+            "investor_settlement_base_units",
             "purchase_amount_usdc",
+            "purchase_amount_base_units",
             "supplier_expected_settlement_usdc",
+            "supplier_settlement_base_units",
         )
         remaining_term_days = max(
             0,
@@ -1925,89 +2020,88 @@ class InvoiceService:
         terms_are_complete = terms is not None and all(
             getattr(terms, field) is not None for field in complete_fields
         )
-        pricing_is_editable = invoice.status in {
-            InvoiceStatus.OFFER_READY,
-            InvoiceStatus.REVIEW_REQUESTED,
-        }
-        if terms_are_complete and (
-            not pricing_is_editable
-            or terms.remaining_term_days == remaining_term_days
-        ):
+        # Pricing is an immutable quote once the Offer is created.  This method
+        # exists only to backfill legacy/incomplete local demo records.
+        if terms_are_complete:
             return
 
-        face_value = passport.invoice_face_value_usdc
-        if face_value is None and terms is not None:
-            face_value = terms.face_value_usdc
-        if face_value is None:
+        face_value_base_units = passport.invoice_face_value_base_units
+        if face_value_base_units is None and terms is not None:
+            face_value_base_units = terms.face_value_base_units
+        if face_value_base_units is None:
             return
 
         pricing = calculate_dynamic_pricing(
-            face_value_usdc=face_value,
+            face_value_base_units=int(face_value_base_units),
             remaining_term_days=remaining_term_days,
             risk_score=passport.risk_score,
-            country_risk_tier=self._country_risk_tier(
-                invoice.buyer.id,
-                invoice.buyer.name,
-            ),
             policy=self._pricing_policy,
         )
         if pricing is None:
             return
 
-        discount_amount = pricing.face_value_usdc - pricing.supplier_expected_settlement_usdc
+        discount_base_units = (
+            pricing.face_value_base_units - pricing.supplier_settlement_base_units
+        )
+        discount_amount = base_units_to_usdc(discount_base_units)
         refreshed_terms = EarlySettlementTerms(
             face_value_usdc=pricing.face_value_usdc,
+            face_value_base_units=base_units_string(pricing.face_value_base_units),
             discount_amount_usdc=discount_amount,
             discount_rate_bps=(
-                discount_amount * 10_000 // pricing.face_value_usdc
-                if pricing.face_value_usdc
+                discount_base_units * 10_000 // pricing.face_value_base_units
+                if pricing.face_value_base_units
                 else 0
             ),
             investor_required_return_usdc=pricing.expected_investor_return_usdc,
             platform_fee_usdc=pricing.platform_fee_usdc,
+            platform_fee_base_units=base_units_string(pricing.platform_fee_base_units),
             reserve_amount_usdc=0,
             reserve_rate_bps=0,
             initial_advance_usdc=pricing.supplier_expected_settlement_usdc,
             expected_reserve_return_usdc=0,
             expected_final_proceeds_usdc=pricing.supplier_expected_settlement_usdc,
             remaining_term_days=pricing.remaining_term_days,
-            sofr_rate_bps=fraction_to_bps(pricing.sofr_rate),
-            risk_spread_bps=fraction_to_bps(pricing.risk_spread),
-            country_legal_spread_bps=fraction_to_bps(pricing.country_legal_spread),
-            annual_expected_yield_bps=fraction_to_bps(pricing.annual_expected_yield),
+            sofr_rate_bps=pricing.sofr_bps,
+            sofr_as_of=pricing.sofr_as_of,
+            sofr_source=pricing.sofr_source,
+            buyer_risk_score=pricing.buyer_risk_score,
+            risk_spread_bps=pricing.buyer_risk_spread_bps,
+            country_legal_spread_bps=pricing.country_legal_spread_bps,
+            annual_expected_yield_bps=pricing.investor_net_annual_yield_bps,
+            platform_fee_share_bps=pricing.platform_fee_share_bps,
             expected_investor_return_usdc=pricing.expected_investor_return_usdc,
+            investor_net_return_base_units=base_units_string(
+                pricing.investor_net_return_base_units
+            ),
+            investor_settlement_usdc=pricing.investor_settlement_usdc,
+            investor_settlement_base_units=base_units_string(
+                pricing.investor_settlement_base_units
+            ),
             purchase_amount_usdc=pricing.purchase_amount_usdc,
+            purchase_amount_base_units=base_units_string(pricing.purchase_amount_base_units),
             supplier_expected_settlement_usdc=pricing.supplier_expected_settlement_usdc,
+            supplier_settlement_base_units=base_units_string(
+                pricing.supplier_settlement_base_units
+            ),
         )
         invoice.risk_passport = passport.model_copy(
             update={
                 "suggested_advance_amount_usdc": pricing.supplier_expected_settlement_usdc,
+                "suggested_advance_base_units": base_units_string(
+                    pricing.supplier_settlement_base_units
+                ),
                 "suggested_advance_rate_bps": (
-                    pricing.supplier_expected_settlement_usdc
+                    pricing.supplier_settlement_base_units
                     * 10_000
-                    // pricing.face_value_usdc
-                    if pricing.face_value_usdc
+                    // pricing.face_value_base_units
+                    if pricing.face_value_base_units
                     else 0
                 ),
                 "early_settlement_terms": refreshed_terms,
             }
         )
         self._save_invoice(invoice)
-
-    def _country_risk_tier(
-        self,
-        buyer_company_id: str,
-        buyer_name: str | None = None,
-    ) -> str:
-        company = self._repository.get_company(buyer_company_id)
-        if company is None and buyer_name:
-            company = self._repository.find_company_by_name(buyer_name, "BUYER")
-        code = company.country_code.upper() if company is not None else "US"
-        if code in {"US", "KR", "DE", "GB", "FR", "JP", "SG", "CA", "AU"}:
-            return "LOW"
-        if code in {"CN", "IN", "BR", "MX", "ID", "TH", "VN"}:
-            return "MEDIUM"
-        return "HIGH"
 
     def _reconcile_buyer_invoices(
         self,
@@ -2094,6 +2188,11 @@ class InvoiceService:
     ) -> AgentDecision:
         passport = invoice.risk_passport
         amount = passport.suggested_advance_amount_usdc if passport else None
+        amount_base_units = (
+            int(passport.suggested_advance_base_units)
+            if passport and passport.suggested_advance_base_units is not None
+            else None
+        )
         due_date = self._parse_iso_date(invoice.due_date, "인보이스 만기일")
         remaining_days = max(0, (due_date - date.today()).days)
         policy = mandate.policy
@@ -2104,9 +2203,9 @@ class InvoiceService:
             and passport.risk_score >= policy.minimum_risk_score
         )
         is_total_investment_within_limit = bool(
-            amount is not None
-            and self._repository.committed_for_mandate(mandate.id) + amount
-            <= policy.total_investment_limit_usdc
+            amount_base_units is not None
+            and self._repository.committed_base_units_for_mandate(mandate.id) + amount_base_units
+            <= usdc_to_base_units(policy.total_investment_limit_usdc)
         )
         registered_buyer = self._repository.get_company(invoice.buyer.id)
         mandate_buyer_name = (
@@ -2118,9 +2217,15 @@ class InvoiceService:
             "minimumRiskScore": is_minimum_risk_score,
             "buyerAllowlist": mandate_buyer_name in policy.buyer_allowlist,
             "maximumRemainingTerm": remaining_days <= policy.maximum_remaining_term_days,
-            "perInvoiceLimit": bool(amount is not None and amount <= policy.per_invoice_limit_usdc),
+            "perInvoiceLimit": bool(
+                amount_base_units is not None
+                and amount_base_units <= usdc_to_base_units(policy.per_invoice_limit_usdc)
+            ),
             "totalInvestmentLimit": is_total_investment_within_limit,
-            "vaultAvailableBalance": bool(amount is not None and vault.available_usdc >= amount),
+            "vaultAvailableBalance": bool(
+                amount_base_units is not None
+                and int(vault.available_base_units) >= amount_base_units
+            ),
         }
         rejected = [name for name, passed in checks.items() if not passed]
         return AgentDecision(
@@ -2129,6 +2234,9 @@ class InvoiceService:
             status="APPROVED" if not rejected else "REJECTED",
             checks=checks,
             amount_usdc=amount or 0,
+            amount_base_units=(
+                base_units_string(amount_base_units) if amount_base_units is not None else "0"
+            ),
             reason=None if not rejected else f"Mandate 기준 미충족: {', '.join(rejected)}",
             created_at=datetime.now(UTC).isoformat(),
         )
@@ -2165,11 +2273,9 @@ class InvoiceService:
             raise StateConflictError("유효한 Solana 지갑 주소가 필요합니다.") from exc
 
     @staticmethod
-    def _parse_amount(value: object) -> int:
-        digits = re.sub(r"[^\d]", "", str(value))
-        if not digits:
-            raise ValueError("amount does not contain digits")
-        return int(digits)
+    def _parse_amount(value: object) -> Decimal:
+        normalized = re.sub(r"[,_\s]", "", str(value)).strip()
+        return parse_usdc(normalized)
 
     @staticmethod
     def _first_raw_value(

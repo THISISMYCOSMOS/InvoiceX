@@ -6,17 +6,17 @@ the mandate and idempotency checks in ``InvoiceService`` remain authoritative.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Protocol
 
 from invoicex_backend.models import RiskEligibility
-import hashlib
 
 
 @dataclass(frozen=True, slots=True)
 class RiskScoringRequest:
     invoice_id: str
-    face_value_usdc: int
+    face_value_base_units: int
     has_document_mismatches: bool
     buyer_confirmed: bool
     remaining_term_days: int

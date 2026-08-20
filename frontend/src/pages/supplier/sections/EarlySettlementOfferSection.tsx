@@ -10,10 +10,15 @@ type SettlementTerms = NonNullable<RiskPassport["earlySettlementTerms"]>;
 type CompleteSettlementTerms = SettlementTerms & {
   remainingTermDays: number;
   sofrRateBps: number;
+  sofrAsOf: string;
+  sofrSource: string;
+  buyerRiskScore: number;
   riskSpreadBps: number;
   countryLegalSpreadBps: number;
   annualExpectedYieldBps: number;
+  platformFeeShareBps: number;
   expectedInvestorReturnUsdc: number;
+  investorSettlementUsdc: number;
   purchaseAmountUsdc: number;
   supplierExpectedSettlementUsdc: number;
 };
@@ -30,19 +35,28 @@ function deriveTerms(invoice: Invoice): CompleteSettlementTerms | null {
     terms.platformFeeUsdc,
     terms.remainingTermDays,
     terms.sofrRateBps,
+    terms.buyerRiskScore,
     terms.riskSpreadBps,
     terms.countryLegalSpreadBps,
     terms.annualExpectedYieldBps,
+    terms.platformFeeShareBps,
     terms.expectedInvestorReturnUsdc,
+    terms.investorSettlementUsdc,
     terms.purchaseAmountUsdc,
     terms.supplierExpectedSettlementUsdc,
   ];
-  return requiredValues.every(isFiniteNumber) ? terms as CompleteSettlementTerms : null;
+  return requiredValues.every(isFiniteNumber)
+    && typeof terms.sofrAsOf === "string"
+    && terms.sofrAsOf.trim().length > 0
+    && typeof terms.sofrSource === "string"
+    && terms.sofrSource.trim().length > 0
+    ? terms as CompleteSettlementTerms
+    : null;
 }
 
 function formatUsdc(value: number | null | undefined) {
   if (!isFiniteNumber(value)) return "N/A";
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)} USDC`;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value)} USDC`;
 }
 
 function formatRateBps(value: number | null | undefined) {
@@ -181,13 +195,14 @@ export function EarlySettlementOfferSection({
                 <dl>
                   <div><dt>Invoice Face Value</dt><dd>{formatUsdc(terms.faceValueUsdc)}</dd></div>
                   <div><dt>{t("Remaining term", "잔존 만기")}</dt><dd>{terms.remainingTermDays} {t("days", "일")}</dd></div>
-                  <div><dt>SOFR</dt><dd>{formatRateBps(terms.sofrRateBps)}</dd></div>
-                  <div><dt>{t("Risk spread", "Risk Spread")}</dt><dd>+ {formatRateBps(terms.riskSpreadBps)}</dd></div>
-                  <div><dt>{t("Country / legal spread", "Country / Legal Spread")}</dt><dd>+ {formatRateBps(terms.countryLegalSpreadBps)}</dd></div>
-                  <div className="is-total"><dt>{t("Annual expected yield", "연 환산 기대수익률")}</dt><dd>{formatRateBps(terms.annualExpectedYieldBps)}</dd></div>
-                  <div className="is-cost"><dt>{t("Expected investor return", "예상 투자자 수익")}</dt><dd>- {formatUsdc(terms.expectedInvestorReturnUsdc)}</dd></div>
+                  <div><dt>SOFR <small>({terms.sofrSource}, {terms.sofrAsOf})</small></dt><dd>{formatRateBps(terms.sofrRateBps)}</dd></div>
+                  <div><dt>{t("Buyer risk spread", "Buyer Risk Spread")}</dt><dd>+ {formatRateBps(terms.riskSpreadBps)}</dd></div>
+                  <div><dt>{t("KR-US country / legal spread", "KR-US Country / Legal Spread")}</dt><dd>+ {formatRateBps(terms.countryLegalSpreadBps)}</dd></div>
+                  <div className="is-total"><dt>{t("Investor net annual yield", "투자자 순 연환산 수익률")}</dt><dd>{formatRateBps(terms.annualExpectedYieldBps)}</dd></div>
+                  <div><dt>{t("Investor net return", "투자자 순수익")}</dt><dd>{formatUsdc(terms.expectedInvestorReturnUsdc)}</dd></div>
+                  <div><dt>{t("Investor settlement", "투자자 만기 수령액")}</dt><dd>{formatUsdc(terms.investorSettlementUsdc)}</dd></div>
                   <div><dt>{t("RWA purchase amount", "RWA 매입가")}</dt><dd>{formatUsdc(terms.purchaseAmountUsdc)}</dd></div>
-                  <div className="is-cost"><dt>InvoiceX Transaction Fee</dt><dd>- {formatUsdc(terms.platformFeeUsdc)}</dd></div>
+                  <div><dt>InvoiceX Platform Fee ({formatRateBps(terms.platformFeeShareBps)})</dt><dd>{formatUsdc(terms.platformFeeUsdc)}</dd></div>
                   <div className="is-final"><dt>{t("Supplier settlement", "공급기업 정산 예정액")}</dt><dd>{formatUsdc(terms.supplierExpectedSettlementUsdc)}</dd></div>
                 </dl>
               </section>
@@ -196,11 +211,11 @@ export function EarlySettlementOfferSection({
                 <section className="reserve-explanation-card">
                   <span>Dynamic Pricing</span>
                   <h2>{t("How is the price calculated?", "가격은 어떻게 산정되나요?")}</h2>
-                  <p>{t("The annual expected yield is SOFR plus the score-band risk spread and country/legal spread. Investor return is prorated by the remaining term.", "연 기대수익률은 SOFR에 Risk Score 구간 스프레드와 국가·법률 스프레드를 더해 계산하며, 투자자 수익은 잔존 만기에 비례해 산정합니다.")}</p>
+                  <p>{t("Investor net annual yield is SOFR plus the Buyer Risk Spread and the fixed KR-US pilot spread. The purchase amount uses the disclosed closed-form formula; the supplier receives that full amount.", "투자자 순 연환산 수익률은 SOFR, Buyer Risk Spread, 고정 KR-US Pilot Spread의 합입니다. 매입가는 공개된 폐쇄형 공식으로 계산되며 공급기업은 매입가 전액을 수령합니다.")}</p>
                 </section>
                 <section className="settlement-metadata-card">
-                  <div><span>{t("Annual yield", "연 기대수익률")}</span><strong>{formatRateBps(terms.annualExpectedYieldBps)}</strong></div>
-                  <div><span>{t("Risk Score", "Risk Score")}</span><strong>{score ?? "N/A"}</strong></div>
+                  <div><span>{t("Investor net annual yield", "투자자 순 연환산 수익률")}</span><strong>{formatRateBps(terms.annualExpectedYieldBps)}</strong></div>
+                  <div><span>{t("Buyer Risk Score", "Buyer Risk Score")}</span><strong>{terms.buyerRiskScore}</strong></div>
                   <div><span>{t("Due date", "만기일")}</span><strong>{invoice.dueDate}</strong></div>
                   <div><span>{t("Settlement asset", "정산 자산")}</span><strong>{terms.settlementAsset}</strong></div>
                   <div><span>{t("Network", "네트워크")}</span><strong>Solana Devnet</strong></div>

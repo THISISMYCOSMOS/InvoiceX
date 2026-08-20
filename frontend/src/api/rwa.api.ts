@@ -34,6 +34,8 @@ interface VaultDepositPreparation {
   transactionBase64: string;
   vaultAddress: string;
   stablecoinMintAddress: string;
+  amountUsdc: number;
+  amountBaseUnits: string;
   provider: "PRIVY" | "DIRECT" | "MOCK";
   sponsored: boolean;
   sponsorDepositId: string | null;
@@ -44,6 +46,7 @@ export interface VaultBalance {
   ownerWalletAddress: string;
   vaultAddress: string;
   availableUsdc: number;
+  availableBaseUnits: string;
   updatedAt: string;
 }
 

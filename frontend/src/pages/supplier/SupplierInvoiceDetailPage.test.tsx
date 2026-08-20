@@ -34,7 +34,7 @@ test("separates Risk Passport, settlement terms, and RWA issuance", async () => 
 
   await user.click(screen.getByRole("button", { name: "Review early-settlement terms" }));
   expect(screen.getByRole("heading", { name: "Review early-settlement terms" })).toBeInTheDocument();
-  expect(screen.getByText("Annual expected yield")).toBeInTheDocument();
+  expect(screen.getAllByText("Investor net annual yield").length).toBeGreaterThan(0);
   expect(screen.getAllByText("RWA purchase amount").length).toBeGreaterThan(0);
   expect(screen.getByText("Dynamic Pricing")).toBeInTheDocument();
   expect(screen.getByText("4 / 7 Early-settlement terms")).toHaveAttribute("aria-current", "step");
@@ -190,6 +190,7 @@ test("shows the RWA issuance summary while funding is in progress", () => {
           status: "APPROVED",
           checks: { minimumRiskScore: true, buyerAllowlist: true },
           amountUsdc: 1,
+          amountBaseUnits: "1000000",
           reason: "All signed investment criteria passed.",
           createdAt: "2026-07-30T09:06:00.000Z",
         },

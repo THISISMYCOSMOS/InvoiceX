@@ -29,8 +29,7 @@ export function useInvestorDeposit() {
         new PublicKey(preparation.usdcMint),
         publicKey,
       );
-      const requiredRawAmount = BigInt(preparation.amountUsdc)
-        * (10n ** BigInt(preparation.decimals));
+      const requiredRawAmount = BigInt(preparation.amountBaseUnits);
 
       let availableRawAmount: bigint;
       try {

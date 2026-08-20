@@ -88,7 +88,7 @@ test("prepares and confirms an exact buyer USDC payment", async () => {
     settlementWalletAddress: "So11111111111111111111111111111111111111112",
     usdcMintAddress: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
     amountUsdc: 96_000,
-    amountBaseUnits: 96_000_000_000,
+    amountBaseUnits: "96000000000",
     decimals: 6,
     dueDate: "2026-09-18",
     demoDueDateBypass: true,

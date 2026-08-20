@@ -7,7 +7,6 @@ import base64
 import hashlib
 import time
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Any, Protocol
 
 import httpx
@@ -43,6 +42,7 @@ from invoicex_backend.models import (
     ChainTransferResult,
     TransactionStatus,
 )
+from invoicex_backend.money import usdc_to_base_units
 
 
 class SolanaGateway(Protocol):
@@ -68,15 +68,15 @@ class SolanaGateway(Protocol):
         rwa_mint_address: str,
         escrow_token_account: str,
         supplier_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> ChainTransferResult: ...
 
     async def prepare_vault_deposit(
-        self, *, owner_wallet_address: str, amount_usdc: int
+        self, *, owner_wallet_address: str, amount_base_units: int
     ) -> PreparedVaultDeposit: ...
 
     async def verify_vault_deposit(
-        self, *, signature: str, owner_wallet_address: str, amount_usdc: int
+        self, *, signature: str, owner_wallet_address: str, amount_base_units: int
     ) -> bool: ...
 
     async def settlement_wallet_address(self) -> str: ...
@@ -87,14 +87,14 @@ class SolanaGateway(Protocol):
         signature: str,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool: ...
 
     async def sponsor_vault_deposit(
         self,
         *,
         owner_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
         prepared_transaction_base64: str,
         signed_transaction_base64: str,
         reference_id: str,
@@ -180,7 +180,7 @@ class MockSolanaGateway:
     async def issue_rwa(self, *, invoice_id: str) -> RwaIssueResult:
         result = await self.send_usdc(
             wallet_id="MOCK_PLATFORM",
-            transfers=[ChainTransfer(to_address="DEMO_RWA_ESCROW", amount_usdc=0)],
+            transfers=[ChainTransfer(to_address="DEMO_RWA_ESCROW", amount_base_units=0)],
             reference_id=f"rwa-issue-{invoice_id}",
         )
         digest = hashlib.sha256(invoice_id.encode("utf-8")).digest()
@@ -198,18 +198,23 @@ class MockSolanaGateway:
         rwa_mint_address: str,
         escrow_token_account: str,
         supplier_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> ChainTransferResult:
         return await self.send_usdc(
             wallet_id="MOCK_AGENT_VAULT",
-            transfers=[ChainTransfer(to_address=supplier_wallet_address, amount_usdc=amount_usdc)],
+            transfers=[
+                ChainTransfer(
+                    to_address=supplier_wallet_address,
+                    amount_base_units=amount_base_units,
+                )
+            ],
             reference_id=f"rwa-purchase-{invoice_id}",
         )
 
     async def prepare_vault_deposit(
-        self, *, owner_wallet_address: str, amount_usdc: int
+        self, *, owner_wallet_address: str, amount_base_units: int
     ) -> PreparedVaultDeposit:
-        payload = f"mock-deposit:{owner_wallet_address}:{amount_usdc}".encode()
+        payload = f"mock-deposit:{owner_wallet_address}:{amount_base_units}".encode()
         return PreparedVaultDeposit(
             transaction_base64=base64.b64encode(payload).decode("ascii"),
             vault_address=self.vault_address,
@@ -217,9 +222,9 @@ class MockSolanaGateway:
         )
 
     async def verify_vault_deposit(
-        self, *, signature: str, owner_wallet_address: str, amount_usdc: int
+        self, *, signature: str, owner_wallet_address: str, amount_base_units: int
     ) -> bool:
-        return bool(signature and owner_wallet_address and amount_usdc > 0)
+        return bool(signature and owner_wallet_address and amount_base_units > 0)
 
     async def settlement_wallet_address(self) -> str:
         return "DEMO_SETTLEMENT_WALLET"
@@ -230,13 +235,13 @@ class MockSolanaGateway:
         signature: str,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool:
         return bool(
             signature
             and sender_wallet_address
             and recipient_wallet_address == await self.settlement_wallet_address()
-            and amount_usdc > 0
+            and amount_base_units > 0
         )
 
     async def sponsor_vault_deposit(self, **_: Any) -> ChainTransferResult:
@@ -307,7 +312,7 @@ class DirectSolanaGateway:
                     mint=self._stablecoin_mint,
                     dest=destination,
                     owner=self._agent_vault.pubkey(),
-                    amount=transfer.amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    amount=transfer.amount_base_units,
                     decimals=self._settings.solana_usdc_decimals,
                 )
             ),
@@ -380,7 +385,7 @@ class DirectSolanaGateway:
         rwa_mint_address: str,
         escrow_token_account: str,
         supplier_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> ChainTransferResult:
         rwa_mint = Pubkey.from_string(rwa_mint_address)
         supplier = Pubkey.from_string(supplier_wallet_address)
@@ -403,7 +408,7 @@ class DirectSolanaGateway:
                     mint=self._stablecoin_mint,
                     dest=supplier_stable,
                     owner=self._agent_vault.pubkey(),
-                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    amount=amount_base_units,
                     decimals=self._settings.solana_usdc_decimals,
                 )
             ),
@@ -427,7 +432,7 @@ class DirectSolanaGateway:
         )
 
     async def prepare_vault_deposit(
-        self, *, owner_wallet_address: str, amount_usdc: int
+        self, *, owner_wallet_address: str, amount_base_units: int
     ) -> PreparedVaultDeposit:
         owner = Pubkey.from_string(owner_wallet_address)
         source = get_associated_token_address(owner, self._stablecoin_mint)
@@ -445,7 +450,7 @@ class DirectSolanaGateway:
                     mint=self._stablecoin_mint,
                     dest=destination,
                     owner=owner,
-                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    amount=amount_base_units,
                     decimals=self._settings.solana_usdc_decimals,
                 )
             ),
@@ -460,7 +465,7 @@ class DirectSolanaGateway:
         )
 
     async def verify_vault_deposit(
-        self, *, signature: str, owner_wallet_address: str, amount_usdc: int
+        self, *, signature: str, owner_wallet_address: str, amount_base_units: int
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
@@ -485,7 +490,7 @@ class DirectSolanaGateway:
         message = transaction.get("message") if isinstance(transaction, dict) else None
         instructions = message.get("instructions", []) if isinstance(message, dict) else []
         balances = meta.get("postTokenBalances", []) if isinstance(meta, dict) else []
-        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        expected_raw = amount_base_units
         destination_has_expected_balance = any(
             isinstance(balance, dict)
             and balance.get("accountIndex") is not None
@@ -522,7 +527,7 @@ class DirectSolanaGateway:
         signature: str,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
@@ -532,7 +537,7 @@ class DirectSolanaGateway:
             payload,
             sender_wallet_address=sender_wallet_address,
             recipient_wallet_address=recipient_wallet_address,
-            amount_usdc=amount_usdc,
+            amount_base_units=amount_base_units,
         )
 
     def _payment_matches(
@@ -541,7 +546,7 @@ class DirectSolanaGateway:
         *,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool:
         if not isinstance(payload, dict):
             return False
@@ -556,7 +561,7 @@ class DirectSolanaGateway:
                 Pubkey.from_string(recipient_wallet_address), self._stablecoin_mint
             )
         )
-        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        expected_raw = amount_base_units
         return any(
             isinstance(instruction, dict)
             and instruction.get("program") in {"spl-token", "spl-token-2022"}
@@ -771,9 +776,9 @@ class PrivySolanaGateway:
         rwa_mint_address: str,
         escrow_token_account: str,
         supplier_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> ChainTransferResult:
-        if amount_usdc <= 0:
+        if amount_base_units <= 0:
             raise IntegrationError("RWA 자동 매수 금액이 올바르지 않습니다.")
         issuer_wallet_id = self._require_issuer_wallet_id()
         treasury = Pubkey.from_string(await self._treasury_address())
@@ -803,7 +808,7 @@ class PrivySolanaGateway:
                     mint=stablecoin_mint,
                     dest=supplier_usdc,
                     owner=treasury,
-                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    amount=amount_base_units,
                     decimals=self._settings.solana_usdc_decimals,
                 )
             ),
@@ -847,7 +852,7 @@ class PrivySolanaGateway:
         )
 
     async def prepare_vault_deposit(
-        self, *, owner_wallet_address: str, amount_usdc: int
+        self, *, owner_wallet_address: str, amount_base_units: int
     ) -> PreparedVaultDeposit:
         owner = Pubkey.from_string(owner_wallet_address)
         treasury = Pubkey.from_string(await self._treasury_address())
@@ -872,7 +877,7 @@ class PrivySolanaGateway:
                     mint=mint,
                     dest=destination,
                     owner=owner,
-                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    amount=amount_base_units,
                     decimals=self._settings.solana_usdc_decimals,
                 )
             ),
@@ -890,7 +895,7 @@ class PrivySolanaGateway:
         self,
         *,
         owner_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
         prepared_transaction_base64: str,
         signed_transaction_base64: str,
         reference_id: str,
@@ -1007,7 +1012,7 @@ class PrivySolanaGateway:
         return tuple(effects)
 
     async def verify_vault_deposit(
-        self, *, signature: str, owner_wallet_address: str, amount_usdc: int
+        self, *, signature: str, owner_wallet_address: str, amount_base_units: int
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
@@ -1035,7 +1040,7 @@ class PrivySolanaGateway:
         transaction = payload.get("transaction") if isinstance(payload, dict) else None
         message = transaction.get("message") if isinstance(transaction, dict) else None
         instructions = message.get("instructions", []) if isinstance(message, dict) else []
-        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        expected_raw = amount_base_units
         has_expected_transfer = any(
             isinstance(instruction, dict)
             and instruction.get("program") in {"spl-token", "spl-token-2022"}
@@ -1079,7 +1084,7 @@ class PrivySolanaGateway:
         signature: str,
         sender_wallet_address: str,
         recipient_wallet_address: str,
-        amount_usdc: int,
+        amount_base_units: int,
     ) -> bool:
         payload = await self._rpc(
             "getTransaction",
@@ -1097,7 +1102,7 @@ class PrivySolanaGateway:
         destination = str(
             get_associated_token_address(Pubkey.from_string(recipient_wallet_address), mint)
         )
-        expected_raw = amount_usdc * 10**self._settings.solana_usdc_decimals
+        expected_raw = amount_base_units
         has_transfer = any(
             isinstance(instruction, dict)
             and instruction.get("program") in {"spl-token", "spl-token-2022"}
@@ -1181,7 +1186,7 @@ class PrivySolanaGateway:
                     mint=mint,
                     dest=recipient_usdc,
                     owner=treasury,
-                    amount=amount_usdc * 10**self._settings.solana_usdc_decimals,
+                    amount=usdc_to_base_units(amount_usdc),
                     decimals=self._settings.solana_usdc_decimals,
                 )
             ),
@@ -1458,7 +1463,6 @@ class PrivySolanaGateway:
         mint = Pubkey.from_string(self._settings.solana_usdc_mint)
         source_account = get_associated_token_address(owner, mint, TOKEN_PROGRAM_ID)
         instructions = []
-        scale = Decimal(10) ** self._settings.solana_usdc_decimals
         for transfer in transfers:
             destination_owner = Pubkey.from_string(transfer.to_address)
             destination_account = get_associated_token_address(
@@ -1482,7 +1486,7 @@ class PrivySolanaGateway:
                         mint=mint,
                         dest=destination_account,
                         owner=owner,
-                        amount=int(Decimal(transfer.amount_usdc) * scale),
+                        amount=transfer.amount_base_units,
                         decimals=self._settings.solana_usdc_decimals,
                     )
                 )

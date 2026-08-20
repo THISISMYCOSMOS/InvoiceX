@@ -8,6 +8,7 @@ from solders.keypair import Keypair
 
 from invoicex_backend.agent_activity import AgentTrigger
 from invoicex_backend.app import create_app
+from invoicex_backend.pricing import PricingPolicy
 from tests.conftest import mock_settings
 
 
@@ -17,6 +18,36 @@ class RecordingTaskDispatcher:
 
     async def enqueue(self, invoice_id: str, trigger: AgentTrigger) -> None:
         self.tasks.append((invoice_id, trigger))
+
+
+def test_offer_pricing_is_immutable_after_creation(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    invoice_id = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]["id"]
+    invoice = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()["invoice"]
+    offered = client.post(
+        f"/api/v1/verifications/{invoice['verificationId']}/confirm"
+    ).json()["invoice"]
+    original = offered["riskPassport"]["earlySettlementTerms"]
+
+    service = client.app.state.invoice_service
+    stored = service._invoice(invoice_id)
+    stored.due_date = "2030-12-31"
+    service._pricing_policy = PricingPolicy(
+        sofr_bps=999,
+        sofr_as_of="2030-01-01",
+        sofr_source="must not replace stored offer",
+    )
+    service._ensure_dynamic_pricing(stored)
+
+    accepted = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={"response": "ACCEPT"},
+    ).json()["invoice"]
+    assert accepted["riskPassport"]["earlySettlementTerms"] == original
+    assert accepted["rwaAsset"]["faceValueBaseUnits"] == original["faceValueBaseUnits"]
+    assert accepted["rwaAsset"]["purchasePriceBaseUnits"] == original["purchaseAmountBaseUnits"]
 
 
 def test_invoice_creation_queues_analysis_without_waiting_for_agent(
@@ -159,8 +190,29 @@ def test_complete_frontend_contract_workflow(
     assert len(offered["riskPassport"]["hardGate"]["checks"]) == 9
     terms = offered["riskPassport"]["earlySettlementTerms"]
     assert terms["annualExpectedYieldBps"] == terms["sofrRateBps"] + terms["riskSpreadBps"] + terms["countryLegalSpreadBps"]
-    assert terms["purchaseAmountUsdc"] == terms["faceValueUsdc"] - terms["expectedInvestorReturnUsdc"]
-    assert terms["supplierExpectedSettlementUsdc"] == terms["purchaseAmountUsdc"] - terms["platformFeeUsdc"]
+    assert terms["sofrAsOf"] == "2026-08-14"
+    assert terms["sofrSource"] == "Federal Reserve Bank of New York"
+    assert terms["buyerRiskScore"] == offered["riskPassport"]["riskScore"]
+    assert terms["countryLegalSpreadBps"] == 50
+    assert terms["platformFeeShareBps"] == 1_000
+    assert terms["supplierExpectedSettlementUsdc"] == terms["purchaseAmountUsdc"]
+    assert abs(terms["platformFeeUsdc"] - terms["expectedInvestorReturnUsdc"] * 0.10) <= 0.000001
+    assert (
+        terms["faceValueUsdc"]
+        == terms["purchaseAmountUsdc"]
+        + terms["expectedInvestorReturnUsdc"]
+        + terms["platformFeeUsdc"]
+    )
+    assert int(terms["faceValueBaseUnits"]) == (
+        int(terms["purchaseAmountBaseUnits"])
+        + int(terms["investorNetReturnBaseUnits"])
+        + int(terms["platformFeeBaseUnits"])
+    )
+    assert terms["supplierSettlementBaseUnits"] == terms["purchaseAmountBaseUnits"]
+    assert int(terms["investorSettlementBaseUnits"]) == (
+        int(terms["purchaseAmountBaseUnits"])
+        + int(terms["investorNetReturnBaseUnits"])
+    )
     assert offered["riskPassport"]["earlySettlementTerms"]["reserveAmountUsdc"] == 0
     assert isinstance(offered["verificationConfirmedAt"], str)
 
@@ -177,6 +229,9 @@ def test_complete_frontend_contract_workflow(
     assert issued["rwaAsset"]["status"] == "ISSUED"
     assert issued["rwaAsset"]["faceValueUsdc"] == 3
     assert issued["rwaAsset"]["issuancePriceUsdc"] == terms["supplierExpectedSettlementUsdc"]
+    assert issued["rwaAsset"]["faceValueBaseUnits"] == terms["faceValueBaseUnits"]
+    assert issued["rwaAsset"]["issuancePriceBaseUnits"] == terms["purchaseAmountBaseUnits"]
+    assert issued["rwaAsset"]["purchasePriceBaseUnits"] == terms["purchaseAmountBaseUnits"]
     assert issued["fundingTransaction"] is None
 
     investor = Keypair()
@@ -211,6 +266,7 @@ def test_complete_frontend_contract_workflow(
     )
     assert prepared_deposit.status_code == 200
     assert prepared_deposit.json()["vaultAddress"] == "DEMO_AGENT_VAULT"
+    assert prepared_deposit.json()["amountBaseUnits"] == terms["purchaseAmountBaseUnits"]
     deposited = client.post(
         "/api/v1/investor/vault/deposits/confirm",
         json={
@@ -225,6 +281,7 @@ def test_complete_frontend_contract_workflow(
     assert funded["status"] == "FUNDED"
     assert funded["fundingTransaction"]["status"] == "CONFIRMED"
     assert funded["fundingTransaction"]["amountUsdc"] == terms["supplierExpectedSettlementUsdc"]
+    assert funded["fundingTransaction"]["amountBaseUnits"] == terms["purchaseAmountBaseUnits"]
     assert funded["fundingTransaction"]["network"] == "SOLANA_DEVNET"
     assert funded["fundingTransaction"]["sandbox"] is True
     assert funded["rwaAsset"]["status"] == "SOLD"
@@ -252,8 +309,17 @@ def test_complete_frontend_contract_workflow(
         "investorSettlementUsdc": terms["faceValueUsdc"] - terms["platformFeeUsdc"],
         "platformFeeUsdc": terms["platformFeeUsdc"],
         "supplierResidualUsdc": 0,
+        "supplierResidualBaseUnits": "0",
+        "invoiceFaceValueBaseUnits": terms["faceValueBaseUnits"],
+        "investorSettlementBaseUnits": str(
+            int(terms["faceValueBaseUnits"]) - int(terms["platformFeeBaseUnits"])
+        ),
+        "platformFeeBaseUnits": terms["platformFeeBaseUnits"],
     }
     assert settled["settlementTransaction"]["sandbox"] is True
+    assert settled["buyerPaymentTransaction"]["amountBaseUnits"] == terms["faceValueBaseUnits"]
+    assert settled["investorPayoutTransaction"]["amountBaseUnits"] == terms["investorSettlementBaseUnits"]
+    assert settled["platformFeeTransaction"]["amountBaseUnits"] == terms["platformFeeBaseUnits"]
     settlement_signature = settled["settlementTransaction"]["signature"]
 
     duplicate_settlement = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
@@ -316,6 +382,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/onboarding/company",
         "/api/v1/invoices",
             "/api/v1/invoices/{invoiceId}",
+            "/api/v1/invoices/{invoiceId}/documents",
             "/api/v1/invoices/{invoiceId}/agent-activity",
         "/api/v1/invoices/{invoiceId}/verification-request",
         "/api/v1/verifications",
@@ -403,6 +470,7 @@ def test_fixed_demo_accounts_issue_tokens_and_protect_gcp_api(tmp_path: Path) ->
             "Orbit Components",
             "Daon Logistics",
             "Vertex Retail",
+            "Halcyon Robotics Ltd",
         ]
 
         rejected = authenticated_client.post(

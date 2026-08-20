@@ -41,7 +41,7 @@ async def test_mock_solana_is_concurrency_safe_and_idempotent(
     calls = [
         gateway.send_usdc(
             wallet_id="wallet",
-            transfers=[ChainTransfer(to_address="destination", amount_usdc=18_800)],
+            transfers=[ChainTransfer(to_address="destination", amount_base_units=18_800_000_000)],
             reference_id="funding-INV-001",
         )
         for _ in range(100)
@@ -119,8 +119,8 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
     result = await gateway.send_usdc(
         wallet_id="settlement",
         transfers=[
-            ChainTransfer(to_address=investor, amount_usdc=19_800),
-            ChainTransfer(to_address=platform, amount_usdc=200),
+            ChainTransfer(to_address=investor, amount_base_units=4_992_876),
+            ChainTransfer(to_address=platform, amount_base_units=7_124),
         ],
         reference_id="settlement-INV-2026-001",
     )
@@ -134,6 +134,12 @@ async def test_privy_gateway_builds_and_submits_spl_transaction(
     encoded = submitted["params"]["transaction"]  # type: ignore[index]
     transaction = VersionedTransaction.from_bytes(base64.b64decode(encoded))
     assert len(transaction.message.instructions) == 4
+    raw_transfers = [
+        int.from_bytes(bytes(instruction.data)[1:9], "little")
+        for instruction in transaction.message.instructions
+        if bytes(instruction.data)[:1] == b"\x0c"
+    ]
+    assert raw_transfers == [4_992_876, 7_124]
 
 
 @pytest.mark.asyncio
@@ -183,7 +189,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
     gateway = PrivySolanaGateway(settings, http_client=client)
     prepared = await gateway.prepare_vault_deposit(
         owner_wallet_address=str(investor.pubkey()),
-        amount_usdc=2,
+        amount_base_units=2_000_000,
     )
     unsigned = VersionedTransaction.from_bytes(base64.b64decode(prepared.transaction_base64))
     signatures = list(unsigned.signatures)
@@ -192,7 +198,7 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
     transaction = VersionedTransaction.populate(unsigned.message, signatures)
     result = await gateway.sponsor_vault_deposit(
         owner_wallet_address=str(investor.pubkey()),
-        amount_usdc=2,
+        amount_base_units=2_000_000,
         prepared_transaction_base64=prepared.transaction_base64,
         signed_transaction_base64=base64.b64encode(bytes(transaction)).decode("ascii"),
         reference_id="gasless-deposit-test",
@@ -399,7 +405,7 @@ async def test_privy_gateway_verifies_versioned_vault_deposit(tmp_path: Path) ->
     verified = await gateway.verify_vault_deposit(
         signature=signature,
         owner_wallet_address=investor,
-        amount_usdc=1,
+        amount_base_units=1_000_000,
     )
     await client.aclose()
 
@@ -477,7 +483,7 @@ async def test_privy_gateway_issues_and_atomically_exchanges_rwa(
         rwa_mint_address=issued.mint_address,
         escrow_token_account=issued.escrow_token_account,
         supplier_wallet_address=supplier,
-        amount_usdc=1,
+        amount_base_units=1_000_000,
     )
     await client.aclose()
 
@@ -602,6 +608,7 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
     stablecoin_mint = Pubkey.new_unique()
     supplier = Pubkey.new_unique()
     signatures: list[str] = []
+    raw_transfers: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
@@ -615,6 +622,11 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
                 base64.b64decode(payload["params"][0])
             )
             signatures.append(str(transaction.signatures[0]))
+            raw_transfers.extend(
+                int.from_bytes(bytes(instruction.data)[1:9], "little")
+                for instruction in transaction.message.instructions
+                if bytes(instruction.data)[:1] == b"\x0c"
+            )
             result = signatures[-1]
         elif method == "getSignatureStatuses":
             result = {"value": [{"err": None, "confirmationStatus": "confirmed"}]}
@@ -641,7 +653,7 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
         rwa_mint_address=issued.mint_address,
         escrow_token_account=issued.escrow_token_account,
         supplier_wallet_address=str(supplier),
-        amount_usdc=18_800,
+        amount_base_units=4_921_640,
     )
     await client.aclose()
 
@@ -649,3 +661,4 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
     assert purchase.status is TransactionStatus.CONFIRMED
     assert purchase.provider == "DIRECT"
     assert len(signatures) == 2
+    assert 4_921_640 in raw_transfers

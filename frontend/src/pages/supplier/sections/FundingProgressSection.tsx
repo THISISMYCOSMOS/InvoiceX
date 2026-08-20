@@ -1,6 +1,6 @@
 import { CheckCircle, CircleNotch, ShieldCheck, Vault } from "@phosphor-icons/react";
 import { useLanguage } from "../../../i18n/LanguageContext";
-import type { Invoice } from "../../../types/invoice";
+import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 
 function formatDecisionStatus(
   status: NonNullable<Invoice["agentDecision"]>["status"],
@@ -55,7 +55,7 @@ export function FundingProgressSection({ invoice }: { invoice: Invoice }) {
           <span className="funding-progress__icon funding-progress__icon--slate" aria-hidden="true"><Vault size={20} weight="fill" /></span>
           <div>
             <span>{t("Expected purchase", "예상 매수")}</span>
-            <strong>{amount === undefined || amount === null ? "—" : `${amount.toLocaleString()} USDC`}</strong>
+            <strong>{amount === undefined || amount === null ? "—" : formatInvoiceAmount(amount, "USDC")}</strong>
             <p>{t("The supplier receives funds only after the Agent completes an eligible purchase.", "Agent가 적격 매수를 완료한 뒤에만 공급기업에 자금이 지급됩니다.")}</p>
           </div>
         </article>

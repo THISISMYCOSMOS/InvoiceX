@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from solders.pubkey import Pubkey
+
+from invoicex_backend.money import UsdcAmount
 
 
 def to_camel(value: str) -> str:
@@ -169,7 +172,7 @@ class DocumentAnalysis(ApiModel):
     invoice_number: ExtractedField[str]
     supplier_name: ExtractedField[str]
     buyer_name: ExtractedField[str]
-    amount: ExtractedField[int]
+    amount: ExtractedField[UsdcAmount]
     currency: ExtractedField[str]
     due_date: ExtractedField[str]
     contract_number: ExtractedField[str]
@@ -238,24 +241,35 @@ class HardGateResult(ApiModel):
 
 
 class EarlySettlementTerms(ApiModel):
-    face_value_usdc: int = Field(ge=0)
-    discount_amount_usdc: int = Field(ge=0)
+    face_value_usdc: UsdcAmount = Field(ge=0)
+    face_value_base_units: str
+    discount_amount_usdc: UsdcAmount = Field(ge=0)
     discount_rate_bps: int = Field(ge=0, le=10_000)
-    investor_required_return_usdc: int = Field(ge=0)
-    platform_fee_usdc: int = Field(ge=0)
-    reserve_amount_usdc: int = Field(ge=0)
+    investor_required_return_usdc: UsdcAmount = Field(ge=0)
+    platform_fee_usdc: UsdcAmount = Field(ge=0)
+    platform_fee_base_units: str
+    reserve_amount_usdc: UsdcAmount = Field(ge=0)
     reserve_rate_bps: int = Field(ge=0, le=10_000)
-    initial_advance_usdc: int = Field(ge=0)
-    expected_reserve_return_usdc: int = Field(ge=0)
-    expected_final_proceeds_usdc: int = Field(ge=0)
+    initial_advance_usdc: UsdcAmount = Field(ge=0)
+    expected_reserve_return_usdc: UsdcAmount = Field(ge=0)
+    expected_final_proceeds_usdc: UsdcAmount = Field(ge=0)
     remaining_term_days: int | None = Field(default=None, ge=0)
     sofr_rate_bps: int | None = Field(default=None, ge=0)
+    sofr_as_of: str | None = None
+    sofr_source: str | None = None
+    buyer_risk_score: int | None = Field(default=None, ge=0, le=100)
     risk_spread_bps: int | None = Field(default=None, ge=0)
     country_legal_spread_bps: int | None = Field(default=None, ge=0)
     annual_expected_yield_bps: int | None = Field(default=None, ge=0)
-    expected_investor_return_usdc: int | None = Field(default=None, ge=0)
-    purchase_amount_usdc: int | None = Field(default=None, ge=0)
-    supplier_expected_settlement_usdc: int | None = Field(default=None, ge=0)
+    platform_fee_share_bps: int | None = Field(default=None, ge=0, le=10_000)
+    expected_investor_return_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    investor_net_return_base_units: str | None = None
+    investor_settlement_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    investor_settlement_base_units: str | None = None
+    purchase_amount_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    purchase_amount_base_units: str | None = None
+    supplier_expected_settlement_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    supplier_settlement_base_units: str | None = None
     settlement_asset: Literal["USDC"] = "USDC"
     network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
 
@@ -268,8 +282,10 @@ class RiskPassport(ApiModel):
     positive_factors: list[PositiveFactor]
     risk_factors: list[RiskFactor]
     suggested_advance_rate_bps: int | None = Field(default=None, ge=0, le=10_000)
-    suggested_advance_amount_usdc: int | None = Field(default=None, ge=0)
-    invoice_face_value_usdc: int | None = Field(default=None, ge=0)
+    suggested_advance_amount_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    suggested_advance_base_units: str | None = None
+    invoice_face_value_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    invoice_face_value_base_units: str | None = None
     source_currency_to_usdc_rate: float | None = Field(default=None, gt=0)
     data_coverage_bps: int = Field(default=0, ge=0, le=10_000)
     score_factors: list[RiskScoreFactor] = Field(default_factory=list)
@@ -284,7 +300,8 @@ class BlockchainTransaction(ApiModel):
     signature: str
     network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
     status: TransactionStatus
-    amount_usdc: int = Field(ge=0)
+    amount_usdc: UsdcAmount = Field(ge=0)
+    amount_base_units: str = "0"
     from_address: str
     to_address: str
     explorer_url: str
@@ -294,16 +311,20 @@ class BlockchainTransaction(ApiModel):
 
 
 class Settlement(ApiModel):
-    invoice_face_value_usdc: int
-    investor_settlement_usdc: int
-    platform_fee_usdc: int
-    supplier_residual_usdc: int
+    invoice_face_value_usdc: UsdcAmount
+    invoice_face_value_base_units: str
+    investor_settlement_usdc: UsdcAmount
+    investor_settlement_base_units: str
+    platform_fee_usdc: UsdcAmount
+    platform_fee_base_units: str
+    supplier_residual_usdc: UsdcAmount
+    supplier_residual_base_units: str
 
 
 class BuyerPaymentTransfer(ApiModel):
     recipient_wallet_address: str
-    amount_usdc: int = Field(gt=0)
-    amount_base_units: int = Field(gt=0)
+    amount_usdc: UsdcAmount = Field(gt=0)
+    amount_base_units: str
 
 
 class BuyerPaymentPreparation(ApiModel):
@@ -311,8 +332,8 @@ class BuyerPaymentPreparation(ApiModel):
     buyer_wallet_address: str
     settlement_wallet_address: str
     usdc_mint_address: str
-    amount_usdc: int = Field(gt=0)
-    amount_base_units: int = Field(gt=0)
+    amount_usdc: UsdcAmount = Field(gt=0)
+    amount_base_units: str
     decimals: int = Field(ge=0, le=18)
     due_date: str
     transfers: list[BuyerPaymentTransfer] = Field(min_length=1)
@@ -347,8 +368,12 @@ class RwaAsset(ApiModel):
     escrow_token_account: str
     status: Literal["ISSUED", "SOLD", "SETTLED"]
     issue_transaction: BlockchainTransaction
-    face_value_usdc: int | None = Field(default=None, ge=0)
-    issuance_price_usdc: int | None = Field(default=None, ge=0)
+    face_value_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    face_value_base_units: str | None = None
+    issuance_price_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    issuance_price_base_units: str | None = None
+    purchase_price_usdc: UsdcAmount | None = Field(default=None, ge=0)
+    purchase_price_base_units: str | None = None
     purchase_transaction: BlockchainTransaction | None = None
     owner_vault_address: str | None = None
     owner_wallet_address: str | None = None
@@ -377,7 +402,8 @@ class InvestorMandate(ApiModel):
 class VaultBalance(ApiModel):
     owner_wallet_address: str
     vault_address: str
-    available_usdc: int = Field(ge=0)
+    available_usdc: UsdcAmount = Field(ge=0)
+    available_base_units: str = "0"
     updated_at: str
 
 
@@ -386,7 +412,8 @@ class AgentDecision(ApiModel):
     mandate_id: str | None = None
     status: Literal["PENDING", "APPROVED", "REJECTED", "EXECUTED", "FAILED"]
     checks: dict[str, bool]
-    amount_usdc: int = Field(default=0, ge=0)
+    amount_usdc: UsdcAmount = Field(default=Decimal(0), ge=0)
+    amount_base_units: str = "0"
     reason: str | None = None
     created_at: str
 
@@ -420,7 +447,7 @@ class Invoice(ApiModel):
     supplier: InvoiceParty
     buyer: InvoiceParty
     investor: InvoiceParty
-    invoice_amount: int
+    invoice_amount: UsdcAmount
     currency: str
     issue_date: str
     due_date: str
@@ -591,13 +618,15 @@ class MandateSigningPayload(ApiModel):
 
 class PrepareVaultDepositRequest(ApiModel):
     owner_wallet_address: str
-    amount_usdc: int = Field(gt=0)
+    amount_usdc: UsdcAmount = Field(gt=0)
 
 
 class VaultDepositPreparation(ApiModel):
     transaction_base64: str
     vault_address: str
     stablecoin_mint_address: str
+    amount_usdc: UsdcAmount
+    amount_base_units: str
     provider: Literal["PRIVY", "DIRECT", "MOCK"]
     sponsored: bool = False
     sponsor_deposit_id: str | None = None
@@ -606,7 +635,7 @@ class VaultDepositPreparation(ApiModel):
 
 class ConfirmVaultDepositRequest(ApiModel):
     owner_wallet_address: str
-    amount_usdc: int = Field(gt=0)
+    amount_usdc: UsdcAmount = Field(gt=0)
     signature: str
 
 
@@ -620,9 +649,9 @@ class InvestorDashboard(ApiModel):
     investor_name: str
     automated_investment_active: bool
     mandate_status: Literal["DRAFT", "ACTIVE"]
-    available_vault_usdc: int
-    outstanding_principal_usdc: int
-    due_within_30_days_usdc: int
+    available_vault_usdc: UsdcAmount
+    outstanding_principal_usdc: UsdcAmount
+    due_within_30_days_usdc: UsdcAmount
     attention_required_count: int
     recent_agent_traces: list[AgentTrace]
     wallet_address: str | None = None
@@ -651,7 +680,7 @@ class ChainTransfer:
     """One USDC destination in a Solana transfer transaction."""
 
     to_address: str
-    amount_usdc: int
+    amount_base_units: int
 
 
 @dataclass(frozen=True, slots=True)

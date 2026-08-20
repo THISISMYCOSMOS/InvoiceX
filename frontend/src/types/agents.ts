@@ -11,7 +11,9 @@ export interface RiskPassport {
   }>;
   suggestedAdvanceRateBps: number | null;
   suggestedAdvanceAmountUsdc: number | null;
+  suggestedAdvanceBaseUnits?: string | null;
   invoiceFaceValueUsdc?: number | null;
+  invoiceFaceValueBaseUnits?: string | null;
   sourceCurrencyToUsdcRate?: number | null;
   dataCoverageBps: number;
   scoreFactors: Array<{
@@ -30,10 +32,12 @@ export interface RiskPassport {
   } | null;
   earlySettlementTerms?: {
     faceValueUsdc: number;
+    faceValueBaseUnits: string;
     discountAmountUsdc: number;
     discountRateBps: number;
     investorRequiredReturnUsdc: number;
     platformFeeUsdc: number;
+    platformFeeBaseUnits: string;
     reserveAmountUsdc: number;
     reserveRateBps: number;
     initialAdvanceUsdc: number;
@@ -41,12 +45,21 @@ export interface RiskPassport {
     expectedFinalProceedsUsdc: number;
     remainingTermDays: number | null;
     sofrRateBps: number | null;
+    sofrAsOf: string | null;
+    sofrSource: string | null;
+    buyerRiskScore: number | null;
     riskSpreadBps: number | null;
     countryLegalSpreadBps: number | null;
     annualExpectedYieldBps: number | null;
+    platformFeeShareBps: number | null;
     expectedInvestorReturnUsdc: number | null;
+    investorNetReturnBaseUnits: string | null;
+    investorSettlementUsdc: number | null;
+    investorSettlementBaseUnits: string | null;
     purchaseAmountUsdc: number | null;
+    purchaseAmountBaseUnits: string | null;
     supplierExpectedSettlementUsdc: number | null;
+    supplierSettlementBaseUnits: string | null;
     settlementAsset: "USDC";
     network: "SOLANA_DEVNET";
   } | null;
@@ -60,6 +73,7 @@ export interface BlockchainTransaction {
   network: "SOLANA_DEVNET";
   status: "PENDING" | "CONFIRMED" | "FAILED";
   amountUsdc: number;
+  amountBaseUnits: string;
   fromAddress: string;
   toAddress: string;
   explorerUrl: string;

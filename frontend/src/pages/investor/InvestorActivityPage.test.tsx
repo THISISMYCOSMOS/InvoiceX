@@ -14,6 +14,7 @@ test("shows the Treasury Agent mandate decision and execution summary", () => {
       status: "EXECUTED",
       checks: { policyActive: true, buyerAllowlist: true },
       amountUsdc: DEMO_FUNDING_TRANSACTION.amountUsdc,
+      amountBaseUnits: DEMO_FUNDING_TRANSACTION.amountBaseUnits,
       createdAt: DEMO_FUNDING_TRANSACTION.createdAt,
     },
   }} />);
