@@ -300,6 +300,12 @@ class Settlement(ApiModel):
     supplier_residual_usdc: int
 
 
+class BuyerPaymentTransfer(ApiModel):
+    recipient_wallet_address: str
+    amount_usdc: int = Field(gt=0)
+    amount_base_units: int = Field(gt=0)
+
+
 class BuyerPaymentPreparation(ApiModel):
     invoice_id: str
     buyer_wallet_address: str
@@ -309,6 +315,7 @@ class BuyerPaymentPreparation(ApiModel):
     amount_base_units: int = Field(gt=0)
     decimals: int = Field(ge=0, le=18)
     due_date: str
+    transfers: list[BuyerPaymentTransfer] = Field(min_length=1)
     demo_due_date_bypass: bool = False
 
 

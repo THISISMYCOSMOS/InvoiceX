@@ -49,6 +49,7 @@ from invoicex_backend.models import (
     AnalysisStatus,
     BlockchainTransaction,
     BuyerPaymentPreparation,
+    BuyerPaymentTransfer,
     ChainTransfer,
     ChainTransferResult,
     ConfirmVaultDepositRequest,
@@ -1234,17 +1235,49 @@ class InvoiceService:
         if not buyer_wallet:
             raise StateConflictError("구매기업 Embedded Wallet을 찾을 수 없습니다.")
         invoice.buyer.wallet_address = buyer_wallet
-        settlement_wallet = await self._solana.settlement_wallet_address()
         face_value = self._invoice_face_value(invoice)
+        decimals = self._settings.solana_usdc_decimals
+        transfers: list[BuyerPaymentTransfer]
+        if self._solana.mode == "direct":
+            terms = invoice.risk_passport.early_settlement_terms if invoice.risk_passport else None
+            investor_wallet = invoice.rwa_asset.owner_wallet_address if invoice.rwa_asset else None
+            if terms is None or not investor_wallet:
+                raise StateConflictError("RWA 보유 투자자 지갑과 정산 조건을 찾을 수 없습니다.")
+            investor_amount = face_value - terms.platform_fee_usdc
+            transfers = [
+                BuyerPaymentTransfer(
+                    recipient_wallet_address=investor_wallet,
+                    amount_usdc=investor_amount,
+                    amount_base_units=investor_amount * 10**decimals,
+                )
+            ]
+            if terms.platform_fee_usdc > 0:
+                transfers.append(
+                    BuyerPaymentTransfer(
+                        recipient_wallet_address=self._settings.platform_fee_wallet_address,
+                        amount_usdc=terms.platform_fee_usdc,
+                        amount_base_units=terms.platform_fee_usdc * 10**decimals,
+                    )
+                )
+        else:
+            settlement_wallet = await self._solana.settlement_wallet_address()
+            transfers = [
+                BuyerPaymentTransfer(
+                    recipient_wallet_address=settlement_wallet,
+                    amount_usdc=face_value,
+                    amount_base_units=face_value * 10**decimals,
+                )
+            ]
         return BuyerPaymentPreparation(
             invoice_id=invoice.id,
             buyer_wallet_address=buyer_wallet,
-            settlement_wallet_address=settlement_wallet,
+            settlement_wallet_address=transfers[0].recipient_wallet_address,
             usdc_mint_address=self._solana.stablecoin_mint_address,
             amount_usdc=face_value,
-            amount_base_units=face_value * 10**self._settings.solana_usdc_decimals,
-            decimals=self._settings.solana_usdc_decimals,
+            amount_base_units=face_value * 10**decimals,
+            decimals=decimals,
             due_date=invoice.due_date,
+            transfers=transfers,
             demo_due_date_bypass=bypass and today < due_date,
         )
 
@@ -1276,11 +1309,18 @@ class InvoiceService:
                 return self._copy_invoice(invoice)
 
             preparation = await self.prepare_buyer_payment(invoice_id, identity)
-            verified = await self._solana.verify_usdc_payment(
-                signature=signature,
-                sender_wallet_address=preparation.buyer_wallet_address,
-                recipient_wallet_address=preparation.settlement_wallet_address,
-                amount_usdc=preparation.amount_usdc,
+            verified = all(
+                await asyncio.gather(
+                    *(
+                        self._solana.verify_usdc_payment(
+                            signature=signature,
+                            sender_wallet_address=preparation.buyer_wallet_address,
+                            recipient_wallet_address=transfer.recipient_wallet_address,
+                            amount_usdc=transfer.amount_usdc,
+                        )
+                        for transfer in preparation.transfers
+                    )
+                )
             )
             if not verified:
                 raise StateConflictError(
@@ -1290,9 +1330,9 @@ class InvoiceService:
             invoice.buyer_payment_transaction = BlockchainTransaction(
                 signature=signature,
                 status=TransactionStatus.CONFIRMED,
-                amount_usdc=preparation.amount_usdc,
+                amount_usdc=preparation.transfers[0].amount_usdc,
                 from_address=preparation.buyer_wallet_address,
-                to_address=preparation.settlement_wallet_address,
+                to_address=preparation.transfers[0].recipient_wallet_address,
                 explorer_url=f"https://explorer.solana.com/tx/{signature}?cluster=devnet",
                 created_at=datetime.now(UTC).isoformat(),
                 sandbox=self._solana.mode == "mock",
@@ -1313,47 +1353,62 @@ class InvoiceService:
         face_value = terms.face_value_usdc
         platform_fee = terms.platform_fee_usdc
         investor_amount = face_value - platform_fee
-        investor_wallet = (
-            invoice.rwa_asset.owner_wallet_address
-            if invoice.rwa_asset and invoice.rwa_asset.owner_wallet_address
-            else invoice.rwa_asset.owner_vault_address
-            if invoice.rwa_asset and invoice.rwa_asset.owner_vault_address
-            else self._settings.investor_settlement_wallet_address
-        )
-        settlement_wallet_id = (
-            "AGENT_VAULT"
-            if self._solana.mode == "direct"
-            else self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT"
-        )
         invoice.status = InvoiceStatus.SETTLING
-        try:
+        if self._solana.mode == "direct":
+            investor_wallet = invoice.rwa_asset.owner_wallet_address if invoice.rwa_asset else None
+            if not investor_wallet:
+                raise StateConflictError("RWA 보유 투자자 지갑을 찾을 수 없습니다.")
             if invoice.investor_payout_transaction is None:
-                result = await self._solana.send_usdc(
-                    wallet_id=settlement_wallet_id,
-                    transfers=[ChainTransfer(to_address=investor_wallet, amount_usdc=investor_amount)],
-                    reference_id=f"investor-payout-{invoice.id}",
-                )
-                invoice.investor_payout_transaction = self._transaction(
-                    result=result, amount_usdc=investor_amount, to_address=investor_wallet
+                invoice.investor_payout_transaction = invoice.buyer_payment_transaction.model_copy(
+                    update={"amount_usdc": investor_amount, "to_address": investor_wallet}
                 )
                 invoice.settlement_transaction = invoice.investor_payout_transaction
                 self._save_invoice(invoice)
             if platform_fee > 0 and invoice.platform_fee_transaction is None:
-                result = await self._solana.send_usdc(
-                    wallet_id=settlement_wallet_id,
-                    transfers=[ChainTransfer(to_address=self._settings.platform_fee_wallet_address, amount_usdc=platform_fee)],
-                    reference_id=f"platform-fee-{invoice.id}",
-                )
-                invoice.platform_fee_transaction = self._transaction(
-                    result=result,
-                    amount_usdc=platform_fee,
-                    to_address=self._settings.platform_fee_wallet_address,
+                invoice.platform_fee_transaction = invoice.buyer_payment_transaction.model_copy(
+                    update={
+                        "amount_usdc": platform_fee,
+                        "to_address": self._settings.platform_fee_wallet_address,
+                    }
                 )
                 self._save_invoice(invoice)
-        except IntegrationError:
-            invoice.status = InvoiceStatus.SETTLEMENT_FAILED
-            self._save_invoice(invoice)
-            raise
+        else:
+            investor_wallet = (
+                invoice.rwa_asset.owner_wallet_address
+                if invoice.rwa_asset and invoice.rwa_asset.owner_wallet_address
+                else invoice.rwa_asset.owner_vault_address
+                if invoice.rwa_asset and invoice.rwa_asset.owner_vault_address
+                else self._settings.investor_settlement_wallet_address
+            )
+            settlement_wallet_id = self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT"
+            try:
+                if invoice.investor_payout_transaction is None:
+                    result = await self._solana.send_usdc(
+                        wallet_id=settlement_wallet_id,
+                        transfers=[ChainTransfer(to_address=investor_wallet, amount_usdc=investor_amount)],
+                        reference_id=f"investor-payout-{invoice.id}",
+                    )
+                    invoice.investor_payout_transaction = self._transaction(
+                        result=result, amount_usdc=investor_amount, to_address=investor_wallet
+                    )
+                    invoice.settlement_transaction = invoice.investor_payout_transaction
+                    self._save_invoice(invoice)
+                if platform_fee > 0 and invoice.platform_fee_transaction is None:
+                    result = await self._solana.send_usdc(
+                        wallet_id=settlement_wallet_id,
+                        transfers=[ChainTransfer(to_address=self._settings.platform_fee_wallet_address, amount_usdc=platform_fee)],
+                        reference_id=f"platform-fee-{invoice.id}",
+                    )
+                    invoice.platform_fee_transaction = self._transaction(
+                        result=result,
+                        amount_usdc=platform_fee,
+                        to_address=self._settings.platform_fee_wallet_address,
+                    )
+                    self._save_invoice(invoice)
+            except IntegrationError:
+                invoice.status = InvoiceStatus.SETTLEMENT_FAILED
+                self._save_invoice(invoice)
+                raise
 
         if (
             invoice.investor_payout_transaction

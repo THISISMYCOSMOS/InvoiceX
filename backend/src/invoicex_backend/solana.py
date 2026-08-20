@@ -514,10 +514,7 @@ class DirectSolanaGateway:
         return destination_has_expected_balance and has_expected_transfer
 
     async def settlement_wallet_address(self) -> str:
-        # Buyer repayments must land in the same Agent Vault that later sends
-        # the investor payout. The platform wallet only sponsors ATA creation
-        # and transaction fees; it is not a custody destination for USDC.
-        return self.vault_address
+        return str(self._platform.pubkey())
 
     async def verify_usdc_payment(
         self,

@@ -51,6 +51,23 @@ class RecordingPaymentGateway(MockSolanaGateway):
         )
 
 
+class DirectBuyerPaymentGateway(RecordingPaymentGateway):
+    mode = "direct"
+
+    async def verify_usdc_payment(
+        self,
+        *,
+        signature: str,
+        sender_wallet_address: str,
+        recipient_wallet_address: str,
+        amount_usdc: int,
+    ) -> bool:
+        return signature == "direct-payment-signature" and sender_wallet_address == BUYER_WALLET and (
+            (recipient_wallet_address == INVESTOR_WALLET and amount_usdc == 9_900)
+            or (recipient_wallet_address == self._settings.platform_fee_wallet_address and amount_usdc == 100)
+        )
+
+
 def _funded_invoice(client: TestClient, service: InvoiceService, contract_files) -> str:
     invoice_id = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]["id"]
     verification = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()["invoice"]
@@ -175,3 +192,45 @@ def test_buyer_payment_validation_and_idempotent_partial_settlement(
             json={"signature": "valid-payment-signature"},
         )
         assert reused.status_code == 409
+
+
+def test_direct_buyer_payment_sends_proceeds_to_the_rwa_owner_wallet(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    settings = mock_settings(tmp_path / "uploads")
+    gateway = DirectBuyerPaymentGateway(settings)
+    service = InvoiceService(
+        settings=settings,
+        agent_gateway=create_agent_gateway(settings),
+        solana_gateway=gateway,
+        storage=create_document_storage(settings),
+        repository=create_repository(settings),
+    )
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        invoice_id = _funded_invoice(client, service, contract_files)
+        preparation = client.get(f"/api/v1/invoices/{invoice_id}/buyer-payment/prepare")
+        assert preparation.status_code == 200
+        assert preparation.json()["transfers"] == [
+            {
+                "recipientWalletAddress": INVESTOR_WALLET,
+                "amountUsdc": 9_900,
+                "amountBaseUnits": 9_900 * 10**settings.solana_usdc_decimals,
+            },
+            {
+                "recipientWalletAddress": settings.platform_fee_wallet_address,
+                "amountUsdc": 100,
+                "amountBaseUnits": 100 * 10**settings.solana_usdc_decimals,
+            },
+        ]
+
+        settled = client.post(
+            f"/api/v1/invoices/{invoice_id}/buyer-payment/confirm",
+            json={"signature": "direct-payment-signature"},
+        )
+        assert settled.status_code == 200
+        invoice = settled.json()["invoice"]
+        assert invoice["status"] == "SETTLED"
+        assert invoice["investorPayoutTransaction"]["toAddress"] == INVESTOR_WALLET
+        assert invoice["platformFeeTransaction"]["toAddress"] == settings.platform_fee_wallet_address
+        assert gateway.send_counts == Counter()

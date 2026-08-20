@@ -23,6 +23,11 @@ describe("buyer payment transaction", () => {
       amountBaseUnits: 96_000_000_000,
       decimals: 6,
       dueDate: "2026-09-18",
+      transfers: [{
+        recipientWalletAddress: settlement.toBase58(),
+        amountUsdc: 96_000,
+        amountBaseUnits: 96_000_000_000,
+      }],
       demoDueDateBypass: true,
     };
 
