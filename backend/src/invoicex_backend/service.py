@@ -974,7 +974,7 @@ class InvoiceService:
 
             supplier_wallet = (
                 identity.wallet_address
-                if identity is not None and identity.source == "PRIVY"
+                if identity is not None and identity.source in {"PRIVY", "MEMBER"}
                 else self._repository.get_supplier_wallet() or invoice.supplier.wallet_address
             )
             if not supplier_wallet or supplier_wallet.startswith("DEMO_"):

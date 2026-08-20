@@ -743,6 +743,87 @@ def test_privy_business_requests_use_database_company_role_and_scope(
         ).status_code == 403
 
 
+def test_password_member_uses_its_saved_settlement_wallet_for_rwa_issuance(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    """A password session must retain company scope without a fresh Privy OTP."""
+
+    with privy_business_client(tmp_path) as (client, private_key):
+        supplier = register_company(
+            client,
+            private_key,
+            user_id="did:privy:password-supplier",
+            company_type="SUPPLIER",
+            company_name="Password Supplier",
+            business_number="111-11-11111",
+        )
+        buyer = register_company(
+            client,
+            private_key,
+            user_id="did:privy:password-buyer",
+            company_type="BUYER",
+            company_name="Prime Mobility",
+            business_number="22-2222222",
+        )
+        supplier_headers = headers(private_key, "did:privy:password-supplier")
+        buyer_headers = headers(private_key, "did:privy:password-buyer")
+        settlement_wallet = str(Keypair().pubkey())
+        updated_wallet = client.put(
+            "/api/v1/auth/settlement-wallet",
+            headers=supplier_headers,
+            json={"walletType": "EXTERNAL", "address": settlement_wallet},
+        )
+        assert updated_wallet.status_code == 200
+
+        created = client.post(
+            "/api/v1/invoices", headers=supplier_headers, files=contract_files
+        )
+        assert created.status_code == 201
+        invoice_id = created.json()["invoice"]["id"]
+        requested = client.post(
+            f"/api/v1/invoices/{invoice_id}/verification-request",
+            headers=supplier_headers,
+        )
+        assert requested.status_code == 200
+        confirmed = client.post(
+            f"/api/v1/verifications/{requested.json()['invoice']['verificationId']}/confirm",
+            headers=buyer_headers,
+        )
+        assert confirmed.status_code == 200
+        assert confirmed.json()["invoice"]["status"] == "OFFER_READY"
+
+        # Simulate a legacy invoice that still has the obsolete demo address.
+        stored_invoice = client.app.state.invoice_service._invoice(invoice_id)
+        stored_invoice.supplier.wallet_address = "DEMO_SUPPLIER_WALLET"
+        client.app.state.invoice_service._save_invoice(stored_invoice)
+
+        password_login = client.post(
+            "/api/v1/auth/login",
+            json={
+                "role": "Supplier",
+                "email": "password-supplier@example.com",
+                "password": "member-password-123",
+            },
+        )
+        assert password_login.status_code == 200
+        member_headers = {
+            "Authorization": f"Bearer {password_login.json()['accessToken']}"
+        }
+
+        issued = client.post(
+            f"/api/v1/invoices/{invoice_id}/offer-response",
+            headers=member_headers,
+            json={"response": "ACCEPT"},
+        )
+
+    assert supplier["company"]["id"] == created.json()["invoice"]["supplier"]["id"]
+    assert buyer["company"]["id"] == confirmed.json()["invoice"]["buyer"]["id"]
+    assert issued.status_code == 200
+    assert issued.json()["invoice"]["status"] == "RWA_ISSUED"
+    assert issued.json()["invoice"]["supplier"]["walletAddress"] == settlement_wallet
+
+
 def test_privy_business_api_rejects_incomplete_onboarding(tmp_path: Path) -> None:
     with privy_business_client(tmp_path) as (client, private_key):
         pending_headers = headers(private_key, "did:privy:pending-business-user")

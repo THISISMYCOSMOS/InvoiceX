@@ -191,7 +191,7 @@ export function EarlySettlementOfferSection({
 
             <div className="settlement-terms-layout">
               <section className="settlement-breakdown-card">
-                <header><h2>{t("Economics breakdown", "조기정산 금액 구성")}</h2><span>{t("MVP policy", "MVP 정책")}</span></header>
+                <header><h2>{t("Economics breakdown", "조기정산 금액 구성")}</h2></header>
                 <dl>
                   <div><dt>Invoice Face Value</dt><dd>{formatUsdc(terms.faceValueUsdc)}</dd></div>
                   <div><dt>{t("Remaining term", "잔존 만기")}</dt><dd>{terms.remainingTermDays} {t("days", "일")}</dd></div>

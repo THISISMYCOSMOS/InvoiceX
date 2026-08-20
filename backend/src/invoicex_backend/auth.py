@@ -40,6 +40,7 @@ def issue_access_token(
         "email": identity.email,
         "exp": expires_at,
         "role": identity.role.value,
+        "source": identity.source,
     }
     body = _encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     signature = _sign(body, settings.auth_token_secret)
@@ -68,10 +69,18 @@ async def require_authenticated_identity(request: Request) -> AuthenticatedIdent
         payload = json.loads(_decode(body))
         if not isinstance(payload, dict) or int(payload["exp"]) < int(time.time()):
             raise ValueError("expired")
-        identity = AuthenticatedIdentity(
-            role=LoginRole(str(payload["role"])),
-            email=str(payload["email"]),
-        )
+        role = LoginRole(str(payload["role"]))
+        email = str(payload["email"])
+        # Tokens issued before member authentication was added did not carry a
+        # source.  Preserve their fixed-demo behavior while making new MEMBER
+        # tokens resolve the completed company account.
+        source = str(payload.get("source", "DEMO"))
+        if source == "MEMBER":
+            identity = _member_identity(request, role=role, email=email)
+        elif source == "DEMO":
+            identity = AuthenticatedIdentity(role=role, email=email, source="DEMO")
+        else:
+            raise ValueError("unsupported authentication source")
         request.state.authenticated_identity = identity
         return identity
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -142,6 +151,44 @@ def _privy_identity(
         company_id=company.id,
         company_name=company.name,
         wallet_address=settlement_wallet[1] if settlement_wallet is not None else wallet.address,
+    )
+
+
+def _member_identity(
+    request: Request,
+    *,
+    role: LoginRole,
+    email: str,
+) -> AuthenticatedIdentity:
+    """Resolve an InvoiceX password session to its completed company account.
+
+    A member token intentionally contains only the role and email.  Business
+    routes still need the same company scope and public settlement address as
+    a Privy session, otherwise a completed supplier cannot access or issue an
+    RWA for its own invoice after a password login.
+    """
+
+    onboarding = request.app.state.onboarding_service
+    profile = onboarding.auth_me_for_email(email)
+    user = profile.user
+    if (
+        profile.onboarding_status is not OnboardingStatus.COMPLETED
+        or profile.company is None
+        or profile.embedded_wallet is None
+        or user.company_id is None
+    ):
+        raise _unauthorized()
+    if profile.company.type != CompanyType(role.value.upper()):
+        raise _unauthorized()
+    settlement_wallet = onboarding.settlement_wallet_for_email(email)
+    return AuthenticatedIdentity(
+        role=role,
+        email=user.email,
+        source="MEMBER",
+        privy_user_id=user.privy_user_id,
+        company_id=profile.company.id,
+        company_name=profile.company.name,
+        wallet_address=settlement_wallet.address,
     )
 
 
