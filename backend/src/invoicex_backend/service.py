@@ -1537,21 +1537,39 @@ class InvoiceService:
             key=lambda trace: trace.created_at,
             reverse=True,
         )[:20]
-        mandates = self._repository.active_mandates()
+        # The dashboard is a read-only summary.  A malformed legacy mandate (or a
+        # transient Cloud SQL read failure) must not prevent an investor from
+        # reaching the rest of the application.
+        try:
+            mandates = self._repository.active_mandates()
+        except Exception:
+            logger.exception("Unable to load active investor mandates for dashboard")
+            mandates = []
         if identity is not None and identity.source == "PRIVY":
             mandates = [
                 mandate
                 for mandate in mandates
                 if mandate.owner_wallet_address == identity.wallet_address
             ]
-        vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
+        try:
+            vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
+        except Exception:
+            logger.exception("Unable to load investor vault for dashboard")
+            vault = None
         attention_required_statuses = {InvoiceStatus.ERROR, InvoiceStatus.BLOCKED}
         attention_required_count = 0
         for invoice in self._invoices.values():
             if invoice.status in attention_required_statuses:
                 attention_required_count += 1
                 continue
-            decision = self._repository.get_decision(invoice.id)
+            try:
+                decision = self._repository.get_decision(invoice.id)
+            except Exception:
+                logger.exception(
+                    "Unable to load agent decision for investor dashboard invoice %s",
+                    invoice.id,
+                )
+                continue
             if decision is not None and decision.status == "FAILED":
                 attention_required_count += 1
         return InvestorDashboard(

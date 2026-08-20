@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 from solders.keypair import Keypair
 
@@ -139,6 +140,24 @@ def test_dashboard_attention_required_count_is_zero_without_exceptions(
     dashboard = client.get("/api/v1/investor/dashboard")
     assert dashboard.status_code == 200
     assert dashboard.json()["attentionRequiredCount"] == 0
+
+
+def test_dashboard_remains_available_when_mandate_storage_fails(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = client.app.state.invoice_service
+
+    def fail_to_load_mandates() -> list[object]:
+        raise RuntimeError("legacy mandate cannot be decoded")
+
+    monkeypatch.setattr(service.repository, "active_mandates", fail_to_load_mandates)
+
+    dashboard = client.get("/api/v1/investor/dashboard")
+
+    assert dashboard.status_code == 200
+    assert dashboard.json()["mandateStatus"] == "DRAFT"
+    assert dashboard.json()["availableVaultUsdc"] == 0
 
 
 def test_dashboard_attention_required_count_increases_for_a_blocked_invoice(
