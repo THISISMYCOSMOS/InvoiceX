@@ -4,7 +4,7 @@ import { useLanguage } from "../../../i18n/LanguageContext";
 
 export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
   const { language, t } = useLanguage();
-  const amount = invoice.agentDecision?.amountUsdc ?? invoice.riskPassport?.suggestedAdvanceAmountUsdc;
+  const amount = invoice.riskPassport?.suggestedAdvanceAmountUsdc;
   const faceValueUsdc = invoice.rwaAsset?.faceValueUsdc ?? invoice.riskPassport?.invoiceFaceValueUsdc;
   const issuancePriceUsdc = invoice.rwaAsset?.issuancePriceUsdc ?? amount;
   const dateFormatter = new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
@@ -66,7 +66,6 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
               <div><dt>{t("Advance rate", "조기정산 비율")}</dt><dd>{advanceRate === null || advanceRate === undefined ? "—" : `${advanceRate / 100}%`}</dd></div>
               <div><dt>{t("RWA face value", "RWA 기준 채권가치")}</dt><dd>{faceValueUsdc?.toLocaleString() ?? "—"} USDC</dd></div>
               <div><dt>{t("RWA issuance price", "RWA 발행 가격")}</dt><dd>{issuancePriceUsdc?.toLocaleString() ?? "—"} USDC</dd></div>
-              <div><dt>{t("Expected settlement", "조기정산 예정 금액")}</dt><dd>{amount?.toLocaleString() ?? "—"} USDC</dd></div>
               <div><dt>{t("Policy version", "정책 버전")}</dt><dd>{invoice.riskPassport?.policyVersion ?? "—"}</dd></div>
               <div><dt>{t("Analysis documents", "분석 문서")}</dt><dd>{invoice.documents.length} {t("files", "개")}</dd></div>
             </dl>
@@ -86,7 +85,7 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
         </div>
         <div className="rwa-issued-card__notice">
           <span><FileText size={18} weight="fill" aria-hidden="true" /></span>
-          <p>{invoice.agentDecision?.reason ?? t("This RWA is held in platform escrow until a qualifying active investor mandate completes the automatic purchase.", "이 RWA는 조건을 충족하는 활성 투자 Mandate가 자동 매수를 완료할 때까지 플랫폼 에스크로에 보관됩니다.")}</p>
+          <p>{t("The issued RWA is held safely in platform escrow. Settlement updates will appear here.", "발행된 RWA는 플랫폼 에스크로에 안전하게 보관됩니다. 정산 진행 상황은 이 페이지에서 확인할 수 있습니다.")}</p>
         </div>
       </article>
     </section>

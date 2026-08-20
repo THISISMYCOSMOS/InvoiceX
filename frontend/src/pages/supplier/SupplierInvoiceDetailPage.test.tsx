@@ -177,7 +177,7 @@ test("shows the shared lifecycle for an in-progress risk assessment", () => {
   expect(screen.getByRole("heading", { name: "Generating the Risk Passport" })).toBeInTheDocument();
 });
 
-test("shows Agent policy evaluation details while funding is in progress", () => {
+test("shows the RWA issuance summary while funding is in progress", () => {
   render(
     <SupplierInvoiceDetailContent
       invoice={{
@@ -197,10 +197,12 @@ test("shows Agent policy evaluation details while funding is in progress", () =>
     />,
   );
 
-  expect(screen.getByRole("heading", { name: "Treasury Agent is evaluating this issued RWA" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Policy checks" })).toBeInTheDocument();
-  expect(screen.getByText("minimumRiskScore")).toBeInTheDocument();
-  expect(screen.getAllByText("Passed")).toHaveLength(2);
+  expect(screen.getByRole("heading", { name: "Your invoice RWA has been issued" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Invoice lifecycle")).toHaveTextContent("6 / 7 Agent investment");
+  expect(screen.queryByText("Mandate evaluation")).not.toBeInTheDocument();
+  expect(screen.queryByText("Expected purchase")).not.toBeInTheDocument();
+  expect(screen.queryByText("Expected settlement")).not.toBeInTheDocument();
+  expect(screen.queryByText("Policy checks")).not.toBeInTheDocument();
 });
 
 test("shows maturity settlement copy for a capped live Devnet payment", () => {

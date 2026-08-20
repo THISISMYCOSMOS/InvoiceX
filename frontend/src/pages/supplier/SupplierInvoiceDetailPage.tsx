@@ -11,7 +11,6 @@ import type { Invoice } from "../../types/invoice";
 import { BuyerReviewPendingSection } from "./sections/BuyerReviewPendingSection";
 import { DocumentReviewSection } from "./sections/DocumentReviewSection";
 import { EarlySettlementOfferSection, type OfferStage } from "./sections/EarlySettlementOfferSection";
-import { FundingProgressSection } from "./sections/FundingProgressSection";
 import { FundingReceiptSection } from "./sections/FundingReceiptSection";
 import { InvoiceWorkflowStatusSection } from "./sections/InvoiceWorkflowStatusSection";
 import { RwaIssuedSection } from "./sections/RwaIssuedSection";
@@ -81,12 +80,8 @@ export function SupplierInvoiceDetailContent({
       );
     }
 
-    if (invoice.status === "RWA_ISSUED") {
+    if (invoice.status === "RWA_ISSUED" || invoice.status === "FUNDING") {
       return <RwaIssuedSection invoice={invoice} />;
-    }
-
-    if (invoice.status === "FUNDING") {
-      return <FundingProgressSection invoice={invoice} />;
     }
 
     if (invoice.status === "FUNDED") {
