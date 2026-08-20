@@ -166,3 +166,33 @@ def test_gcp_mock_settlement_requires_its_separate_wallets() -> None:
             GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
             GCS_SIGNING_SERVICE_ACCOUNT="invoicex-api@invoicex-demo.iam.gserviceaccount.com",
         )
+
+
+def test_gcp_privy_settlement_requires_live_wallet_routes() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="PRIVY_SETTLEMENT_WALLET_ID, PLATFORM_FEE_WALLET_ADDRESS",
+    ):
+        BackendSettings(
+            _env_file=None,
+            DEPLOYMENT_TARGET="gcp",
+            PERSISTENCE_BACKEND="cloud_sql",
+            DOCUMENT_STORAGE_BACKEND="gcs",
+            API_AUTH_REQUIRED=True,
+            AUTH_TOKEN_SECRET="test-token-secret-that-is-long-enough-for-hmac",
+            MOCK_SETTLEMENT_ENABLED=False,
+            GCP_PROJECT_ID="invoicex-demo",
+            CLOUD_SQL_INSTANCE_CONNECTION_NAME="invoicex-demo:asia-northeast3:invoicex",
+            CLOUD_SQL_DATABASE="invoicex",
+            CLOUD_SQL_USER="invoicex_app",
+            CLOUD_SQL_PASSWORD="cloud-sql-password-from-secret-manager",
+            GCS_DOCUMENT_BUCKET="invoicex-demo-documents",
+            GCS_SIGNING_SERVICE_ACCOUNT="invoicex-api@invoicex-demo.iam.gserviceaccount.com",
+            SOLANA_MODE="privy",
+            PRIVY_APP_ID="app-id",
+            PRIVY_APP_SECRET="app-secret",
+            PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
+            PRIVY_TREASURY_WALLET_ID="treasury",
+            PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+            PRIVY_TREASURY_WALLET_ADDRESS=str(Pubkey.new_unique()),
+        )

@@ -95,3 +95,18 @@ test("does not report a confirmed transfer sent to another wallet as received", 
       .settlementReceivedUsdc,
   ).toBe(0);
 });
+
+test("ignores a settlement-wallet response cached for another authenticated wallet", async () => {
+  getSettlementWalletMock.mockResolvedValueOnce({
+    walletType: "EXTERNAL",
+    address: "BzVQsk3NKMnV7dbDWMGznFovtMfnu3orPwqj3F7kmyEP",
+    embeddedWalletAddress: "A_DIFFERENT_EMBEDDED_WALLET",
+  });
+
+  renderDashboard();
+
+  await screen.findByRole("heading", { name: "Good morning, Jiyoon" });
+  expect(useDevnetUsdcBalanceMock).toHaveBeenLastCalledWith(
+    "8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q",
+  );
+});

@@ -728,6 +728,8 @@ class InvoiceService:
             remaining_term_days = max(
                 0, (self._parse_iso_date(invoice.due_date, "인보이스 만기일") - date.today()).days
             )
+            buyer_company = self._repository.get_company(invoice.buyer.id)
+            supplier_company = self._repository.get_company(invoice.supplier.id)
             score_result = self._risk_scoring.evaluate(
                 RiskScoringRequest(
                     invoice_id=invoice.id,
@@ -736,8 +738,16 @@ class InvoiceService:
                     buyer_confirmed=True,
                     remaining_term_days=remaining_term_days,
                     document_summary="mismatch" if agent_analysis.mismatches else "documents consistent",
-                    buyer_key=invoice.buyer.id or invoice.buyer.name,
-                    supplier_key=invoice.supplier.id or invoice.supplier.name,
+                    buyer_key=(
+                        buyer_company.registration_number
+                        if buyer_company is not None
+                        else invoice.buyer.id or invoice.buyer.name
+                    ),
+                    supplier_key=(
+                        supplier_company.registration_number
+                        if supplier_company is not None
+                        else invoice.supplier.id or invoice.supplier.name
+                    ),
                 )
             )
             pricing = calculate_dynamic_pricing(
@@ -1927,7 +1937,6 @@ class InvoiceService:
                     and invoice.analysis.delivery_completed.value is True
                 ),
                 dispute_free=verification.status is not VerificationStatus.DISPUTED,
-                duplicate_free=not matches,
                 not_overdue=self._parse_iso_date(invoice.due_date, "인보이스 만기일") >= date.today(),
                 prior_assignment_free=not any(other.rwa_asset is not None for other in matches),
                 # External sanctions data is explicitly out of MVP scope. The

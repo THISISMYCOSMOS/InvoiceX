@@ -6,6 +6,9 @@ substitutions:
   _IMAGE_TAG: manual
   _API_BASE_URL: https://invoicex-api-ew3oji7ara-du.a.run.app
   _PRIVY_APP_ID: cms678zqw007k0cjkq4jhxn9q
+  _SOLANA_RPC_URL: https://api.devnet.solana.com
+  _SOLANA_USDC_MINT: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+  _SOLANA_USDC_DECIMALS: '6'
 
 steps:
   - name: gcr.io/cloud-builders/docker
@@ -15,6 +18,9 @@ steps:
       - --build-arg=VITE_API_BASE_URL=${_API_BASE_URL}
       - --build-arg=VITE_USE_MOCK_API=false
       - --build-arg=VITE_PRIVY_APP_ID=${_PRIVY_APP_ID}
+      - --build-arg=VITE_SOLANA_RPC_URL=${_SOLANA_RPC_URL}
+      - --build-arg=VITE_SOLANA_USDC_MINT=${_SOLANA_USDC_MINT}
+      - --build-arg=VITE_SOLANA_USDC_DECIMALS=${_SOLANA_USDC_DECIMALS}
       - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REPOSITORY}/${_SERVICE}:${_IMAGE_TAG}
       - .
   - name: gcr.io/cloud-builders/docker

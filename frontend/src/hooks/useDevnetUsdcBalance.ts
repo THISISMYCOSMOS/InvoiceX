@@ -26,9 +26,13 @@ export function useDevnetUsdcBalance(walletAddress?: string | null) {
   const query = useQuery({
     queryKey: ["solana", "devnet-usdc-balance", address, usdcMintAddress],
     enabled: Boolean(owner),
+    gcTime: 0,
     staleTime: 10_000,
     refetchInterval: 15_000,
-    retry: 1,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 2_000),
     queryFn: async () => {
       if (!owner) throw new Error("Wallet public key is unavailable.");
 

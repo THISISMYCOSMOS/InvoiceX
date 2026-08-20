@@ -14,7 +14,6 @@ class HardGateInput:
     buyer_verified: bool
     delivery_completed: bool
     dispute_free: bool
-    duplicate_free: bool
     not_overdue: bool
     prior_assignment_free: bool
     sanctions_clear: bool
@@ -26,7 +25,6 @@ _CHECKS = (
     ("BUYER_VERIFIED", "구매기업 인증 완료", "구매기업 인증이 완료되지 않았습니다."),
     ("DELIVERY_COMPLETED", "납품 완료", "납품 완료 근거가 확인되지 않았습니다."),
     ("NO_DISPUTE", "분쟁 없음", "분쟁 상태인 인보이스입니다."),
-    ("NO_DUPLICATE", "중복 인보이스 없음", "동일한 원본 인보이스가 이미 등록되어 있습니다."),
     ("NOT_OVERDUE", "만기 전", "이미 만기가 지난 인보이스입니다."),
     ("NO_PRIOR_ASSIGNMENT", "선행 양도 없음", "기존 채권 양도 이력이 확인되었습니다."),
     ("SANCTIONS_CLEAR", "제재 대상 아님", "제재 목록 확인을 통과하지 못했습니다."),
@@ -40,7 +38,6 @@ def evaluate_hard_gate(value: HardGateInput) -> HardGateResult:
         value.buyer_verified,
         value.delivery_completed,
         value.dispute_free,
-        value.duplicate_free,
         value.not_overdue,
         value.prior_assignment_free,
         value.sanctions_clear,

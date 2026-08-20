@@ -17,11 +17,24 @@ export function SupplierDashboardPage() {
   const { language, t } = useLanguage();
   const currentAccount = useCurrentPrivyAccount();
   const settlementWallet = useQuery({
-    queryKey: ["auth", "settlement-wallet"],
+    queryKey: [
+      "auth",
+      "settlement-wallet",
+      currentAccount?.userEmail,
+      currentAccount?.walletAddress,
+    ],
     queryFn: () => rwaApi.getSettlementWallet(),
     enabled: Boolean(currentAccount),
+    gcTime: 0,
+    refetchOnMount: "always",
   });
-  const settlementWalletAddress = settlementWallet.data?.address ?? currentAccount?.walletAddress;
+  const settlementWalletAddress = (
+    settlementWallet.data
+      && currentAccount
+      && settlementWallet.data.embeddedWalletAddress === currentAccount.walletAddress
+      ? settlementWallet.data.address
+      : currentAccount?.walletAddress
+  );
   const supplierWalletBalance = useDevnetUsdcBalance(settlementWalletAddress);
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;

@@ -63,6 +63,33 @@ def test_risk_review_request_persists_review_requested_status(
     assert persisted.json()["invoice"]["status"] == "REVIEW_REQUESTED"
 
 
+def test_same_original_invoice_number_does_not_block_a_new_invoice(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    first = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]
+    second = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]
+
+    service = client.app.state.invoice_service
+    second_invoice = service._invoices[second["id"]]
+    second_invoice.analysis.invoice_number.value = first["analysis"]["invoiceNumber"]["value"]
+    service._save_invoice(second_invoice)
+
+    for invoice in (first, second):
+        requested = client.post(
+            f"/api/v1/invoices/{invoice['id']}/verification-request"
+        ).json()["invoice"]
+        confirmed = client.post(
+            f"/api/v1/verifications/{requested['verificationId']}/confirm"
+        ).json()["invoice"]
+
+        assert confirmed["status"] == "OFFER_READY"
+        assert confirmed["riskPassport"]["hardGate"]["passed"] is True
+        assert "NO_DUPLICATE" not in {
+            check["key"] for check in confirmed["riskPassport"]["hardGate"]["checks"]
+        }
+
+
 def test_buyer_reject_persists_reason_and_supplier_can_request_review(
     client: TestClient,
     contract_files: dict[str, tuple[str, bytes, str]],
@@ -156,7 +183,7 @@ def test_complete_frontend_contract_workflow(
     assert len(offered["riskPassport"]["scoreFactors"]) == 4
     assert sum(factor["score"] for factor in offered["riskPassport"]["scoreFactors"]) == offered["riskPassport"]["riskScore"]
     assert offered["riskPassport"]["hardGate"]["passed"] is True
-    assert len(offered["riskPassport"]["hardGate"]["checks"]) == 9
+    assert len(offered["riskPassport"]["hardGate"]["checks"]) == 8
     terms = offered["riskPassport"]["earlySettlementTerms"]
     assert terms["annualExpectedYieldBps"] == terms["sofrRateBps"] + terms["riskSpreadBps"] + terms["countryLegalSpreadBps"]
     assert terms["purchaseAmountUsdc"] == terms["faceValueUsdc"] - terms["expectedInvestorReturnUsdc"]

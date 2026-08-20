@@ -352,6 +352,20 @@ class BackendSettings(BaseSettings):
                 absent = [name for name, value in task_values.items() if not self._non_blank(value)]
                 if absent:
                     raise ValueError("Cloud Tasks requires configuration: " + ", ".join(absent))
+            if self.resolved_solana_mode() == "privy":
+                live_settlement_values = {
+                    "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
+                    "PLATFORM_FEE_WALLET_ADDRESS": self.platform_fee_wallet_address,
+                }
+                absent = [
+                    name
+                    for name, value in live_settlement_values.items()
+                    if not self._non_blank(value) or str(value).startswith("DEMO_")
+                ]
+                if absent:
+                    raise ValueError(
+                        "GCP Privy settlement requires configuration: " + ", ".join(absent)
+                    )
             if self.mock_settlement_enabled:
                 settlement_values = {
                     "PRIVY_SETTLEMENT_WALLET_ID": self.privy_settlement_wallet_id,
