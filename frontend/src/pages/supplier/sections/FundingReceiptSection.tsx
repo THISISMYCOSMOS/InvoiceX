@@ -19,7 +19,7 @@ export function FundingReceiptSection({ invoice }: { invoice: Invoice }) {
           <p className="detail-breadcrumb">
             {t("Invoices", "인보이스")} / {invoice.id} / {t("Funding complete", "지급 완료")}
           </p>
-          <h1>{t("Maturity settlement completed", "만기 정산이 완료되었습니다")}</h1>
+          <h1>{t("Your USDC early settlement has been paid", "USDC 조기정산 지급이 완료되었습니다")}</h1>
         </div>
       </header>
 
@@ -29,7 +29,7 @@ export function FundingReceiptSection({ invoice }: { invoice: Invoice }) {
             <Coins size={24} weight="fill" aria-hidden="true" />
           </span>
           <div>
-            <span>{t("Settlement received", "정산 수령액")}</span>
+            <span>{t("Early settlement received", "조기정산 수령액")}</span>
             <strong>{amount?.toLocaleString() ?? "—"} <small>USDC</small></strong>
           </div>
         </article>
