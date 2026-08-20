@@ -5,6 +5,7 @@ from decimal import Decimal
 import pytest
 
 from invoicex_backend.money import base_units_to_usdc, parse_usdc, usdc_to_base_units
+from invoicex_backend.models import EarlySettlementTerms
 
 
 @pytest.mark.parametrize(
@@ -27,3 +28,25 @@ def test_usdc_parser_preserves_all_six_decimals(
 def test_usdc_parser_rejects_invalid_amounts(raw: str) -> None:
     with pytest.raises(ValueError):
         parse_usdc(raw)
+
+
+def test_legacy_pricing_terms_backfill_base_units_without_repricing() -> None:
+    terms = EarlySettlementTerms.model_validate(
+        {
+            "faceValueUsdc": 5,
+            "discountAmountUsdc": 1,
+            "discountRateBps": 2_000,
+            "investorRequiredReturnUsdc": 0.9,
+            "platformFeeUsdc": 0.1,
+            "reserveAmountUsdc": 0,
+            "reserveRateBps": 0,
+            "initialAdvanceUsdc": 4,
+            "expectedReserveReturnUsdc": 0,
+            "expectedFinalProceedsUsdc": 4,
+        }
+    )
+
+    assert terms.face_value_base_units == "5000000"
+    assert terms.platform_fee_base_units == "100000"
+    assert terms.face_value_usdc == Decimal("5.000000")
+    assert terms.platform_fee_usdc == Decimal("0.100000")

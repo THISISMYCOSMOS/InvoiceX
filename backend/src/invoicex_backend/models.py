@@ -11,12 +11,34 @@ from typing import Generic, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from solders.pubkey import Pubkey
 
-from invoicex_backend.money import UsdcAmount
+from invoicex_backend.money import UsdcAmount, usdc_to_base_units
 
 
 def to_camel(value: str) -> str:
     first, *rest = value.split("_")
     return first + "".join(part.capitalize() for part in rest)
+
+
+def _backfill_usdc_base_units(
+    value: object,
+    *field_pairs: tuple[str, str],
+) -> object:
+    """Read persisted pre-base-unit DTOs without repricing their amounts."""
+
+    if not isinstance(value, dict):
+        return value
+    normalized = dict(value)
+    for usdc_field, base_units_field in field_pairs:
+        usdc_alias = to_camel(usdc_field)
+        base_units_alias = to_camel(base_units_field)
+        if base_units_field in normalized or base_units_alias in normalized:
+            continue
+        amount = normalized.get(usdc_field, normalized.get(usdc_alias))
+        if amount is not None:
+            normalized[base_units_field] = str(
+                usdc_to_base_units(amount, allow_zero=True)
+            )
+    return normalized
 
 
 class ApiModel(BaseModel):
@@ -241,6 +263,19 @@ class HardGateResult(ApiModel):
 
 
 class EarlySettlementTerms(ApiModel):
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_usdc_amounts(cls, value: object) -> object:
+        return _backfill_usdc_base_units(
+            value,
+            ("face_value_usdc", "face_value_base_units"),
+            ("platform_fee_usdc", "platform_fee_base_units"),
+            ("expected_investor_return_usdc", "investor_net_return_base_units"),
+            ("investor_settlement_usdc", "investor_settlement_base_units"),
+            ("purchase_amount_usdc", "purchase_amount_base_units"),
+            ("supplier_expected_settlement_usdc", "supplier_settlement_base_units"),
+        )
+
     face_value_usdc: UsdcAmount = Field(ge=0)
     face_value_base_units: str
     discount_amount_usdc: UsdcAmount = Field(ge=0)
@@ -275,6 +310,15 @@ class EarlySettlementTerms(ApiModel):
 
 
 class RiskPassport(ApiModel):
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_usdc_amounts(cls, value: object) -> object:
+        return _backfill_usdc_base_units(
+            value,
+            ("suggested_advance_amount_usdc", "suggested_advance_base_units"),
+            ("invoice_face_value_usdc", "invoice_face_value_base_units"),
+        )
+
     invoice_id: str
     eligibility: RiskEligibility
     risk_score: int | None = Field(default=None, ge=0, le=100)
@@ -297,6 +341,14 @@ class RiskPassport(ApiModel):
 
 
 class BlockchainTransaction(ApiModel):
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_usdc_amount(cls, value: object) -> object:
+        return _backfill_usdc_base_units(
+            value,
+            ("amount_usdc", "amount_base_units"),
+        )
+
     signature: str
     network: Literal["SOLANA_DEVNET"] = "SOLANA_DEVNET"
     status: TransactionStatus
@@ -311,6 +363,17 @@ class BlockchainTransaction(ApiModel):
 
 
 class Settlement(ApiModel):
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_usdc_amounts(cls, value: object) -> object:
+        return _backfill_usdc_base_units(
+            value,
+            ("invoice_face_value_usdc", "invoice_face_value_base_units"),
+            ("investor_settlement_usdc", "investor_settlement_base_units"),
+            ("platform_fee_usdc", "platform_fee_base_units"),
+            ("supplier_residual_usdc", "supplier_residual_base_units"),
+        )
+
     invoice_face_value_usdc: UsdcAmount
     invoice_face_value_base_units: str
     investor_settlement_usdc: UsdcAmount
@@ -378,6 +441,16 @@ class RwaAsset(ApiModel):
     owner_vault_address: str | None = None
     owner_wallet_address: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_usdc_amounts(cls, value: object) -> object:
+        return _backfill_usdc_base_units(
+            value,
+            ("face_value_usdc", "face_value_base_units"),
+            ("issuance_price_usdc", "issuance_price_base_units"),
+            ("purchase_price_usdc", "purchase_price_base_units"),
+        )
+
 
 class MandatePolicy(ApiModel):
     total_investment_limit_usdc: int = Field(gt=0)
@@ -400,6 +473,14 @@ class InvestorMandate(ApiModel):
 
 
 class VaultBalance(ApiModel):
+    @model_validator(mode="before")
+    @classmethod
+    def read_legacy_usdc_amount(cls, value: object) -> object:
+        return _backfill_usdc_base_units(
+            value,
+            ("available_usdc", "available_base_units"),
+        )
+
     owner_wallet_address: str
     vault_address: str
     available_usdc: UsdcAmount = Field(ge=0)
@@ -429,6 +510,10 @@ class AgentDecision(ApiModel):
         recover existing invoices without mutating their historical records.
         """
 
+        value = _backfill_usdc_base_units(
+            value,
+            ("amount_usdc", "amount_base_units"),
+        )
         if not isinstance(value, dict):
             return value
         raw_checks = value.get("checks")
