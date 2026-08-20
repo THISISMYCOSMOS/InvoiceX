@@ -380,6 +380,18 @@ class VaultBalance(ApiModel):
     available_usdc: int = Field(ge=0)
     updated_at: str
 
+    @model_validator(mode="before")
+    @classmethod
+    def discard_legacy_available_base_units(cls, value: object) -> object:
+        """Read v1 Vault documents without retaining obsolete unit metadata."""
+
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        normalized.pop("availableBaseUnits", None)
+        normalized.pop("available_base_units", None)
+        return normalized
+
 
 class AgentDecision(ApiModel):
     invoice_id: str

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 from solders.keypair import Keypair
 
-from invoicex_backend.models import AgentDecision
+from invoicex_backend.models import AgentDecision, VaultBalance
 
 
 def _create_signed_mandate(
@@ -77,6 +77,20 @@ def test_legacy_execution_metadata_does_not_break_saved_agent_decisions() -> Non
     )
 
     assert decision.checks == {"policyActive": True}
+
+
+def test_legacy_available_base_units_does_not_break_saved_vaults() -> None:
+    vault = VaultBalance.model_validate(
+        {
+            "ownerWalletAddress": "DulL8c6fzqDjZpMrtjzg4zhFW3UoVGPF19ZAiXV8WGfh",
+            "vaultAddress": "BDRW9KjvbJA5pxavitWJQ6o3HQiHjntiZKw5mnJbjXYY",
+            "availableUsdc": 13,
+            "availableBaseUnits": 13_000_000,
+            "updatedAt": "2026-08-20T20:02:56+00:00",
+        }
+    )
+
+    assert vault.available_usdc == 13
 
 
 def test_deposit_receipt_is_idempotent(client: TestClient) -> None:
