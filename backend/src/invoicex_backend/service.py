@@ -1070,6 +1070,7 @@ class InvoiceService:
                         "status": "SOLD",
                         "purchase_transaction": invoice.funding_transaction,
                         "owner_vault_address": vault.vault_address,
+                        "owner_wallet_address": mandate.owner_wallet_address,
                     }
                 )
                 completed = decision.model_copy(update={"status": "EXECUTED"})
@@ -1313,15 +1314,22 @@ class InvoiceService:
         platform_fee = terms.platform_fee_usdc
         investor_amount = face_value - platform_fee
         investor_wallet = (
-            invoice.rwa_asset.owner_vault_address
+            invoice.rwa_asset.owner_wallet_address
+            if invoice.rwa_asset and invoice.rwa_asset.owner_wallet_address
+            else invoice.rwa_asset.owner_vault_address
             if invoice.rwa_asset and invoice.rwa_asset.owner_vault_address
             else self._settings.investor_settlement_wallet_address
+        )
+        settlement_wallet_id = (
+            "AGENT_VAULT"
+            if self._solana.mode == "direct"
+            else self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT"
         )
         invoice.status = InvoiceStatus.SETTLING
         try:
             if invoice.investor_payout_transaction is None:
                 result = await self._solana.send_usdc(
-                    wallet_id=self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT",
+                    wallet_id=settlement_wallet_id,
                     transfers=[ChainTransfer(to_address=investor_wallet, amount_usdc=investor_amount)],
                     reference_id=f"investor-payout-{invoice.id}",
                 )
@@ -1332,7 +1340,7 @@ class InvoiceService:
                 self._save_invoice(invoice)
             if platform_fee > 0 and invoice.platform_fee_transaction is None:
                 result = await self._solana.send_usdc(
-                    wallet_id=self._settings.privy_settlement_wallet_id or "MOCK_SETTLEMENT",
+                    wallet_id=settlement_wallet_id,
                     transfers=[ChainTransfer(to_address=self._settings.platform_fee_wallet_address, amount_usdc=platform_fee)],
                     reference_id=f"platform-fee-{invoice.id}",
                 )

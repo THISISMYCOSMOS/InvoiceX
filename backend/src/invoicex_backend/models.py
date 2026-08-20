@@ -344,6 +344,7 @@ class RwaAsset(ApiModel):
     issuance_price_usdc: int | None = Field(default=None, ge=0)
     purchase_transaction: BlockchainTransaction | None = None
     owner_vault_address: str | None = None
+    owner_wallet_address: str | None = None
 
 
 class MandatePolicy(ApiModel):

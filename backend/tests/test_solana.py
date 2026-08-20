@@ -634,6 +634,7 @@ async def test_direct_gateway_issues_and_atomically_purchases_rwa(
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     gateway = DirectSolanaGateway(settings, http_client=client)
+    assert await gateway.settlement_wallet_address() == str(vault.pubkey())
     issued = await gateway.issue_rwa(invoice_id="INV-2026-001")
     purchase = await gateway.purchase_rwa(
         invoice_id="INV-2026-001",
