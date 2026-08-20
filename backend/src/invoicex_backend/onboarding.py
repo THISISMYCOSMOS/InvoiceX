@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Callable
 
 from fastapi import status
 from solders.pubkey import Pubkey
@@ -38,9 +39,15 @@ def _id(prefix: str) -> str:
 
 
 class OnboardingService:
-    def __init__(self, repository: RwaRepository, privy: PrivyUserGateway) -> None:
+    def __init__(
+        self,
+        repository: RwaRepository,
+        privy: PrivyUserGateway,
+        vault_initializer: Callable[[str], object] | None = None,
+    ) -> None:
         self._repository = repository
         self._privy = privy
+        self._vault_initializer = vault_initializer
         self._locks: dict[str, asyncio.Lock] = {}
         self._locks_guard = asyncio.Lock()
 
@@ -408,6 +415,8 @@ class OnboardingService:
                     "ONBOARDING_STATE_INVALID",
                     "저장된 Embedded Wallet을 찾을 수 없습니다.",
                 )
+            if company.type is CompanyType.INVESTOR and self._vault_initializer is not None:
+                self._vault_initializer(saved_wallet.address)
             return OnboardingResponse(
                 user=user,
                 company=company,

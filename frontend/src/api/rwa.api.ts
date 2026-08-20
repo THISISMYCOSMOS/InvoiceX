@@ -34,6 +34,7 @@ interface VaultDepositPreparation {
   transactionBase64: string;
   vaultAddress: string;
   stablecoinMintAddress: string;
+  provider: "PRIVY" | "DIRECT" | "MOCK";
   sponsored: boolean;
   sponsorDepositId: string | null;
   sponsorWalletAddress: string | null;
@@ -103,10 +104,11 @@ export const rwaApi = {
     if (isMockApi) {
       return [
         { id: "BUYER_PRIME", name: "Prime Mobility" },
-        { id: "BUYER_ORBIT", name: "Orbit Components" },
-        { id: "BUYER_DAON", name: "Daon Logistics" },
-        { id: "BUYER_VERTEX", name: "Vertex Retail" },
-      ];
+    { id: "BUYER_ORBIT", name: "Orbit Components" },
+    { id: "BUYER_DAON", name: "Daon Logistics" },
+    { id: "BUYER_VERTEX", name: "Vertex Retail" },
+    { id: "BUYER_HALCYON", name: "Halcyon Robotics Ltd" },
+  ];
     }
     return request<InvestmentCriteriaBuyer[]>("/reference/investment-criteria/buyers", {
       method: "GET",

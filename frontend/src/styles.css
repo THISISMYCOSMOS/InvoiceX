@@ -4180,6 +4180,12 @@ a {
   font-size: 9px;
 }
 
+.review-actions__buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .review-confirm {
   min-height: 38px;
   gap: 7px;

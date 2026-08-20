@@ -160,6 +160,7 @@ def privy_business_client(
     app.state.onboarding_service = OnboardingService(
         app.state.invoice_service.repository,
         FakePrivyGateway(),
+        vault_initializer=app.state.invoice_service.provision_investor_vault,
     )
     with TestClient(app) as client:
         yield client, private_key
@@ -474,6 +475,50 @@ def test_member_can_switch_between_embedded_and_external_settlement_wallets(
     assert restored_wallet.status_code == 200
     assert restored_wallet.json()["walletType"] == "EMBEDDED"
     assert restored_wallet.json()["address"] == default_wallet.json()["address"]
+
+
+def test_investor_onboarding_provisions_a_vault_and_allows_a_mock_deposit(
+    tmp_path: Path,
+) -> None:
+    user_id = "did:privy:investor-vault"
+    with privy_business_client(tmp_path) as (client, private_key):
+        onboarding = register_company(
+            client,
+            private_key,
+            user_id=user_id,
+            company_type="INVESTOR",
+            company_name="Vault Capital",
+            business_number="12-3456789",
+        )
+        wallet_address = onboarding["embeddedWallet"]["address"]
+        account_headers = headers(private_key, user_id)
+
+        vault = client.get(
+            "/api/v1/investor/vault",
+            params={"ownerWalletAddress": wallet_address},
+            headers=account_headers,
+        )
+        prepared = client.post(
+            "/api/v1/investor/vault/deposits/prepare",
+            headers=account_headers,
+            json={"ownerWalletAddress": wallet_address, "amountUsdc": 25},
+        )
+        confirmed = client.post(
+            "/api/v1/investor/vault/deposits/confirm",
+            headers=account_headers,
+            json={
+                "ownerWalletAddress": wallet_address,
+                "amountUsdc": 25,
+                "signature": "mock-investor-onboarding-deposit",
+            },
+        )
+
+    assert vault.status_code == 200
+    assert vault.json()["availableUsdc"] == 0
+    assert prepared.status_code == 200
+    assert prepared.json()["provider"] == "MOCK"
+    assert confirmed.status_code == 200
+    assert confirmed.json()["availableUsdc"] == 25
 
 
 def test_account_withdrawal_disables_password_login_and_wallet_access(tmp_path: Path) -> None:

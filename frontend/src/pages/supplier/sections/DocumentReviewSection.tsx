@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   ArrowRight,
   CheckCircle,
   Warning,
@@ -13,6 +14,7 @@ import type { Invoice } from "../../../types/invoice";
 interface DocumentReviewSectionProps {
   invoice: Invoice;
   onConfirm: () => void;
+  onEditDocuments: () => void;
   isPending?: boolean;
 }
 
@@ -59,7 +61,7 @@ function ReviewField({
   );
 }
 
-export function DocumentReviewSection({ invoice, onConfirm, isPending = false }: DocumentReviewSectionProps) {
+export function DocumentReviewSection({ invoice, onConfirm, onEditDocuments, isPending = false }: DocumentReviewSectionProps) {
   const { language, t } = useLanguage();
   const [activeDocumentIndex, setActiveDocumentIndex] = useState(0);
   const analysis = invoice.analysis;
@@ -228,10 +230,16 @@ export function DocumentReviewSection({ invoice, onConfirm, isPending = false }:
             `구매자에게 보내기 전에 추출 항목 ${reviewRequiredCount}개를 확인해야 합니다.`,
           )
           : t("All extracted fields were verified against the uploaded documents.", "모든 추출 항목이 업로드 문서에서 확인되었습니다.")}</p>
-        <button className="primary-button review-confirm" type="button" onClick={onConfirm} disabled={isPending}>
-          {isPending ? t("Requesting verification...", "검증 요청 중...") : t("Confirm and continue", "확인 후 계속")}
-          {!isPending && <ArrowRight aria-hidden="true" size={14} weight="bold" />}
-        </button>
+        <div className="review-actions__buttons">
+          <button className="secondary-button" type="button" onClick={onEditDocuments} disabled={isPending}>
+            <ArrowLeft aria-hidden="true" size={14} weight="bold" />
+            {t("Edit documents", "문서 수정")}
+          </button>
+          <button className="primary-button review-confirm" type="button" onClick={onConfirm} disabled={isPending}>
+            {isPending ? t("Requesting verification...", "검증 요청 중...") : t("Confirm and continue", "확인 후 계속")}
+            {!isPending && <ArrowRight aria-hidden="true" size={14} weight="bold" />}
+          </button>
+        </div>
       </footer>
     </section>
   );

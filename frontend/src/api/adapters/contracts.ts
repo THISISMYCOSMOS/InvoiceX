@@ -12,6 +12,7 @@ export type OfferResponse = "ACCEPT" | "DECLINE";
 
 export interface ScenarioAdapter {
   submitInvoiceDocuments(formData: FormData): Promise<Invoice>;
+  replaceInvoiceDocuments(invoiceId: string, formData: FormData): Promise<Invoice>;
   getInvoices(): Promise<Invoice[]>;
   getInvoice(invoiceId: string): Promise<Invoice>;
   analyzeInvoice(invoiceId: string): Promise<Invoice>;

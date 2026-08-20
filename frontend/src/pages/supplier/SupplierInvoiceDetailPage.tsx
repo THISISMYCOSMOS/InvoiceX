@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ErrorState } from "../../components/ErrorState";
 import { InvoiceProgress } from "../../components/InvoiceProgress";
 import { LoadingState } from "../../components/LoadingState";
@@ -24,6 +24,7 @@ export function SupplierInvoiceDetailContent({
   isAccepting = false,
   acceptError,
   onRequestVerification = () => undefined,
+  onEditDocuments = () => undefined,
   isRequestingVerification = false,
   onRequestRiskReview = () => undefined,
   isRequestingRiskReview = false,
@@ -34,6 +35,7 @@ export function SupplierInvoiceDetailContent({
   isAccepting?: boolean;
   acceptError?: string;
   onRequestVerification?: () => void;
+  onEditDocuments?: () => void;
   isRequestingVerification?: boolean;
   onRequestRiskReview?: () => void;
   isRequestingRiskReview?: boolean;
@@ -53,6 +55,7 @@ export function SupplierInvoiceDetailContent({
         <DocumentReviewSection
           invoice={invoice}
           onConfirm={onRequestVerification}
+          onEditDocuments={onEditDocuments}
           isPending={isRequestingVerification}
         />
       );
@@ -133,6 +136,7 @@ export function SupplierInvoiceDetailContent({
 export function SupplierInvoiceDetailPage() {
   const { t } = useLanguage();
   const { invoiceId = "" } = useParams();
+  const navigate = useNavigate();
   const invoice = useInvoice(invoiceId);
   const acceptOffer = useAcceptOffer();
   const requestVerification = useRequestVerification();
@@ -146,6 +150,7 @@ export function SupplierInvoiceDetailPage() {
       isAccepting={acceptOffer.isPending}
       acceptError={acceptOffer.error instanceof Error ? acceptOffer.error.message : undefined}
       onRequestVerification={() => requestVerification.mutate(invoice.data.id)}
+      onEditDocuments={() => navigate(`/supplier/invoices/new?replace=${encodeURIComponent(invoice.data.id)}`)}
       isRequestingVerification={requestVerification.isPending}
       onRequestRiskReview={() => requestRiskReview.mutate(invoice.data.id)}
       isRequestingRiskReview={requestRiskReview.isPending}

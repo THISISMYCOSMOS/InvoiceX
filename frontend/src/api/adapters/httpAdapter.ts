@@ -116,6 +116,9 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async submitInvoiceDocuments(formData) {
       return unwrapInvoice(await request<unknown>("/invoices", { method: "POST", body: formData }));
     },
+    async replaceInvoiceDocuments(invoiceId, formData) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/documents`, { method: "PUT", body: formData }));
+    },
     async getInvoices() {
       const payload = await request<unknown>("/invoices", { method: "GET" });
       const data = asRecord(payload, "Invoice 목록");

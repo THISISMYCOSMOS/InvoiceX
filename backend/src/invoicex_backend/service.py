@@ -352,6 +352,46 @@ class InvoiceService:
             self._save_invoice(invoice)
             return self._copy_invoice(invoice)
 
+    async def replace_invoice_documents(
+        self,
+        invoice_id: str,
+        uploads: list[UploadedDocument],
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
+        """Replace an unsubmitted invoice's documents and discard its analysis."""
+
+        self._validate_uploads(uploads)
+        async with self._invoice_lock(invoice_id):
+            invoice = self._invoice(invoice_id)
+            self.assert_invoice_access(invoice, identity)
+            if invoice.status is not InvoiceStatus.DOCUMENT_REVIEW_REQUIRED:
+                raise StateConflictError("문서는 추출 정보 확인 단계에서만 수정할 수 있습니다.")
+            async with self._sequence_lock:
+                document_ids = []
+                for _ in uploads:
+                    self._document_sequence += 1
+                    document_ids.append(f"DOC-{str(self._document_sequence).zfill(3)}")
+            try:
+                stored_documents = await asyncio.gather(
+                    *[
+                        self._storage.store(document_id=document_id, invoice_id=invoice_id, upload=upload)
+                        for document_id, upload in zip(document_ids, uploads, strict=True)
+                    ]
+                )
+            except OSError as exc:
+                raise IntegrationError("교체할 업로드 문서를 저장하지 못했습니다.") from exc
+
+            invoice.documents = list(stored_documents)
+            invoice.analysis = None
+            invoice.invoice_amount = 0
+            invoice.currency = "UNKNOWN"
+            invoice.contract_number = ""
+            invoice.purchase_order_number = ""
+            invoice.status = InvoiceStatus.DOCUMENT_ANALYZING
+            self._agent_analyses.pop(invoice_id, None)
+            self._save_invoice(invoice)
+            return self._copy_invoice(invoice)
+
     async def run_agent_task(self, invoice_id: str, trigger: AgentTrigger) -> None:
         if trigger is not AgentTrigger.INVOICE_CREATED:
             raise StateConflictError("지원하지 않는 비동기 Agent 작업입니다.")
@@ -423,15 +463,7 @@ class InvoiceService:
             created_at=now,
         )
         self._repository.save_mandate(mandate)
-        if self._repository.get_vault(mandate.owner_wallet_address) is None:
-            self._repository.save_vault(
-                VaultBalance(
-                    owner_wallet_address=mandate.owner_wallet_address,
-                    vault_address=mandate.vault_address,
-                    available_usdc=0,
-                    updated_at=now,
-                )
-            )
+        self.provision_investor_vault(mandate.owner_wallet_address)
         return mandate
 
     def prepare_mandate_message(
@@ -454,16 +486,35 @@ class InvoiceService:
         return None
 
     def get_vault(self, owner_wallet_address: str) -> VaultBalance:
+        return self.provision_investor_vault(owner_wallet_address)
+
+    def provision_investor_vault(self, owner_wallet_address: str) -> VaultBalance:
+        """Create the investor's balance ledger as soon as their wallet is known."""
         self._validate_wallet_address(owner_wallet_address)
         existing = self._repository.get_vault(owner_wallet_address)
         if existing is not None:
+            if existing.vault_address.startswith("DEMO_") and self._solana.mode != "mock":
+                migrated = existing.model_copy(
+                    update={
+                        "vault_address": self._solana.vault_address,
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    }
+                )
+                self._repository.save_vault(migrated)
+                return migrated
             return existing
-        return VaultBalance(
+        vault = VaultBalance(
             owner_wallet_address=owner_wallet_address,
             vault_address=self._solana.vault_address,
             available_usdc=0,
             updated_at=datetime.now(UTC).isoformat(),
         )
+        self._repository.save_vault(vault)
+        return vault
+
+    @property
+    def vault_provider(self) -> Literal["PRIVY", "DIRECT", "MOCK"]:
+        return {"privy": "PRIVY", "direct": "DIRECT", "mock": "MOCK"}[self._solana.mode]  # type: ignore[return-value]
 
     async def prepare_vault_deposit(self, *, owner_wallet_address: str, amount_usdc: int):
         self._validate_wallet_address(owner_wallet_address)
