@@ -334,7 +334,14 @@ class InvoiceService:
             self._apply_extracted_metadata(invoice, agent_result)
             if authenticated_supplier_name is not None:
                 invoice.supplier.name = authenticated_supplier_name
-            invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
+            if self._matching_prior_invoice_numbers(invoice):
+                invoice.status = InvoiceStatus.BLOCKED
+                invoice.rejection_reason_code = "DUPLICATE_INVOICE"
+                invoice.rejection_reason_detail = (
+                    "동일한 인보이스 번호가 이미 등록되어 있습니다."
+                )
+            else:
+                invoice.status = InvoiceStatus.DOCUMENT_REVIEW_REQUIRED
             self._append_trace(
                 invoice,
                 source="DOCUMENT_AGENT",
@@ -1841,19 +1848,7 @@ class InvoiceService:
         invoice: Invoice,
         verification: Verification,
     ):
-        original_number = (
-            invoice.analysis.invoice_number.value
-            if invoice.analysis is not None
-            else None
-        )
-        matches = [
-            other
-            for other in self._invoices.values()
-            if other.id != invoice.id
-            and original_number
-            and other.analysis is not None
-            and other.analysis.invoice_number.value == original_number
-        ]
+        matches = self._matching_prior_invoice_numbers(invoice)
         supplier = self._repository.get_company(invoice.supplier.id)
         buyer = self._repository.get_company(invoice.buyer.id)
 
@@ -1886,6 +1881,24 @@ class InvoiceService:
                 sanctions_clear=True,
             )
         )
+
+    def _matching_prior_invoice_numbers(self, invoice: Invoice) -> list[Invoice]:
+        invoice_number = (
+            invoice.analysis.invoice_number.value
+            if invoice.analysis is not None
+            else None
+        )
+        if not invoice_number:
+            return []
+        invoice_sequence = self._max_id_suffix([invoice.id], "INV-")
+        return [
+            other
+            for other in self._invoices.values()
+            if other.id != invoice.id
+            and self._max_id_suffix([other.id], "INV-") < invoice_sequence
+            and other.analysis is not None
+            and other.analysis.invoice_number.value == invoice_number
+        ]
 
     def _ensure_dynamic_pricing(self, invoice: Invoice) -> None:
         passport = invoice.risk_passport
