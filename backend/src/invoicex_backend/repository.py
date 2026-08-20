@@ -1112,7 +1112,20 @@ class CloudSqlRwaRepository:
             password_hash TEXT
         )
         """,
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT",
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'users'
+                  AND column_name = 'password_hash'
+            ) THEN
+                ALTER TABLE users ADD COLUMN password_hash TEXT;
+            END IF;
+        END $$
+        """,
         """
         CREATE TABLE IF NOT EXISTS wallets (
             id TEXT PRIMARY KEY,
