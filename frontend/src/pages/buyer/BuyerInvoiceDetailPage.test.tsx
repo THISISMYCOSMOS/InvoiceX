@@ -64,6 +64,11 @@ test("shows the embedded-wallet maturity-payment action for a funded invoice", a
         amountBaseUnits: 3_000_000,
         decimals: 6,
         dueDate: DEMO_INVOICE.dueDate,
+        transfers: [{
+          recipientWalletAddress: "SettlementWallet",
+          amountUsdc: 3,
+          amountBaseUnits: 3_000_000,
+        }],
         demoDueDateBypass: true,
       }}
       onPay={onPay}

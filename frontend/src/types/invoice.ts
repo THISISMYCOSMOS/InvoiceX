@@ -174,6 +174,11 @@ export interface BuyerPaymentPreparation {
   amountBaseUnits: number;
   decimals: number;
   dueDate: string;
+  transfers: Array<{
+    recipientWalletAddress: string;
+    amountUsdc: number;
+    amountBaseUnits: number;
+  }>;
   demoDueDateBypass: boolean;
 }
 

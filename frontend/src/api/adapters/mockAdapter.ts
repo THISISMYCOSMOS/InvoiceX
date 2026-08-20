@@ -227,6 +227,11 @@ export function createMockAdapter(): ScenarioAdapter {
         amountBaseUnits: amountUsdc * 1_000_000,
         decimals: 6,
         dueDate: current.dueDate,
+        transfers: [{
+          recipientWalletAddress: "11111111111111111111111111111111",
+          amountUsdc,
+          amountBaseUnits: amountUsdc * 1_000_000,
+        }],
         demoDueDateBypass: true,
       };
     },

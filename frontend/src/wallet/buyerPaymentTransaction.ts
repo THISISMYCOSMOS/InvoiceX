@@ -11,23 +11,27 @@ export function buildBuyerPaymentTransaction(
   buyer: PublicKey,
 ): Transaction {
   const mint = new PublicKey(preparation.usdcMintAddress);
-  const settlement = new PublicKey(preparation.settlementWalletAddress);
   const buyerTokenAccount = getAssociatedTokenAddressSync(mint, buyer);
-  const settlementTokenAccount = getAssociatedTokenAddressSync(mint, settlement);
-  return new Transaction().add(
-    createAssociatedTokenAccountIdempotentInstruction(
-      buyer,
-      settlementTokenAccount,
-      settlement,
-      mint,
-    ),
-    createTransferCheckedInstruction(
-      buyerTokenAccount,
-      mint,
-      settlementTokenAccount,
-      buyer,
-      BigInt(preparation.amountBaseUnits),
-      preparation.decimals,
-    ),
-  );
+  const transaction = new Transaction();
+  for (const transfer of preparation.transfers) {
+    const recipient = new PublicKey(transfer.recipientWalletAddress);
+    const recipientTokenAccount = getAssociatedTokenAddressSync(mint, recipient);
+    transaction.add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        buyer,
+        recipientTokenAccount,
+        recipient,
+        mint,
+      ),
+      createTransferCheckedInstruction(
+        buyerTokenAccount,
+        mint,
+        recipientTokenAccount,
+        buyer,
+        BigInt(transfer.amountBaseUnits),
+        preparation.decimals,
+      ),
+    );
+  }
+  return transaction;
 }

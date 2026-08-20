@@ -39,7 +39,11 @@ export function useBuyerPayment(invoiceId: string) {
       } catch {
         throw new Error("구매기업 지갑에 Devnet USDC 토큰 계정이 없습니다.");
       }
-      if (available < BigInt(preparation.amountBaseUnits)) {
+      const totalAmountBaseUnits = preparation.transfers.reduce(
+        (total, transfer) => total + BigInt(transfer.amountBaseUnits),
+        0n,
+      );
+      if (available < totalAmountBaseUnits) {
         throw new Error("구매기업 지갑의 Devnet USDC 잔액이 결제 금액보다 부족합니다.");
       }
       const transaction = buildBuyerPaymentTransaction(preparation, publicKey);
