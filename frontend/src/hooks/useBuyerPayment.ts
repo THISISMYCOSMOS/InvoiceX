@@ -3,6 +3,7 @@ import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoiceApi } from "../api/invoices.api";
+import { useSignupAuth } from "../auth/SignupAuthContext";
 import { buildBuyerPaymentTransaction } from "../wallet/buyerPaymentTransaction";
 import { queryKeys } from "./queryKeys";
 
@@ -18,20 +19,25 @@ export function useBuyerPaymentPreparation(invoiceId: string) {
 export function useBuyerPayment(invoiceId: string) {
   const { connection } = useConnection();
   const { connected, publicKey, sendTransaction } = useWallet();
+  const { hasEmbeddedSolanaWallet, signEmbeddedSolanaTransaction } = useSignupAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
-      if (!connected || !publicKey || !sendTransaction) {
-        throw new Error("구매기업 Embedded Wallet을 확인할 수 없습니다.");
-      }
       const preparation = await invoiceApi.prepareBuyerPayment(invoiceId);
-      if (preparation.buyerWalletAddress !== publicKey.toBase58()) {
-        throw new Error("결제 준비 주소가 로그인한 구매기업 지갑과 일치하지 않습니다.");
+      const buyer = new PublicKey(preparation.buyerWalletAddress);
+      const canUseExternalWallet = Boolean(
+        connected
+        && publicKey
+        && preparation.buyerWalletAddress === publicKey.toBase58(),
+      );
+      const canUseEmbeddedWallet = hasEmbeddedSolanaWallet(preparation.buyerWalletAddress);
+      if (!canUseExternalWallet && !canUseEmbeddedWallet) {
+        throw new Error("결제 준비 주소와 일치하는 구매기업 지갑을 찾을 수 없습니다.");
       }
       const tokenAccount = getAssociatedTokenAddressSync(
         new PublicKey(preparation.usdcMintAddress),
-        publicKey,
+        buyer,
       );
       let available: bigint;
       try {
@@ -46,13 +52,19 @@ export function useBuyerPayment(invoiceId: string) {
       if (available < totalAmountBaseUnits) {
         throw new Error("구매기업 지갑의 Devnet USDC 잔액이 결제 금액보다 부족합니다.");
       }
-      const transaction = buildBuyerPaymentTransaction(preparation, publicKey);
+      const transaction = buildBuyerPaymentTransaction(preparation, buyer);
       const latestBlockhash = await connection.getLatestBlockhash("confirmed");
-      transaction.feePayer = publicKey;
+      transaction.feePayer = buyer;
       transaction.recentBlockhash = latestBlockhash.blockhash;
-      const signature = await sendTransaction(transaction, connection, {
-        preflightCommitment: "confirmed",
-      });
+      const signature = canUseExternalWallet
+        ? await sendTransaction(transaction, connection, { preflightCommitment: "confirmed" })
+        : await connection.sendRawTransaction(
+            await signEmbeddedSolanaTransaction(
+              preparation.buyerWalletAddress,
+              transaction.serialize({ requireAllSignatures: false, verifySignatures: false }),
+            ),
+            { preflightCommitment: "confirmed" },
+          );
       const confirmation = await connection.confirmTransaction(
         { signature, ...latestBlockhash },
         "confirmed",

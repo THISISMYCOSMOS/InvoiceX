@@ -1,5 +1,7 @@
 import { Plus } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { rwaApi } from "../../api/rwa.api";
 import { EmptyState } from "../../components/EmptyState";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
@@ -14,11 +16,17 @@ export function SupplierDashboardPage() {
   const invoices = useInvoices();
   const { language, t } = useLanguage();
   const currentAccount = useCurrentPrivyAccount();
-  const supplierWalletBalance = useDevnetUsdcBalance(currentAccount?.walletAddress);
+  const settlementWallet = useQuery({
+    queryKey: ["auth", "settlement-wallet"],
+    queryFn: () => rwaApi.getSettlementWallet(),
+    enabled: Boolean(currentAccount),
+  });
+  const settlementWalletAddress = settlementWallet.data?.address ?? currentAccount?.walletAddress;
+  const supplierWalletBalance = useDevnetUsdcBalance(settlementWalletAddress);
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
-  const summary = getDashboardSummary(items, currentAccount?.walletAddress);
+  const summary = getDashboardSummary(items, settlementWalletAddress);
   const usdcFormatter = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US", {
     maximumFractionDigits: 6,
   });

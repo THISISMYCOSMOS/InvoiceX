@@ -99,6 +99,7 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_MIME_TYPES = frozenset({"application/pdf", "image/jpeg", "image/jpg", "image/png"})
 REQUIRED_DOCUMENT_TYPES = frozenset(DocumentType)
+BUYER_EARLY_PAYMENT_WINDOW = timedelta(days=30)
 TraceSource = Literal[
     "DOCUMENT_AGENT",
     "RISK_AGENT",
@@ -1273,11 +1274,12 @@ class InvoiceService:
             InvoiceStatus.SETTLEMENT_FAILED,
         }:
             raise StateConflictError("펀딩 완료된 인보이스만 만기 결제를 진행할 수 있습니다.")
-        today = date.today()
+        today = datetime.now(BUSINESS_TIMEZONE).date()
         due_date = self._parse_iso_date(invoice.due_date, "인보이스 만기일")
         bypass = self._settings.mock_settlement_enabled
-        if today < due_date and not bypass:
-            raise StateConflictError("인보이스 만기일부터 결제를 진행할 수 있습니다.")
+        early_payment_opens_on = due_date - BUYER_EARLY_PAYMENT_WINDOW
+        if today < early_payment_opens_on and not bypass:
+            raise StateConflictError("인보이스 만기일 30일 전부터 결제를 진행할 수 있습니다.")
         buyer_wallet = identity.wallet_address if identity and identity.wallet_address else invoice.buyer.wallet_address
         if not buyer_wallet:
             raise StateConflictError("구매기업 Embedded Wallet을 찾을 수 없습니다.")
@@ -1325,7 +1327,7 @@ class InvoiceService:
             decimals=decimals,
             due_date=invoice.due_date,
             transfers=transfers,
-            demo_due_date_bypass=bypass and today < due_date,
+            demo_due_date_bypass=bypass and today < early_payment_opens_on,
         )
 
     async def confirm_buyer_payment(

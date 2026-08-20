@@ -9,6 +9,13 @@ import { SupplierDashboardPage } from "./SupplierDashboardPage";
 import { getDashboardSummary } from "./supplierDashboardSummary";
 
 const useDevnetUsdcBalanceMock = vi.hoisted(() => vi.fn());
+const getSettlementWalletMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../api/rwa.api", () => ({
+  rwaApi: {
+    getSettlementWallet: getSettlementWalletMock,
+  },
+}));
 
 vi.mock("../../hooks/useDevnetUsdcBalance", () => ({
   useDevnetUsdcBalance: useDevnetUsdcBalanceMock.mockImplementation(() => ({
@@ -21,6 +28,11 @@ vi.mock("../../hooks/useDevnetUsdcBalance", () => ({
 
 beforeEach(async () => {
   await scenarioAdapter.reset();
+  getSettlementWalletMock.mockReset().mockResolvedValue({
+    walletType: "EXTERNAL",
+    address: "BzVQsk3NKMnV7dbDWMGznFovtMfnu3orPwqj3F7kmyEP",
+    embeddedWalletAddress: "8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q",
+  });
 });
 
 function renderDashboard() {
@@ -60,7 +72,7 @@ test("derives supplier dashboard statistics from actual invoice states and links
   expect(within(screen.getByLabelText("In early settlement")).getByText("0")).toBeInTheDocument();
   expect(within(screen.getByLabelText("Waiting for buyer")).getByText("1")).toBeInTheDocument();
   expect(within(screen.getByLabelText("Received by current wallet")).getByText("0")).toBeInTheDocument();
-  expect(useDevnetUsdcBalanceMock).toHaveBeenCalledWith("8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q");
+  expect(useDevnetUsdcBalanceMock).toHaveBeenCalledWith("BzVQsk3NKMnV7dbDWMGznFovtMfnu3orPwqj3F7kmyEP");
   expect(screen.getByRole("table", { name: "Recent invoices" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "New invoice" })).toHaveAttribute("href", "/supplier/invoices/new");
   expect(await screen.findByRole("link", { name: "View invoice INV-2026-001" })).toHaveAttribute("href", "/supplier/invoices/INV-2026-001");

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -9,7 +10,7 @@ from invoicex_backend.agents import create_agent_gateway
 from invoicex_backend.app import create_app, create_document_storage, create_repository
 from invoicex_backend.errors import IntegrationError
 from invoicex_backend.models import BlockchainTransaction, InvoiceStatus, RwaAsset, TransactionStatus
-from invoicex_backend.service import InvoiceService
+from invoicex_backend.service import BUSINESS_TIMEZONE, InvoiceService
 from invoicex_backend.solana import MockSolanaGateway
 from tests.conftest import mock_settings
 
@@ -234,3 +235,64 @@ def test_direct_buyer_payment_sends_proceeds_to_the_rwa_owner_wallet(
         assert invoice["investorPayoutTransaction"]["toAddress"] == INVESTOR_WALLET
         assert invoice["platformFeeTransaction"]["toAddress"] == settings.platform_fee_wallet_address
         assert gateway.send_counts == Counter()
+
+
+def test_buyer_payment_opens_exactly_30_days_before_due_date(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    settings = mock_settings(
+        tmp_path / "uploads",
+        MOCK_SETTLEMENT_ENABLED=False,
+    )
+    service = InvoiceService(
+        settings=settings,
+        agent_gateway=create_agent_gateway(settings),
+        solana_gateway=RecordingPaymentGateway(settings),
+        storage=create_document_storage(settings),
+        repository=create_repository(settings),
+    )
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        invoice_id = _funded_invoice(client, service, contract_files)
+        invoice = service._invoice(invoice_id)
+        invoice.due_date = (
+            datetime.now(BUSINESS_TIMEZONE).date() + timedelta(days=30)
+        ).isoformat()
+        service._save_invoice(invoice)
+
+        preparation = client.get(f"/api/v1/invoices/{invoice_id}/buyer-payment/prepare")
+
+        assert preparation.status_code == 200
+        assert preparation.json()["dueDate"] == invoice.due_date
+        assert preparation.json()["demoDueDateBypass"] is False
+
+
+def test_buyer_payment_remains_closed_31_days_before_due_date(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    settings = mock_settings(
+        tmp_path / "uploads",
+        MOCK_SETTLEMENT_ENABLED=False,
+    )
+    service = InvoiceService(
+        settings=settings,
+        agent_gateway=create_agent_gateway(settings),
+        solana_gateway=RecordingPaymentGateway(settings),
+        storage=create_document_storage(settings),
+        repository=create_repository(settings),
+    )
+    with TestClient(create_app(settings=settings, service=service)) as client:
+        invoice_id = _funded_invoice(client, service, contract_files)
+        invoice = service._invoice(invoice_id)
+        invoice.due_date = (
+            datetime.now(BUSINESS_TIMEZONE).date() + timedelta(days=31)
+        ).isoformat()
+        service._save_invoice(invoice)
+
+        preparation = client.get(f"/api/v1/invoices/{invoice_id}/buyer-payment/prepare")
+
+        assert preparation.status_code == 409
+        assert preparation.json()["message"] == (
+            "인보이스 만기일 30일 전부터 결제를 진행할 수 있습니다."
+        )
