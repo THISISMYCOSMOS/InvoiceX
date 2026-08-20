@@ -187,9 +187,13 @@ export function InvestorVaultPage() {
             <div className="investor-vault-deposit-form">
               <label htmlFor="vaultDeposit"><span>{t("Deposit amount", "예치 금액")}</span><div><input id="vaultDeposit" inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /><small>USDC</small></div></label>
               {!canUseExternalWallet && embeddedWalletAddress && !authenticated ? (
-                <Link className="investor-primary-button" state={{ email: currentAccount?.userEmail ?? "" }} to="/signup">
+                <Link
+                  className="investor-primary-button"
+                  state={{ authOnly: true, email: currentAccount?.userEmail ?? "", returnTo: "/investor/vault" }}
+                  to="/signup"
+                >
                   <Vault size={15} weight="fill" aria-hidden="true" />
-                  {t("Verify email to deposit USDC", "이메일 인증 후 USDC 예치")}
+                  {t("Sign in to wallet to deposit USDC", "지갑 로그인 후 USDC 예치")}
                 </Link>
               ) : (
                 <button className="investor-primary-button" type="button" disabled={!canDeposit || isDepositing} onClick={() => void depositToVault()}><Vault size={15} weight="fill" aria-hidden="true" />{isDepositing ? phaseLabel[phase] : t("Deposit USDC", "USDC 예치")}</button>

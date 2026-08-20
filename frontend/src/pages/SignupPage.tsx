@@ -16,6 +16,11 @@ type SignupStep = "email" | "verification" | "role" | "company" | "complete";
 type CompanyRole = "supplier" | "buyer" | "investor";
 type OtpDeadline = { expiresAtServerMs: number; serverOffsetMs: number };
 type OtpClockSync = { expiresInSeconds: number; serverOffsetMs: number };
+type SignupLocationState = {
+  authOnly?: unknown;
+  email?: unknown;
+  returnTo?: unknown;
+};
 
 const roles: Record<CompanyRole, { korean: string; english: string; description: string }> = {
   supplier: {
@@ -92,10 +97,16 @@ export function SignupPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const signupAuth = useSignupAuth();
+  const locationState = location.state as SignupLocationState | null;
+  const isWalletSignIn = locationState?.authOnly === true;
+  const walletReturnPath = typeof locationState?.returnTo === "string"
+    && locationState.returnTo.startsWith("/")
+    && !locationState.returnTo.startsWith("//")
+    ? locationState.returnTo
+    : null;
   const [step, setStep] = useState<SignupStep>("email");
   const [email, setEmail] = useState(() => {
-    const state = location.state as { email?: unknown } | null;
-    return typeof state?.email === "string" ? state.email : "";
+    return typeof locationState?.email === "string" ? locationState.email : "";
   });
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [otpDeadline, setOtpDeadline] = useState<OtpDeadline | null>(null);
@@ -227,8 +238,11 @@ export function SignupPage() {
             throw new Error("임베디드 지갑 연결을 복구하지 못했습니다.");
           }
         }
-        navigate(authMe.nextPath);
+        navigate(walletReturnPath ?? authMe.nextPath);
         return;
+      }
+      if (isWalletSignIn) {
+        throw new Error("회원가입이 완료된 계정을 확인하지 못했습니다. 일반 회원가입에서 계정 설정을 완료해 주세요.");
       }
       if (authMe.onboardingStatus === "PROVISIONING_EMBEDDED_WALLET" && authMe.company) {
         setRole(companyRoles[authMe.company.type]);
@@ -354,7 +368,7 @@ export function SignupPage() {
 
   const goBack = () => {
     if (step === "email") {
-      navigate("/login");
+      navigate(walletReturnPath ?? "/login");
       return;
     }
 
@@ -400,8 +414,10 @@ export function SignupPage() {
           <div>
             <p className="signup-brand">Invoice<span>X</span></p>
             <div className="signup-brand-copy">
-              <p>CREATE COMPANY ACCOUNT</p>
-              <h2>{sideCopy[step]}</h2>
+              <p>{isWalletSignIn ? "WALLET SIGN-IN" : "CREATE COMPANY ACCOUNT"}</p>
+              <h2>{isWalletSignIn
+                ? "회원가입은 완료되어 있습니다. 임베디드 지갑 서명을 위한 세션만 다시 연결합니다."
+                : sideCopy[step]}</h2>
             </div>
           </div>
           <p className="signup-brand-foot">Solana-based supply chain finance platform</p>
@@ -410,35 +426,49 @@ export function SignupPage() {
         <section className="signup-panel">
           <header className="signup-top-row">
             <button className="signup-back" type="button" onClick={goBack}>
-              {step === "email" || (resumingOnboarding && step === "company")
+              {isWalletSignIn
+                ? step === "email" ? "← 이전 화면으로" : "← 이전 단계"
+                : step === "email" || (resumingOnboarding && step === "company")
                 ? "← 로그인으로"
                 : "← 이전 단계"}
             </button>
-            <p>이미 계정이 있나요? <button type="button" onClick={() => navigate("/login")}>로그인</button></p>
+            {isWalletSignIn
+              ? <p>기업 계정 로그인 상태는 그대로 유지됩니다.</p>
+              : <p>이미 계정이 있나요? <button type="button" onClick={() => navigate("/login")}>로그인</button></p>}
           </header>
 
           {error && <p className="signup-error" role="alert">{error}</p>}
 
           {step === "email" && (
             <form className="signup-content signup-content--standard" onSubmit={submitEmail}>
-              <Progress current="1 / 3 기업 이메일 인증" width="one-third" />
-              <h1>기업 이메일을 인증해주세요</h1>
-              <p className="signup-description">InvoiceX에서 사용할 기업의 업무용 이메일을 입력해주세요. 입력한 이메일로 6자리 인증 코드를 보내드립니다.</p>
+              <Progress
+                context={isWalletSignIn ? "지갑 서명 세션" : undefined}
+                current={isWalletSignIn ? "1 / 2 지갑 로그인" : "1 / 3 기업 이메일 인증"}
+                width="one-third"
+              />
+              <h1>{isWalletSignIn ? "임베디드 지갑에 로그인해주세요" : "기업 이메일을 인증해주세요"}</h1>
+              <p className="signup-description">{isWalletSignIn
+                ? "가입할 때 사용한 이메일로 로그인 코드를 보내드립니다. 기업정보를 다시 입력하거나 회원가입을 반복하지 않습니다."
+                : "InvoiceX에서 사용할 기업의 업무용 이메일을 입력해주세요. 입력한 이메일로 6자리 인증 코드를 보내드립니다."}</p>
               <label className="signup-field signup-field--email">
-                <span>기업 이메일</span>
-                <input aria-label="기업 이메일" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required />
-                <small>기업에서 업무용으로 사용하는 이메일을 입력해주세요.</small>
+                <span>{isWalletSignIn ? "계정 이메일" : "기업 이메일"}</span>
+                <input aria-label={isWalletSignIn ? "계정 이메일" : "기업 이메일"} type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required />
+                <small>{isWalletSignIn ? "회원가입에 사용한 이메일입니다." : "기업에서 업무용으로 사용하는 이메일을 입력해주세요."}</small>
               </label>
               <button className="signup-primary-button" disabled={submitting || !signupAuth.ready} type="submit">
-                {submitting ? "전송 중..." : "인증 코드 받기"}
+                {submitting ? "전송 중..." : isWalletSignIn ? "로그인 코드 받기" : "인증 코드 받기"}
               </button>
             </form>
           )}
 
           {step === "verification" && (
             <form className="signup-content signup-content--standard signup-verification" onSubmit={submitCode}>
-              <Progress current="1 / 3 기업 이메일 인증" width="one-third" />
-              <h1>인증 코드를 입력해주세요</h1>
+              <Progress
+                context={isWalletSignIn ? "지갑 서명 세션" : undefined}
+                current={isWalletSignIn ? "2 / 2 지갑 로그인" : "1 / 3 기업 이메일 인증"}
+                width={isWalletSignIn ? "complete" : "one-third"}
+              />
+              <h1>{isWalletSignIn ? "지갑 로그인 코드를 입력해주세요" : "인증 코드를 입력해주세요"}</h1>
               <p className="signup-description"><strong>{email || "name@company.com"}</strong>으로 6자리 인증 코드를 보내드렸습니다.</p>
               <p className="signup-description">재전송했다면 가장 최근에 받은 코드를 입력해주세요.</p>
               <fieldset className="signup-field signup-code-field">
@@ -469,7 +499,7 @@ export function SignupPage() {
                 </div>
               </fieldset>
               <button className="signup-primary-button" disabled={submitting || remainingSeconds === 0} type="submit">
-                {submitting ? "확인 중..." : "인증 완료"}
+                {submitting ? "확인 중..." : isWalletSignIn ? "지갑 로그인 완료" : "인증 완료"}
               </button>
               <button className="signup-change-email" disabled={submitting} type="button" onClick={changeEmail}>다른 이메일 사용하기</button>
             </form>
@@ -586,10 +616,10 @@ function formatRemainingTime(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function Progress({ current, width }: { current: string; width: "one-third" | "two-thirds" | "complete" }) {
+function Progress({ context = "기업 계정 설정", current, width }: { context?: string; current: string; width: "one-third" | "two-thirds" | "complete" }) {
   return (
     <div className="signup-progress">
-      <div><strong>{current}</strong><span>기업 계정 설정</span></div>
+      <div><strong>{current}</strong><span>{context}</span></div>
       <i><b className={`signup-progress__fill signup-progress__fill--${width}`} /></i>
     </div>
   );

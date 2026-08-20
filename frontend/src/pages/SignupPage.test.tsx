@@ -85,6 +85,59 @@ test("prefills the company email when wallet authentication redirects to signup"
   expect(screen.getByLabelText("기업 이메일")).toHaveValue("investor@company.com");
 });
 
+test("presents an existing member with wallet sign-in instead of company signup", () => {
+  render(
+    <MemoryRouter initialEntries={[{
+      pathname: "/signup",
+      state: {
+        authOnly: true,
+        email: "investor@company.com",
+        returnTo: "/investor/vault",
+      },
+    }]}>
+      <SignupPage />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByRole("heading", { name: "임베디드 지갑에 로그인해주세요" })).toBeInTheDocument();
+  expect(screen.getByLabelText("계정 이메일")).toHaveValue("investor@company.com");
+  expect(screen.getByRole("button", { name: "로그인 코드 받기" })).toBeInTheDocument();
+  expect(screen.queryByText("CREATE COMPANY ACCOUNT")).not.toBeInTheDocument();
+});
+
+test("returns a completed member to the page that requested wallet sign-in", async () => {
+  mocks.getAuthMe.mockResolvedValue({
+    user: { email: "investor@company.com" },
+    company: { name: "Investor One", type: "INVESTOR" },
+    embeddedWallet: { address: "SolanaAddress" },
+    onboardingStatus: "COMPLETED",
+    nextPath: "/investor",
+  });
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={[{
+      pathname: "/signup",
+      state: {
+        authOnly: true,
+        email: "investor@company.com",
+        returnTo: "/investor/vault",
+      },
+    }]}>
+      <Routes>
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/investor/vault" element={<h1>Investor Vault</h1>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  await user.click(screen.getByRole("button", { name: "로그인 코드 받기" }));
+  screen.getByLabelText("1번째 인증 코드").focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "지갑 로그인 완료" }));
+
+  expect(await screen.findByRole("heading", { name: "Investor Vault" })).toBeInTheDocument();
+});
+
 test("completes signup only after the onboarding API creates the user-owned wallet", async () => {
   const user = userEvent.setup();
   render(<MemoryRouter><SignupPage /></MemoryRouter>);

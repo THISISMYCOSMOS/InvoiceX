@@ -61,10 +61,10 @@ beforeEach(() => {
   mocks.getVault.mockReturnValue(new Promise(() => undefined));
 });
 
-test("sends a password-login investor through Privy verification instead of silently disabling deposit", () => {
+test("offers wallet sign-in when the password session cannot sign an embedded-wallet transaction", () => {
   render(<MemoryRouter><InvestorVaultPage /></MemoryRouter>);
 
-  expect(screen.getByRole("link", { name: "이메일 인증 후 USDC 예치" }))
+  expect(screen.getByRole("link", { name: "지갑 로그인 후 USDC 예치" }))
     .toHaveAttribute("href", "/signup");
   expect(screen.queryByRole("button", { name: "USDC 예치" })).not.toBeInTheDocument();
 });

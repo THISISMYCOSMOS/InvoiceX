@@ -292,10 +292,10 @@ export function InvestorInvestmentPolicyPage() {
               ) : (
                 <Link
                   className="investor-primary-button"
-                  state={{ email: currentAccount?.userEmail ?? "" }}
+                  state={{ authOnly: true, email: currentAccount?.userEmail ?? "", returnTo: "/investor/investment-policy" }}
                   to="/signup"
                 >
-                  {t("Verify email to connect wallet", "이메일 인증 후 지갑 연결")}
+                  {t("Sign in to wallet to sign policy", "지갑 로그인 후 정책 서명")}
                 </Link>
               )}
             </footer>
@@ -306,8 +306,8 @@ export function InvestorInvestmentPolicyPage() {
         {!authenticated ? (
           <p className="wallet-error" role="alert">
             {t(
-              "Email verification is required before creating a Privy embedded wallet.",
-              "Privy 임베디드 지갑을 생성하려면 이메일 인증 로그인이 필요합니다.",
+              "Sign in to your embedded wallet before signing an investment policy.",
+              "투자정책에 서명하려면 임베디드 지갑 로그인이 필요합니다.",
             )}
           </p>
         ) : error ? <p className="wallet-error" role="alert">{error}</p> : null}
