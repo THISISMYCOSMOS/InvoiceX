@@ -1,0 +1,134 @@
+{
+  "setId": "01-duplicate",
+  "title": "중복 — 계약·발주·납품은 00과 동일, 인보이스 번호만 다름",
+  "documents": [
+    {
+      "documentId": "01-duplicate-invoice",
+      "pdf": "01-duplicate-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-2694-A",
+        "supplierName": "Weserwerk Antriebstechnik GmbH",
+        "buyerName": "Camden Robotics Ltd",
+        "purchaseOrderNumber": "PO-2026-8469",
+        "contractNumber": "CTR-2026-0307",
+        "currency": "USD",
+        "totalAmount": "4",
+        "issueDate": "2026-07-20",
+        "dueDate": "2026-09-18",
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "1",
+        "unitPrice": "4",
+        "paymentTerms": "Net 60 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "01-duplicate-contract",
+      "pdf": "01-duplicate-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Weserwerk Antriebstechnik GmbH",
+        "buyerName": "Camden Robotics Ltd",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-0307",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": null,
+        "unitPrice": "4",
+        "paymentTerms": "Net 60 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "01-duplicate-purchase-order",
+      "pdf": "01-duplicate-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Weserwerk Antriebstechnik GmbH",
+        "buyerName": "Camden Robotics Ltd",
+        "purchaseOrderNumber": "PO-2026-8469",
+        "contractNumber": "CTR-2026-0307",
+        "currency": "USD",
+        "totalAmount": "4",
+        "issueDate": "2026-06-02",
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "1",
+        "unitPrice": "4",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "01-duplicate-delivery-note",
+      "pdf": "01-duplicate-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Weserwerk Antriebstechnik GmbH",
+        "buyerName": "Camden Robotics Ltd",
+        "purchaseOrderNumber": "PO-2026-8469",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-07-14",
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "1",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "세트 내부 4개 문서는 서로 일치하므로 에이전트는 정상으로 본다 (mismatches 0).",
+    "중복 판정은 세트 간 비교(판매자 VAT+구매자 VAT+통화+금액+발행일 / PO 번호)의 몫이다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

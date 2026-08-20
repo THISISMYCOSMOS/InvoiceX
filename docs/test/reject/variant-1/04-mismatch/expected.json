@@ -1,0 +1,201 @@
+{
+  "setId": "04-mismatch",
+  "title": "불일치 — 결제조건·수량·총액·납품완료가 문서마다 다르다",
+  "documents": [
+    {
+      "documentId": "04-mismatch-invoice",
+      "pdf": "04-mismatch-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-6880",
+        "supplierName": "Maasstad Packaging B.V.",
+        "buyerName": "Rhone Vallee Foods SAS",
+        "purchaseOrderNumber": null,
+        "contractNumber": null,
+        "currency": "EUR",
+        "totalAmount": "4",
+        "issueDate": "2026-06-11",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "4",
+        "unitPrice": "1",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "purchaseOrderNumber",
+        "contractNumber",
+        "dueDate"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "04-mismatch-contract",
+      "pdf": "04-mismatch-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Maasstad Packaging B.V.",
+        "buyerName": "Rhone Vallee Foods SAS",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-7630",
+        "currency": "EUR",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": null,
+        "unitPrice": "1",
+        "paymentTerms": "Net 30 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "04-mismatch-purchase-order",
+      "pdf": "04-mismatch-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Maasstad Packaging B.V.",
+        "buyerName": "Rhone Vallee Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-53569",
+        "contractNumber": "CTR-2026-7630",
+        "currency": "EUR",
+        "totalAmount": "5",
+        "issueDate": "2026-04-28",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "5",
+        "unitPrice": "1",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "04-mismatch-delivery-note",
+      "pdf": "04-mismatch-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Maasstad Packaging B.V.",
+        "buyerName": "Rhone Vallee Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-53569",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-06-09",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "5",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": false
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [
+    {
+      "field": "totalAmount",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "4"
+        },
+        {
+          "documentId": "04-mismatch-purchase-order",
+          "value": "5"
+        }
+      ],
+      "description": "청구서는 4, 발주서는 5다."
+    },
+    {
+      "field": "quantity",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "4"
+        },
+        {
+          "documentId": "04-mismatch-purchase-order",
+          "value": "5"
+        },
+        {
+          "documentId": "04-mismatch-delivery-note",
+          "value": "5"
+        }
+      ],
+      "description": "청구 수량 4 vs 발주·납품 기준 5."
+    },
+    {
+      "field": "paymentTerms",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "Net 45 days from the invoice date"
+        },
+        {
+          "documentId": "04-mismatch-contract",
+          "value": "Net 30 days from the invoice date"
+        }
+      ],
+      "description": "계약 Net 30 vs 청구서 Net 45."
+    },
+    {
+      "field": "deliveryCompleted",
+      "values": [
+        {
+          "documentId": "04-mismatch-invoice",
+          "value": "true"
+        },
+        {
+          "documentId": "04-mismatch-delivery-note",
+          "value": "false"
+        }
+      ],
+      "description": "청구서는 납품 완료, 납품 증빙은 미완료."
+    }
+  ],
+  "expectedReviewRequired": true,
+  "notes": [
+    "reviewRequired는 true가 기대값이다.",
+    "인보이스에 발주번호·계약번호·만기일이 없다. 세 필드는 불일치가 아니라 누락으로 선언되어야 한다.",
+    "이 상태는 Dispute가 아니라 Request Revision으로 처리되는 정보 오기재 유형이다.",
+    "인보이스는 EUR 표기인데 정산은 USDC로 요청되어 있고 환율 근거가 없다. 룰 엔진에서 판정한다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

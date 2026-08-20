@@ -1,0 +1,134 @@
+{
+  "setId": "01-within-terms",
+  "title": "만기 임박 — 잔존 12일, 도과 아님 (통과)",
+  "documents": [
+    {
+      "documentId": "01-within-terms-invoice",
+      "pdf": "01-within-terms-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-0271",
+        "supplierName": "Lombarda Tessuti S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": "VRG-PO-49417",
+        "contractNumber": "CTR-2026-8203",
+        "currency": "USD",
+        "totalAmount": "3",
+        "issueDate": "2026-05-30",
+        "dueDate": "2026-08-28",
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "1",
+        "unitPrice": "3",
+        "paymentTerms": "Net 90 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "01-within-terms-contract",
+      "pdf": "01-within-terms-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Lombarda Tessuti S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-8203",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": null,
+        "unitPrice": "3",
+        "paymentTerms": "Net 90 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "01-within-terms-purchase-order",
+      "pdf": "01-within-terms-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Lombarda Tessuti S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": "VRG-PO-49417",
+        "contractNumber": "CTR-2026-8203",
+        "currency": "USD",
+        "totalAmount": "3",
+        "issueDate": "2026-04-10",
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "1",
+        "unitPrice": "3",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "01-within-terms-delivery-note",
+      "pdf": "01-within-terms-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Lombarda Tessuti S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": "VRG-PO-49417",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-05-18",
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "1",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "만기 2026-08-28은 기준일 2026-08-16 이후다. 도과가 아니므로 통과.",
+    "문서 대사는 전부 통과한다. 02-overdue와 경계에서 대비되는 셋이다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

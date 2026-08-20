@@ -1,0 +1,134 @@
+{
+  "setId": "02-clean-jurisdiction",
+  "title": "청정 관할 — 해양 거래지만 제재 무관 (통과)",
+  "documents": [
+    {
+      "documentId": "02-clean-jurisdiction-invoice",
+      "pdf": "02-clean-jurisdiction-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-1932",
+        "supplierName": "Sentosa Offshore Supplies Pte Ltd",
+        "buyerName": "Bergen Subsea AS",
+        "purchaseOrderNumber": "POE-3295-SG",
+        "contractNumber": "CTR-2026-3925",
+        "currency": "USD",
+        "totalAmount": "5",
+        "issueDate": "2026-08-05",
+        "dueDate": "2026-09-19",
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "5",
+        "unitPrice": "1",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "02-clean-jurisdiction-contract",
+      "pdf": "02-clean-jurisdiction-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Sentosa Offshore Supplies Pte Ltd",
+        "buyerName": "Bergen Subsea AS",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-3925",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": null,
+        "unitPrice": "1",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "02-clean-jurisdiction-purchase-order",
+      "pdf": "02-clean-jurisdiction-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Sentosa Offshore Supplies Pte Ltd",
+        "buyerName": "Bergen Subsea AS",
+        "purchaseOrderNumber": "POE-3295-SG",
+        "contractNumber": "CTR-2026-3925",
+        "currency": "USD",
+        "totalAmount": "5",
+        "issueDate": "2026-06-22",
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "5",
+        "unitPrice": "1",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "02-clean-jurisdiction-delivery-note",
+      "pdf": "02-clean-jurisdiction-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Sentosa Offshore Supplies Pte Ltd",
+        "buyerName": "Bergen Subsea AS",
+        "purchaseOrderNumber": "POE-3295-SG",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-08-03",
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "5",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "문서 4종 대사 통과, 납품 완료, 서명 완비.",
+    "구매기업 소재 노르웨이(EEA), 정산 지갑 Base(EVM). 제재·지갑 스크리닝 무관. 03-sanctions와 대비되는 통과 셋."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

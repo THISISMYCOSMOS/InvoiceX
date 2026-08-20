@@ -1,0 +1,134 @@
+{
+  "setId": "00-normal",
+  "title": "정상 — 4개 문서의 공통 항목이 모두 일치",
+  "documents": [
+    {
+      "documentId": "00-normal-invoice",
+      "pdf": "00-normal-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-2898",
+        "supplierName": "Alpenmetall Systeme GmbH",
+        "buyerName": "Thornbury Systems Ltd",
+        "purchaseOrderNumber": "PO-2026-9290",
+        "contractNumber": "CTR-2026-9837",
+        "currency": "USD",
+        "totalAmount": "4",
+        "issueDate": "2026-07-20",
+        "dueDate": "2026-09-18",
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "2",
+        "unitPrice": "2",
+        "paymentTerms": "Net 60 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "00-normal-contract",
+      "pdf": "00-normal-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Alpenmetall Systeme GmbH",
+        "buyerName": "Thornbury Systems Ltd",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-9837",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": null,
+        "unitPrice": "2",
+        "paymentTerms": "Net 60 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "00-normal-purchase-order",
+      "pdf": "00-normal-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Alpenmetall Systeme GmbH",
+        "buyerName": "Thornbury Systems Ltd",
+        "purchaseOrderNumber": "PO-2026-9290",
+        "contractNumber": "CTR-2026-9837",
+        "currency": "USD",
+        "totalAmount": "4",
+        "issueDate": "2026-06-02",
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "2",
+        "unitPrice": "2",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "00-normal-delivery-note",
+      "pdf": "00-normal-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Alpenmetall Systeme GmbH",
+        "buyerName": "Thornbury Systems Ltd",
+        "purchaseOrderNumber": "PO-2026-9290",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-07-14",
+        "dueDate": null,
+        "itemName": "Harmonic drive gear unit HDU-120",
+        "quantity": "2",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "KO 조건에 걸리는 항목이 없다. 4개 문서의 공통 항목이 모두 일치한다.",
+    "무역신용보험 커버가 인보이스 각주에 명시되어 있다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

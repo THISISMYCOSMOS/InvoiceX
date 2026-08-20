@@ -1,0 +1,134 @@
+{
+  "setId": "02-overdue",
+  "title": "만기 도과 — 문서 대사는 통과, 만기일 초과",
+  "documents": [
+    {
+      "documentId": "02-overdue-invoice",
+      "pdf": "02-overdue-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-5029",
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": "VRG-PO-22882",
+        "contractNumber": "CTR-2025-6108",
+        "currency": "USD",
+        "totalAmount": "4",
+        "issueDate": "2026-04-02",
+        "dueDate": "2026-07-01",
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "4",
+        "unitPrice": "1",
+        "paymentTerms": "Net 90 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "02-overdue-contract",
+      "pdf": "02-overdue-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2025-6108",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": null,
+        "unitPrice": "1",
+        "paymentTerms": "Net 90 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "02-overdue-purchase-order",
+      "pdf": "02-overdue-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": "VRG-PO-22882",
+        "contractNumber": "CTR-2025-6108",
+        "currency": "USD",
+        "totalAmount": "4",
+        "issueDate": "2026-02-12",
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "4",
+        "unitPrice": "1",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "02-overdue-delivery-note",
+      "pdf": "02-overdue-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Meridian Textiles S.p.A.",
+        "buyerName": "Summit Retail Partners Inc.",
+        "purchaseOrderNumber": "VRG-PO-22882",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-03-28",
+        "dueDate": null,
+        "itemName": "Combed cotton jersey 180 gsm",
+        "quantity": "4",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "발행 2026-04-02 / Net 90 / 만기 2026-07-01 → 기준일(2026-08-16) 대비 도과.",
+    "문서 대사는 전부 통과한다. 만기 하나로 반려되는지 보는 셋이다."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

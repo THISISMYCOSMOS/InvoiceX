@@ -1,0 +1,134 @@
+{
+  "setId": "03-reconciled",
+  "title": "대사 일치 — 04와 같은 템플릿이나 4문서 완전 일치 (통과)",
+  "documents": [
+    {
+      "documentId": "03-reconciled-invoice",
+      "pdf": "03-reconciled-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-7524",
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Lumiere Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-75499",
+        "contractNumber": "CTR-2026-5446",
+        "currency": "EUR",
+        "totalAmount": "4",
+        "issueDate": "2026-07-25",
+        "dueDate": "2026-08-24",
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "1",
+        "unitPrice": "4",
+        "paymentTerms": "Net 30 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "03-reconciled-contract",
+      "pdf": "03-reconciled-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Lumiere Foods SAS",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-5446",
+        "currency": "EUR",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": null,
+        "unitPrice": "4",
+        "paymentTerms": "Net 30 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "03-reconciled-purchase-order",
+      "pdf": "03-reconciled-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Lumiere Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-75499",
+        "contractNumber": "CTR-2026-5446",
+        "currency": "EUR",
+        "totalAmount": "4",
+        "issueDate": "2026-06-18",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "1",
+        "unitPrice": "4",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "03-reconciled-delivery-note",
+      "pdf": "03-reconciled-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Kestrel Packaging Solutions B.V.",
+        "buyerName": "Lumiere Foods SAS",
+        "purchaseOrderNumber": "PO-BLF-75499",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-07-08",
+        "dueDate": null,
+        "itemName": "Corrugated shipping case 400x300x250 mm",
+        "quantity": "1",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "결제조건 Net 30이 계약과 일치, 발주번호·계약번호·만기일 모두 기재, 수량·총액 4문서 일치, 납품 완료.",
+    "발주일과 인보이스 발행일 차이는 perDocumentFields(issueDate)라 불일치가 아니다. 04-mismatch와 대비되는 통과 셋."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}

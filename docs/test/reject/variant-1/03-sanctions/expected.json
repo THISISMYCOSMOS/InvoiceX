@@ -1,0 +1,134 @@
+{
+  "setId": "03-sanctions",
+  "title": "제재 — 문서 완벽, 구매기업 소재 이란 + Tron 지갑",
+  "documents": [
+    {
+      "documentId": "03-sanctions-invoice",
+      "pdf": "03-sanctions-invoice.pdf",
+      "expectedDocumentType": "INVOICE",
+      "expectedExtractedData": {
+        "invoiceNumber": "IX-2026-8211",
+        "supplierName": "Straits Marine Supplies Pte Ltd",
+        "buyerName": "Alborz Offshore Services Co.",
+        "purchaseOrderNumber": "POE-5652-SG",
+        "contractNumber": "CTR-2026-7242",
+        "currency": "USD",
+        "totalAmount": "5",
+        "issueDate": "2026-08-05",
+        "dueDate": "2026-09-19",
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "5",
+        "unitPrice": "1",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [],
+      "note": ""
+    },
+    {
+      "documentId": "03-sanctions-contract",
+      "pdf": "03-sanctions-contract.pdf",
+      "expectedDocumentType": "CONTRACT",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Straits Marine Supplies Pte Ltd",
+        "buyerName": "Alborz Offshore Services Co.",
+        "purchaseOrderNumber": null,
+        "contractNumber": "CTR-2026-7242",
+        "currency": "USD",
+        "totalAmount": null,
+        "issueDate": null,
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": null,
+        "unitPrice": "1",
+        "paymentTerms": "Net 45 days from the invoice date",
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "purchaseOrderNumber",
+        "totalAmount",
+        "issueDate",
+        "dueDate",
+        "quantity",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "03-sanctions-purchase-order",
+      "pdf": "03-sanctions-purchase-order.pdf",
+      "expectedDocumentType": "PURCHASE_ORDER",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Straits Marine Supplies Pte Ltd",
+        "buyerName": "Alborz Offshore Services Co.",
+        "purchaseOrderNumber": "POE-5652-SG",
+        "contractNumber": "CTR-2026-7242",
+        "currency": "USD",
+        "totalAmount": "5",
+        "issueDate": "2026-06-22",
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "5",
+        "unitPrice": "1",
+        "paymentTerms": null,
+        "deliveryCompleted": null
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "dueDate",
+        "paymentTerms",
+        "deliveryCompleted"
+      ],
+      "note": ""
+    },
+    {
+      "documentId": "03-sanctions-delivery-note",
+      "pdf": "03-sanctions-delivery-note.pdf",
+      "expectedDocumentType": "DELIVERY_EVIDENCE",
+      "expectedExtractedData": {
+        "invoiceNumber": null,
+        "supplierName": "Straits Marine Supplies Pte Ltd",
+        "buyerName": "Alborz Offshore Services Co.",
+        "purchaseOrderNumber": "POE-5652-SG",
+        "contractNumber": null,
+        "currency": null,
+        "totalAmount": null,
+        "issueDate": "2026-08-03",
+        "dueDate": null,
+        "itemName": "Marine diesel fuel injector assembly MD-9",
+        "quantity": "5",
+        "unitPrice": null,
+        "paymentTerms": null,
+        "deliveryCompleted": true
+      },
+      "expectedMissingFields": [
+        "invoiceNumber",
+        "contractNumber",
+        "currency",
+        "totalAmount",
+        "dueDate",
+        "unitPrice",
+        "paymentTerms"
+      ],
+      "note": ""
+    }
+  ],
+  "expectedMismatches": [],
+  "expectedReviewRequired": false,
+  "notes": [
+    "문서 4종 대사 통과, 납품 완료, 서명 완비. 걸리는 건 둘 다 문서 밖에 있다.",
+    "구매기업 소재 Tehran, Iran / 배송지 Bandar Abbas, 정산 지갑 Tron TRC-20."
+  ],
+  "perDocumentFields": [
+    "issueDate"
+  ],
+  "comparisonRules": [
+    "금액과 수량은 자릿수 구분 기호를 제거한 숫자 문자열로 비교한다.",
+    "날짜는 YYYY-MM-DD로 비교한다.",
+    "perDocumentFields는 문서 자신의 속성이므로 문서 간 값이 달라도 불일치가 아니다.",
+    "evidenceId는 모델이 생성하므로 정답지에 없다. 근거의 존재와 documentId만 확인한다."
+  ]
+}
