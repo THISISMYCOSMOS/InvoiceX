@@ -1,8 +1,10 @@
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { PublicKey } from "@solana/web3.js";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoiceApi } from "../api/invoices.api";
+import { useCurrentPrivyAccount } from "../auth/currentAccount";
+import { useSignupAuth } from "../auth/SignupAuthContext";
 import { buildBuyerPaymentTransaction } from "../wallet/buyerPaymentTransaction";
 import { queryKeys } from "./queryKeys";
 
@@ -17,21 +19,24 @@ export function useBuyerPaymentPreparation(invoiceId: string) {
 
 export function useBuyerPayment(invoiceId: string) {
   const { connection } = useConnection();
-  const { connected, publicKey, sendTransaction } = useWallet();
+  const currentAccount = useCurrentPrivyAccount();
+  const { embeddedSolanaWalletReady, hasEmbeddedSolanaWallet, signEmbeddedSolanaTransaction } = useSignupAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
-      if (!connected || !publicKey || !sendTransaction) {
+      const buyerWalletAddress = currentAccount?.walletAddress;
+      if (!embeddedSolanaWalletReady || !buyerWalletAddress || !hasEmbeddedSolanaWallet(buyerWalletAddress)) {
         throw new Error("구매기업 Embedded Wallet을 확인할 수 없습니다.");
       }
+      const buyer = new PublicKey(buyerWalletAddress);
       const preparation = await invoiceApi.prepareBuyerPayment(invoiceId);
-      if (preparation.buyerWalletAddress !== publicKey.toBase58()) {
+      if (preparation.buyerWalletAddress !== buyerWalletAddress) {
         throw new Error("결제 준비 주소가 로그인한 구매기업 지갑과 일치하지 않습니다.");
       }
       const tokenAccount = getAssociatedTokenAddressSync(
         new PublicKey(preparation.usdcMintAddress),
-        publicKey,
+        buyer,
       );
       let available: bigint;
       try {
@@ -46,11 +51,19 @@ export function useBuyerPayment(invoiceId: string) {
       if (available < totalAmountBaseUnits) {
         throw new Error("구매기업 지갑의 Devnet USDC 잔액이 결제 금액보다 부족합니다.");
       }
-      const transaction = buildBuyerPaymentTransaction(preparation, publicKey);
+      // Reuse the tested instruction builder, then wrap them in a v0 message so
+      // the Privy embedded wallet signs the exact VersionedTransaction shape it
+      // supports (mirrors the investor deposit flow).
+      const { instructions } = buildBuyerPaymentTransaction(preparation, buyer);
       const latestBlockhash = await connection.getLatestBlockhash("confirmed");
-      transaction.feePayer = publicKey;
-      transaction.recentBlockhash = latestBlockhash.blockhash;
-      const signature = await sendTransaction(transaction, connection, {
+      const message = new TransactionMessage({
+        payerKey: buyer,
+        recentBlockhash: latestBlockhash.blockhash,
+        instructions,
+      }).compileToV0Message();
+      const transaction = new VersionedTransaction(message);
+      const signedTransaction = await signEmbeddedSolanaTransaction(buyerWalletAddress, transaction.serialize());
+      const signature = await connection.sendRawTransaction(signedTransaction, {
         preflightCommitment: "confirmed",
       });
       const confirmation = await connection.confirmTransaction(
