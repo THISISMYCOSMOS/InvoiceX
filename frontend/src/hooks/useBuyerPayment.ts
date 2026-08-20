@@ -3,7 +3,8 @@ import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web
 import { useConnection } from "@solana/wallet-adapter-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoiceApi } from "../api/invoices.api";
-import { useCurrentPrivyAccount } from "../auth/currentAccount";
+import { linkEmbeddedWallet, withPrivyAccessTokenRetry } from "../api/onboarding.api";
+import { useCurrentPrivyAccount, useUpdateCurrentPrivyAccount } from "../auth/currentAccount";
 import { useSignupAuth } from "../auth/SignupAuthContext";
 import { buildBuyerPaymentTransaction } from "../wallet/buyerPaymentTransaction";
 import { queryKeys } from "./queryKeys";
@@ -20,17 +21,56 @@ export function useBuyerPaymentPreparation(invoiceId: string) {
 export function useBuyerPayment(invoiceId: string) {
   const { connection } = useConnection();
   const currentAccount = useCurrentPrivyAccount();
-  const { embeddedSolanaWalletReady, hasEmbeddedSolanaWallet, signEmbeddedSolanaTransaction } = useSignupAuth();
+  const updateCurrentAccount = useUpdateCurrentPrivyAccount();
+  const {
+    authenticated,
+    authenticatedEmail,
+    embeddedSolanaWalletReady,
+    ensureEmbeddedSolanaWallet,
+    getAccessToken,
+    hasEmbeddedSolanaWallet,
+    signEmbeddedSolanaTransaction,
+  } = useSignupAuth();
   const queryClient = useQueryClient();
+  const requiresPrivyVerification = Boolean(
+    currentAccount
+    && (!authenticated || authenticatedEmail !== currentAccount.userEmail.trim().toLowerCase()),
+  );
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async () => {
-      const buyerWalletAddress = currentAccount?.walletAddress;
-      if (!embeddedSolanaWalletReady || !buyerWalletAddress || !hasEmbeddedSolanaWallet(buyerWalletAddress)) {
-        throw new Error("구매기업 Embedded Wallet을 확인할 수 없습니다.");
+      if (!currentAccount) {
+        throw new Error("로그인한 구매기업 정보를 확인할 수 없습니다.");
       }
+      if (requiresPrivyVerification) {
+        throw new Error("결제하려면 로그인한 이메일로 Privy 인증을 완료해 주세요.");
+      }
+      if (!embeddedSolanaWalletReady) {
+        throw new Error("Privy Solana 지갑을 확인하는 중입니다. 잠시 후 다시 시도해 주세요.");
+      }
+
+      let buyerWalletAddress = currentAccount.walletAddress;
+      if (!hasEmbeddedSolanaWallet(buyerWalletAddress)) {
+        const wallet = await ensureEmbeddedSolanaWallet();
+        buyerWalletAddress = wallet.address;
+      }
+
+      const accessToken = await withPrivyAccessTokenRetry(
+        getAccessToken,
+        async (token) => {
+          if (buyerWalletAddress !== currentAccount.walletAddress) {
+            const profile = await linkEmbeddedWallet(token, buyerWalletAddress);
+            if (!profile.embeddedWallet || profile.embeddedWallet.address !== buyerWalletAddress) {
+              throw new Error("구매기업 Embedded Wallet 연결을 갱신하지 못했습니다.");
+            }
+            updateCurrentAccount({ walletAddress: profile.embeddedWallet.address });
+          }
+          return token;
+        },
+      );
+
       const buyer = new PublicKey(buyerWalletAddress);
-      const preparation = await invoiceApi.prepareBuyerPayment(invoiceId);
+      const preparation = await invoiceApi.prepareBuyerPayment(invoiceId, accessToken);
       if (preparation.buyerWalletAddress !== buyerWalletAddress) {
         throw new Error("결제 준비 주소가 로그인한 구매기업 지갑과 일치하지 않습니다.");
       }
@@ -71,11 +111,13 @@ export function useBuyerPayment(invoiceId: string) {
         "confirmed",
       );
       if (confirmation.value.err) throw new Error("Solana Devnet USDC 결제가 실패했습니다.");
-      return invoiceApi.confirmBuyerPayment(invoiceId, signature);
+      return invoiceApi.confirmBuyerPayment(invoiceId, signature, accessToken);
     },
     onSuccess: async (invoice) => {
       queryClient.setQueryData(queryKeys.invoice(invoice.id), invoice);
       await queryClient.invalidateQueries({ queryKey: queryKeys.invoices });
     },
   });
+
+  return { ...mutation, requiresPrivyVerification };
 }

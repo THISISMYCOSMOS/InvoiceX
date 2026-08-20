@@ -80,17 +80,23 @@ function stripTrailingSlash(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
-async function authenticatedRequest(init: RequestInit): Promise<RequestInit> {
+async function authenticatedRequest(init: RequestInit, accessToken?: string): Promise<RequestInit> {
+  const authorization = accessToken
+    ? { Authorization: `Bearer ${accessToken}` }
+    : await getAuthorizationHeader();
   return {
     ...init,
-    headers: { ...await getAuthorizationHeader(), ...init.headers },
+    headers: { ...authorization, ...init.headers },
   };
 }
 
 export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: string): ScenarioAdapter {
   const base = stripTrailingSlash(baseUrl);
-  const request = async <T>(path: string, init: RequestInit): Promise<T> => {
-    const response = await fetchImpl(`${base}${path}`, await authenticatedRequest(init));
+  const request = async <T>(path: string, init: RequestInit, accessToken?: string): Promise<T> => {
+    const response = await fetchImpl(
+      `${base}${path}`,
+      await authenticatedRequest(init, accessToken),
+    );
     if (!response.ok) {
       const rawMessage = await response.text();
       let message = rawMessage;
@@ -173,17 +179,17 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
     async mockPayment(invoiceId) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/settlement/mock-payment`, { method: "POST" }));
     },
-    async prepareBuyerPayment(invoiceId) {
+    async prepareBuyerPayment(invoiceId, accessToken) {
       return (await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/buyer-payment/prepare`, {
         method: "GET",
-      })) as BuyerPaymentPreparation;
+      }, accessToken)) as BuyerPaymentPreparation;
     },
-    async confirmBuyerPayment(invoiceId, signature) {
+    async confirmBuyerPayment(invoiceId, signature, accessToken) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/buyer-payment/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ signature }),
-      }));
+      }, accessToken));
     },
     runSettlement: () => unavailable("Settlement 실행"),
     async getInvestorDashboard() {

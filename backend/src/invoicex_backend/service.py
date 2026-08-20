@@ -402,6 +402,8 @@ class InvoiceService:
         self,
         identity: AuthenticatedIdentity | None = None,
     ) -> list[Invoice]:
+        for persisted in self._repository.list_invoices():
+            self._invoices[persisted.id] = persisted
         self._reconcile_buyer_invoices(identity)
         invoices: list[Invoice] = []
         for invoice in sorted(
@@ -2052,10 +2054,11 @@ class InvoiceService:
         return False
 
     def _invoice(self, invoice_id: str) -> Invoice:
-        try:
-            return self._invoices[invoice_id]
-        except KeyError as exc:
-            raise NotFoundError(f"Invoice {invoice_id}를 찾을 수 없습니다.") from exc
+        persisted = self._repository.get_invoice(invoice_id)
+        if persisted is not None:
+            self._invoices[invoice_id] = persisted
+            return persisted
+        raise NotFoundError(f"Invoice {invoice_id}를 찾을 수 없습니다.")
 
     def _verification(self, verification_id: str) -> Verification:
         try:

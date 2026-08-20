@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle, CurrencyDollar } from "@phosphor-icons/react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import invoicePreview from "../../assets/invoice-preview.png";
+import { useCurrentPrivyAccount } from "../../auth/currentAccount";
 import { ErrorState } from "../../components/ErrorState";
 import { LoadingState } from "../../components/LoadingState";
 import { useBuyerConfirm } from "../../hooks/useBuyerConfirm";
@@ -277,6 +278,7 @@ function MaturityPaymentSection({
   preparation,
   onPay,
   isPaying = false,
+  requiresPrivyVerification = false,
   paymentError,
   paymentComplete = false,
 }: {
@@ -284,6 +286,7 @@ function MaturityPaymentSection({
   preparation?: BuyerPaymentPreparation;
   onPay?: () => void;
   isPaying?: boolean;
+  requiresPrivyVerification?: boolean;
   paymentError?: string;
   paymentComplete?: boolean;
 }) {
@@ -328,8 +331,12 @@ function MaturityPaymentSection({
             <button type="button" className="copy-account-button" onClick={copyAccount} disabled={!preparation}>
               {copied ? t("Address copied", "주소 복사 완료") : t("Copy address", "주소 복사")}
             </button>
-            <button type="button" className="buyer-confirm-button" onClick={onPay} disabled={!preparation || !onPay || isPaying}>
-              {isPaying ? t("Confirming payment...", "결제 확인 중...") : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
+            <button type="button" className="buyer-confirm-button" onClick={onPay} disabled={(!preparation && !requiresPrivyVerification) || !onPay || isPaying}>
+              {isPaying
+                ? t("Confirming payment...", "결제 확인 중...")
+                : requiresPrivyVerification
+                ? t("Verify email to pay", "이메일 인증 후 결제")
+                : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
             </button>
           </footer>
         </section>
@@ -433,6 +440,7 @@ export function BuyerInvoiceDetailContent({
   paymentPreparation,
   onPay,
   isPaying = false,
+  requiresPrivyVerification = false,
   paymentError,
   paymentComplete = false,
 }: {
@@ -445,6 +453,7 @@ export function BuyerInvoiceDetailContent({
   paymentPreparation?: BuyerPaymentPreparation;
   onPay?: () => void;
   isPaying?: boolean;
+  requiresPrivyVerification?: boolean;
   paymentError?: string;
   paymentComplete?: boolean;
 }) {
@@ -458,6 +467,7 @@ export function BuyerInvoiceDetailContent({
       preparation={paymentPreparation}
       onPay={onPay}
       isPaying={isPaying}
+      requiresPrivyVerification={requiresPrivyVerification}
       paymentError={paymentError}
       paymentComplete={paymentComplete}
     />
@@ -480,8 +490,11 @@ export function BuyerInvoiceDetailContent({
 
 export function BuyerInvoiceDetailPage() {
   const { t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { invoiceId = "" } = useParams();
   const [searchParams] = useSearchParams();
+  const currentAccount = useCurrentPrivyAccount();
   const invoice = useInvoice(invoiceId);
   const confirm = useBuyerConfirm();
   const reject = useBuyerReject();
@@ -513,8 +526,21 @@ export function BuyerInvoiceDetailPage() {
       isConfirming={confirm.isPending}
       isRejecting={reject.isPending}
       paymentPreparation={paymentPreparation.data}
-      onPay={() => payment.mutate()}
+      onPay={() => {
+        if (payment.requiresPrivyVerification) {
+          navigate("/signup", {
+            state: {
+              email: currentAccount?.userEmail,
+              paymentStepUp: true,
+              returnTo: `${location.pathname}${location.search}`,
+            },
+          });
+          return;
+        }
+        payment.mutate();
+      }}
       isPaying={payment.isPending}
+      requiresPrivyVerification={payment.requiresPrivyVerification}
       paymentError={(paymentPreparation.error ?? payment.error)?.message}
       paymentComplete={payment.isSuccess}
     />

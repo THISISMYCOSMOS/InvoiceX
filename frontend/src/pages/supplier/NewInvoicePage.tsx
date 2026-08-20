@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DocumentUploadCard } from "../../components/DocumentUploadCard";
+import { DocumentAnalysisLoadingScreen } from "../../components/DocumentAnalysisLoadingScreen";
 import { ErrorState } from "../../components/ErrorState";
 import { InvoiceRegistrationProgress } from "../../components/InvoiceRegistrationProgress";
 import { isMockApi } from "../../api/client";
@@ -19,6 +20,7 @@ export function NewInvoicePage() {
   const { t } = useLanguage();
   const invoiceIdToReplace = searchParams.get("replace");
   const isReplacing = Boolean(invoiceIdToReplace);
+  const isAnalyzing = upload.isPending || replacement.isPending;
   const onFileSelected = (type: DocumentType, file: File) => {
     setFiles((current) => ({ ...current, [type]: file }));
     setDocuments((current) => [...current.filter((document) => document.type !== type), { id: `LOCAL-${type}`, invoiceId: "LOCAL-DRAFT", type, fileName: file.name, mimeType: file.type, fileSize: file.size, uploadStatus: "COMPLETED" }]);
@@ -42,6 +44,10 @@ export function NewInvoicePage() {
       onSuccess: (invoice) => navigate(`/supplier/invoices/${invoice.id}`),
     });
   };
+
+  if (isAnalyzing) {
+    return <DocumentAnalysisLoadingScreen />;
+  }
 
   return (
     <section className="new-invoice-page">
@@ -81,7 +87,7 @@ export function NewInvoicePage() {
             setDocuments((current) => current.filter((document) => document.type !== type));
           }}
           onAnalyze={onAnalyze}
-          isAnalyzing={upload.isPending || replacement.isPending}
+          isAnalyzing={isAnalyzing}
         />
       )}
       {(upload.error || replacement.error) && <ErrorState error={upload.error ?? replacement.error} />}

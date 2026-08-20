@@ -197,6 +197,59 @@ test("signs an existing Privy member into the stored company route", async () =>
   expect(window.localStorage.getItem("invoicex-demo-session")).toBeNull();
 });
 
+test("keeps the password session while Privy email step-up repairs the buyer wallet", async () => {
+  mocks.getAuthMe.mockResolvedValue({
+    user: { email: "buyer@company.com" },
+    company: { name: "Prime Mobility", type: "BUYER" },
+    embeddedWallet: { address: "OldBuyerWallet" },
+    onboardingStatus: "COMPLETED",
+    nextPath: "/buyer",
+  });
+  const memberSession = JSON.stringify({
+    role: "Buyer",
+    email: "buyer@company.com",
+    authenticatedAt: new Date().toISOString(),
+    accessToken: "member-token",
+    authMode: "MEMBER",
+  });
+  window.sessionStorage.setItem("invoicex-demo-session", memberSession);
+  const user = userEvent.setup();
+
+  render(
+    <MemoryRouter initialEntries={[{
+      pathname: "/signup",
+      state: {
+        email: "buyer@company.com",
+        paymentStepUp: true,
+        returnTo: "/buyer/invoices/INV-2026-003?section=payment",
+      },
+    }]}>
+      <Routes>
+        <Route path="/signup" element={<SignupPage />} />
+        <Route
+          path="/buyer/invoices/:invoiceId"
+          element={<h1>Buyer payment</h1>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByLabelText("기업 이메일")).toHaveValue("buyer@company.com");
+  expect(screen.getByLabelText("기업 이메일")).toHaveAttribute("readonly");
+  await user.click(screen.getByRole("button", { name: "인증 코드 받기" }));
+  screen.getByLabelText("1번째 인증 코드").focus();
+  await user.paste("123456");
+  await user.click(screen.getByRole("button", { name: "인증 완료" }));
+
+  expect(mocks.ensureEmbeddedSolanaWallet).toHaveBeenCalledTimes(1);
+  expect(mocks.linkEmbeddedWallet).toHaveBeenCalledWith(
+    "privy-access-token",
+    "SolanaAddress",
+  );
+  expect(await screen.findByRole("heading", { name: "Buyer payment" })).toBeInTheDocument();
+  expect(window.sessionStorage.getItem("invoicex-demo-session")).toBe(memberSession);
+});
+
 test("repairs a completed account whose embedded wallet record is missing", async () => {
   mocks.getAuthMe.mockResolvedValue({
     user: { email: "investor@company.com" },

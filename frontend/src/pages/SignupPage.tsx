@@ -16,6 +16,11 @@ type SignupStep = "email" | "verification" | "role" | "company" | "complete";
 type CompanyRole = "supplier" | "buyer" | "investor";
 type OtpDeadline = { expiresAtServerMs: number; serverOffsetMs: number };
 type OtpClockSync = { expiresInSeconds: number; serverOffsetMs: number };
+type SignupLocationState = {
+  email?: unknown;
+  paymentStepUp?: unknown;
+  returnTo?: unknown;
+};
 
 const roles: Record<CompanyRole, { korean: string; english: string; description: string }> = {
   supplier: {
@@ -92,10 +97,14 @@ export function SignupPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const signupAuth = useSignupAuth();
+  const locationState = location.state as SignupLocationState | null;
+  const isPaymentStepUp = locationState?.paymentStepUp === true;
+  const paymentReturnTo = typeof locationState?.returnTo === "string"
+    ? locationState.returnTo
+    : "/buyer";
   const [step, setStep] = useState<SignupStep>("email");
   const [email, setEmail] = useState(() => {
-    const state = location.state as { email?: unknown } | null;
-    return typeof state?.email === "string" ? state.email : "";
+    return typeof locationState?.email === "string" ? locationState.email : "";
   });
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [otpDeadline, setOtpDeadline] = useState<OtpDeadline | null>(null);
@@ -210,13 +219,31 @@ export function SignupPage() {
     setSubmitting(true);
     try {
       await signupAuth.verifyCode(verificationCode);
-      clearDemoSession();
+      if (!isPaymentStepUp) clearDemoSession();
       const authMe = await withPrivyAccessTokenRetry(
         signupAuth.getAccessToken,
         getAuthMe,
       );
       setEmail(authMe.user.email);
       if (authMe.onboardingStatus === "COMPLETED") {
+        if (isPaymentStepUp) {
+          if (authMe.user.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
+            await signupAuth.logout();
+            throw new Error("비밀번호로 로그인한 이메일과 Privy 인증 이메일이 일치하지 않습니다.");
+          }
+          const embeddedWallet = await signupAuth.ensureEmbeddedSolanaWallet();
+          if (authMe.embeddedWallet?.address !== embeddedWallet.address) {
+            const repairedProfile = await withPrivyAccessTokenRetry(
+              signupAuth.getAccessToken,
+              (accessToken) => linkEmbeddedWallet(accessToken, embeddedWallet.address),
+            );
+            if (repairedProfile.embeddedWallet?.address !== embeddedWallet.address) {
+              throw new Error("구매기업 Embedded Wallet 연결을 복구하지 못했습니다.");
+            }
+          }
+          navigate(paymentReturnTo, { replace: true });
+          return;
+        }
         if (!authMe.embeddedWallet) {
           const embeddedWallet = await signupAuth.ensureEmbeddedSolanaWallet();
           const repairedProfile = await withPrivyAccessTokenRetry(
@@ -354,7 +381,7 @@ export function SignupPage() {
 
   const goBack = () => {
     if (step === "email") {
-      navigate("/login");
+      navigate(isPaymentStepUp ? paymentReturnTo : "/login");
       return;
     }
 
@@ -422,11 +449,13 @@ export function SignupPage() {
           {step === "email" && (
             <form className="signup-content signup-content--standard" onSubmit={submitEmail}>
               <Progress current="1 / 3 기업 이메일 인증" width="one-third" />
-              <h1>기업 이메일을 인증해주세요</h1>
-              <p className="signup-description">InvoiceX에서 사용할 기업의 업무용 이메일을 입력해주세요. 입력한 이메일로 6자리 인증 코드를 보내드립니다.</p>
+              <h1>{isPaymentStepUp ? "결제를 위해 이메일을 다시 인증해주세요" : "기업 이메일을 인증해주세요"}</h1>
+              <p className="signup-description">{isPaymentStepUp
+                ? "비밀번호로 로그인한 구매기업 이메일로 6자리 인증 코드를 보내드립니다."
+                : "InvoiceX에서 사용할 기업의 업무용 이메일을 입력해주세요. 입력한 이메일로 6자리 인증 코드를 보내드립니다."}</p>
               <label className="signup-field signup-field--email">
                 <span>기업 이메일</span>
-                <input aria-label="기업 이메일" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required />
+                <input aria-label="기업 이메일" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" readOnly={isPaymentStepUp} required />
                 <small>기업에서 업무용으로 사용하는 이메일을 입력해주세요.</small>
               </label>
               <button className="signup-primary-button" disabled={submitting || !signupAuth.ready} type="submit">

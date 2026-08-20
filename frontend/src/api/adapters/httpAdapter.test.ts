@@ -98,8 +98,12 @@ test("prepares and confirms an exact buyer USDC payment", async () => {
     .mockResolvedValueOnce(new Response(JSON.stringify({ id: preparation.invoiceId, status: "SETTLED" }), { status: 200 }));
   const adapter = createHttpAdapter(fetchImpl, "https://api.example.com/api/v1");
 
-  await adapter.prepareBuyerPayment(preparation.invoiceId);
-  await adapter.confirmBuyerPayment(preparation.invoiceId, "payment-signature");
+  await adapter.prepareBuyerPayment(preparation.invoiceId, "privy-buyer-token");
+  await adapter.confirmBuyerPayment(
+    preparation.invoiceId,
+    "payment-signature",
+    "privy-buyer-token",
+  );
 
   expect(fetchImpl.mock.calls[0][0]).toBe(
     "https://api.example.com/api/v1/invoices/INV-2026-001/buyer-payment/prepare",
@@ -107,6 +111,13 @@ test("prepares and confirms an exact buyer USDC payment", async () => {
   expect(fetchImpl.mock.calls[1][0]).toBe(
     "https://api.example.com/api/v1/invoices/INV-2026-001/buyer-payment/confirm",
   );
+  expect(fetchImpl.mock.calls[0][1]?.headers).toEqual({
+    Authorization: "Bearer privy-buyer-token",
+  });
+  expect(fetchImpl.mock.calls[1][1]?.headers).toEqual({
+    Authorization: "Bearer privy-buyer-token",
+    "Content-Type": "application/json",
+  });
   expect(JSON.parse(fetchImpl.mock.calls[1][1]?.body as string)).toEqual({
     signature: "payment-signature",
   });

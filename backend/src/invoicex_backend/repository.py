@@ -52,6 +52,7 @@ class RwaRepository(Protocol):
     def claim_deposit(self, signature: str) -> bool: ...
     def committed_for_mandate(self, mandate_id: str) -> int: ...
     def save_invoice(self, invoice: Invoice) -> None: ...
+    def get_invoice(self, invoice_id: str) -> Invoice | None: ...
     def list_invoices(self) -> list[Invoice]: ...
     def save_analysis(self, invoice_id: str, analysis: DocumentAnalysisResult) -> None: ...
     def list_analyses(self) -> dict[str, DocumentAnalysisResult]: ...
@@ -410,6 +411,14 @@ class SQLiteRwaRepository:
                 "INSERT OR REPLACE INTO invoices (id, document) VALUES (?, ?)",
                 (invoice.id, self._encode(invoice)),
             )
+
+    def get_invoice(self, invoice_id: str) -> Invoice | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT document FROM invoices WHERE id = ?",
+                (invoice_id,),
+            ).fetchone()
+        return Invoice.model_validate_json(row["document"]) if row is not None else None
 
     def list_invoices(self) -> list[Invoice]:
         with self._lock:
@@ -1343,6 +1352,10 @@ class CloudSqlRwaRepository:
 
     def save_invoice(self, invoice: Invoice) -> None:
         self._upsert_document("invoices", "id", invoice.id, invoice)
+
+    def get_invoice(self, invoice_id: str) -> Invoice | None:
+        row = self._read_one("SELECT document FROM invoices WHERE id = %s", (invoice_id,))
+        return self._decode(Invoice, row[0]) if row is not None else None  # type: ignore[return-value]
 
     def list_invoices(self) -> list[Invoice]:
         return [

@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
 class BackendSettings(BaseSettings):
@@ -306,6 +308,13 @@ class BackendSettings(BaseSettings):
         default="DEMO_PLATFORM_FEE_WALLET",
         validation_alias="PLATFORM_FEE_WALLET_ADDRESS",
     )
+
+    @field_validator("upload_directory", "rwa_database_path", mode="after")
+    @classmethod
+    def resolve_local_storage_paths(cls, value: Path) -> Path:
+        """Keep local persistence independent from the process launch directory."""
+
+        return value if value.is_absolute() else (BACKEND_ROOT / value).resolve()
 
     @model_validator(mode="after")
     def validate_explicit_real_modes(self) -> BackendSettings:

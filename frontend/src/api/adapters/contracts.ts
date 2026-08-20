@@ -33,8 +33,8 @@ export interface ScenarioAdapter {
   ): Promise<Invoice>;
   runFunding(invoiceId: string): Promise<Invoice>;
   mockPayment(invoiceId: string): Promise<Invoice>;
-  prepareBuyerPayment(invoiceId: string): Promise<BuyerPaymentPreparation>;
-  confirmBuyerPayment(invoiceId: string, signature: string): Promise<Invoice>;
+  prepareBuyerPayment(invoiceId: string, accessToken?: string): Promise<BuyerPaymentPreparation>;
+  confirmBuyerPayment(invoiceId: string, signature: string, accessToken?: string): Promise<Invoice>;
   runSettlement(invoiceId: string): Promise<Invoice>;
   getInvestorDashboard(): Promise<InvestorDashboard>;
   prepareInvestorDeposit(

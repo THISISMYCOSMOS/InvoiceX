@@ -5,7 +5,18 @@ from pydantic import ValidationError
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 
-from invoicex_backend.config import BackendSettings
+from invoicex_backend.config import BACKEND_ROOT, BackendSettings
+
+
+def test_local_storage_paths_are_resolved_from_the_backend_root() -> None:
+    settings = BackendSettings(
+        _env_file=None,
+        RWA_DATABASE_PATH="state/invoicex.sqlite3",
+        UPLOAD_DIRECTORY="state/uploads",
+    )
+
+    assert settings.rwa_database_path == (BACKEND_ROOT / "state/invoicex.sqlite3").resolve()
+    assert settings.upload_directory == (BACKEND_ROOT / "state/uploads").resolve()
 
 
 def test_auto_agent_mode_does_not_silently_use_demo_without_credentials() -> None:

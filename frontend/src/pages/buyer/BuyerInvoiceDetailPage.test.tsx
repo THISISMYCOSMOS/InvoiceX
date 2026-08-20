@@ -84,6 +84,24 @@ test("shows the embedded-wallet maturity-payment action for a funded invoice", a
   expect(screen.queryByRole("link", { name: "Download payment guide" })).not.toBeInTheDocument();
 });
 
+test("allows Privy email verification before payment preparation is available", async () => {
+  const user = userEvent.setup();
+  const onPay = vi.fn();
+  render(
+    <BuyerInvoiceDetailContent
+      invoice={{ ...DEMO_INVOICE, status: "FUNDED" }}
+      onConfirm={() => undefined}
+      onPay={onPay}
+      requiresPrivyVerification
+    />,
+  );
+
+  const verifyButton = screen.getByRole("button", { name: "Verify email to pay" });
+  expect(verifyButton).toBeEnabled();
+  await user.click(verifyButton);
+  expect(onPay).toHaveBeenCalledTimes(1);
+});
+
 test("shows the detailed two-step confirmation record after buyer confirmation", () => {
   render(
     <MemoryRouter>

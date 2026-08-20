@@ -52,6 +52,25 @@ def _create_signed_mandate(client: TestClient, *, policy: dict[str, object]) -> 
     return investor
 
 
+def test_uploaded_invoice_is_visible_to_an_already_running_instance_after_analysis(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    settings = mock_settings(tmp_path / "uploads")
+    upload_app = create_app(settings=settings)
+    review_app = create_app(settings=settings)
+
+    with TestClient(upload_app) as upload_client, TestClient(review_app) as review_client:
+        created = upload_client.post("/api/v1/invoices", files=contract_files)
+        assert created.status_code == 201
+        invoice_id = created.json()["invoice"]["id"]
+
+        reviewed = review_client.get(f"/api/v1/invoices/{invoice_id}")
+
+    assert reviewed.status_code == 200
+    assert reviewed.json()["invoice"]["status"] == "DOCUMENT_REVIEW_REQUIRED"
+
+
 def test_invoice_state_survives_a_backend_restart_at_every_stage(
     tmp_path: Path,
     contract_files: dict[str, tuple[str, bytes, str]],
