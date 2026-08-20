@@ -743,6 +743,136 @@ def test_privy_business_requests_use_database_company_role_and_scope(
         ).status_code == 403
 
 
+def test_new_supplier_account_funding_uses_its_current_embedded_wallet(
+    tmp_path: Path,
+    contract_files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    supplier_user_id = "did:privy:new-funding-supplier"
+    buyer_user_id = "did:privy:new-funding-buyer"
+    investor_user_id = "did:privy:new-funding-investor"
+
+    with privy_business_client(tmp_path) as (client, private_key):
+        supplier = register_company(
+            client,
+            private_key,
+            user_id=supplier_user_id,
+            company_type="SUPPLIER",
+            company_name="New Funding Supplier",
+            business_number="555-55-55555",
+        )
+        register_company(
+            client,
+            private_key,
+            user_id=buyer_user_id,
+            company_type="BUYER",
+            company_name="Prime Mobility",
+            business_number="55-5555555",
+        )
+        investor = register_company(
+            client,
+            private_key,
+            user_id=investor_user_id,
+            company_type="INVESTOR",
+            company_name="New Funding Capital",
+            business_number="66-6666666",
+        )
+        supplier_headers = headers(private_key, supplier_user_id)
+        buyer_headers = headers(private_key, buyer_user_id)
+        investor_headers = headers(private_key, investor_user_id)
+        original_supplier_wallet = supplier["embeddedWallet"]["address"]
+
+        created = client.post(
+            "/api/v1/invoices",
+            headers=supplier_headers,
+            files=contract_files,
+        )
+        assert created.status_code == 201
+        invoice_id = created.json()["invoice"]["id"]
+        requested = client.post(
+            f"/api/v1/invoices/{invoice_id}/verification-request",
+            headers=supplier_headers,
+        ).json()["invoice"]
+        confirmed = client.post(
+            f"/api/v1/verifications/{requested['verificationId']}/confirm",
+            headers=buyer_headers,
+        )
+        assert confirmed.status_code == 200
+        issued = client.post(
+            f"/api/v1/invoices/{invoice_id}/offer-response",
+            headers=supplier_headers,
+            json={"response": "ACCEPT"},
+        )
+        assert issued.status_code == 200
+        assert issued.json()["invoice"]["status"] == "RWA_ISSUED"
+
+        replacement_supplier_wallet = str(Keypair().pubkey())
+        replaced = client.put(
+            "/api/v1/auth/embedded-wallet",
+            headers=supplier_headers,
+            json={"address": replacement_supplier_wallet},
+        )
+        assert replaced.status_code == 200
+        assert replaced.json()["embeddedWallet"]["address"] == replacement_supplier_wallet
+        assert replacement_supplier_wallet != original_supplier_wallet
+        stale_invoice = client.get(
+            f"/api/v1/invoices/{invoice_id}", headers=supplier_headers
+        ).json()["invoice"]
+        assert stale_invoice["supplier"]["walletAddress"] == original_supplier_wallet
+
+        investor_wallet = investor["embeddedWallet"]["address"]
+        investor_keypair = Keypair.from_seed(
+            hashlib.sha256(investor_user_id.encode()).digest()
+        )
+        assert str(investor_keypair.pubkey()) == investor_wallet
+        policy = {
+            "totalInvestmentLimitUsdc": 20_000,
+            "perInvoiceLimitUsdc": 20_000,
+            "buyerAllowlist": ["Prime Mobility"],
+            "minimumRiskScore": 80,
+            "maximumRemainingTermDays": 100,
+            "expiresAt": "2030-12-31",
+        }
+        prepared = client.post(
+            "/api/v1/investor/mandates/prepare",
+            headers=investor_headers,
+            json={"ownerWalletAddress": investor_wallet, "policy": policy},
+        )
+        assert prepared.status_code == 200
+        mandate = client.post(
+            "/api/v1/investor/mandates",
+            headers=investor_headers,
+            json={
+                "ownerWalletAddress": investor_wallet,
+                "policy": policy,
+                "signature": str(
+                    investor_keypair.sign_message(
+                        prepared.json()["canonicalMessage"].encode()
+                    )
+                ),
+            },
+        )
+        assert mandate.status_code == 200
+        deposited = client.post(
+            "/api/v1/investor/vault/deposits/confirm",
+            headers=investor_headers,
+            json={
+                "ownerWalletAddress": investor_wallet,
+                "amountUsdc": 20_000,
+                "signature": "mock-new-account-funding-deposit",
+            },
+        )
+        assert deposited.status_code == 200
+
+        funded = client.get(
+            f"/api/v1/invoices/{invoice_id}", headers=supplier_headers
+        ).json()["invoice"]
+
+    assert funded["status"] == "FUNDED"
+    assert funded["supplier"]["walletAddress"] == replacement_supplier_wallet
+    assert funded["fundingTransaction"]["toAddress"] == replacement_supplier_wallet
+    assert funded["fundingTransaction"]["toAddress"] != original_supplier_wallet
+
+
 def test_privy_business_api_rejects_incomplete_onboarding(tmp_path: Path) -> None:
     with privy_business_client(tmp_path) as (client, private_key):
         pending_headers = headers(private_key, "did:privy:pending-business-user")

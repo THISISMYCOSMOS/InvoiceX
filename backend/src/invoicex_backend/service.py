@@ -219,6 +219,42 @@ class InvoiceService:
     def _save_invoice(self, invoice: Invoice) -> None:
         self._repository.save_invoice(invoice)
 
+    def _current_supplier_payment_wallet(self, invoice: Invoice) -> str:
+        """Resolve the supplier destination from current company wallet records.
+
+        The wallet copied into an invoice is an audit snapshot and may become
+        stale after the supplier changes its settlement-wallet selection.  A
+        real transfer must therefore prefer the current company-owned mapping
+        and fail closed when a registered company no longer has a wallet.
+        """
+
+        selected = self._repository.get_company_settlement_wallet(invoice.supplier.id)
+        if selected is not None:
+            wallet_address = selected[1]
+        else:
+            embedded = self._repository.get_company_wallet(invoice.supplier.id)
+            wallet_address = embedded.address if embedded is not None else None
+
+        if wallet_address is None:
+            company = self._repository.get_company(invoice.supplier.id)
+            if company is not None and self._solana.mode != "mock":
+                raise IntegrationError("공급기업의 현재 정산 지갑을 확인할 수 없습니다.")
+            wallet_address = invoice.supplier.wallet_address
+
+        if not wallet_address or wallet_address.startswith("DEMO_"):
+            if self._solana.mode != "mock":
+                raise IntegrationError("공급기업의 현재 정산 지갑을 확인할 수 없습니다.")
+            return wallet_address or "DEMO_SUPPLIER_WALLET"
+
+        if self._solana.mode != "mock":
+            try:
+                self._validate_wallet_address(wallet_address)
+            except StateConflictError as exc:
+                raise IntegrationError(
+                    "공급기업의 현재 정산 지갑 주소가 유효하지 않습니다."
+                ) from exc
+        return wallet_address
+
     async def create_invoice(
         self,
         uploads: list[UploadedDocument],
@@ -1040,11 +1076,22 @@ class InvoiceService:
             )
             amount = decision.amount_usdc
             try:
+                supplier_wallet_address = self._current_supplier_payment_wallet(invoice)
+                if supplier_wallet_address != invoice.supplier.wallet_address:
+                    invoice.supplier.wallet_address = supplier_wallet_address
+                    self._append_trace(
+                        invoice,
+                        source="TREASURY_AGENT",
+                        target="SETTLEMENT_AGENT",
+                        status="WORKING",
+                        summary="공급기업의 현재 등록 정산 지갑으로 수취 주소를 갱신했습니다.",
+                    )
+                    self._save_invoice(invoice)
                 result = await self._solana.purchase_rwa(
                     invoice_id=invoice.id,
                     rwa_mint_address=asset.mint_address,
                     escrow_token_account=asset.escrow_token_account,
-                    supplier_wallet_address=invoice.supplier.wallet_address or "",
+                    supplier_wallet_address=supplier_wallet_address,
                     amount_usdc=amount,
                 )
             except IntegrationError as exc:
@@ -1063,7 +1110,7 @@ class InvoiceService:
                 return
 
             invoice.funding_transaction = self._transaction(
-                result=result, amount_usdc=amount, to_address=invoice.supplier.wallet_address or ""
+                result=result, amount_usdc=amount, to_address=supplier_wallet_address
             )
             if result.status is TransactionStatus.CONFIRMED:
                 sold_asset = asset.model_copy(

@@ -4,7 +4,9 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, test, vi } from "vitest";
 import { scenarioAdapter } from "../../api/client";
 import { CurrentAccountProvider } from "../../auth/CurrentAccountProvider";
+import { DEMO_FUNDING_TRANSACTION, DEMO_INVOICE } from "../../mocks/demoScenario";
 import { SupplierDashboardPage } from "./SupplierDashboardPage";
+import { getDashboardSummary } from "./supplierDashboardSummary";
 
 const useDevnetUsdcBalanceMock = vi.hoisted(() => vi.fn());
 
@@ -52,15 +54,32 @@ test("derives supplier dashboard statistics from actual invoice states and links
   expect(screen.getByText("USDC wallet balance")).toBeInTheDocument();
   expect(screen.getByText("In early settlement")).toBeInTheDocument();
   expect(screen.getByText("Waiting for buyer")).toBeInTheDocument();
-  expect(screen.getByText("Settlement received")).toBeInTheDocument();
+  expect(screen.getByText("Received by current wallet")).toBeInTheDocument();
   expect(within(screen.getByLabelText("USDC wallet balance")).getByText("1.25")).toBeInTheDocument();
   expect(within(screen.getByLabelText("USDC wallet balance")).getByText("Connected wallet")).toBeInTheDocument();
   expect(within(screen.getByLabelText("In early settlement")).getByText("0")).toBeInTheDocument();
   expect(within(screen.getByLabelText("Waiting for buyer")).getByText("1")).toBeInTheDocument();
-  expect(within(screen.getByLabelText("Settlement received")).getByText("0")).toBeInTheDocument();
+  expect(within(screen.getByLabelText("Received by current wallet")).getByText("0")).toBeInTheDocument();
   expect(useDevnetUsdcBalanceMock).toHaveBeenCalledWith("8xK2f7yZQmP8Y5BwL9Vx3dTs7cR2nJ6p91Q");
   expect(screen.getByRole("table", { name: "Recent invoices" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "New invoice" })).toHaveAttribute("href", "/supplier/invoices/new");
   expect(await screen.findByRole("link", { name: "View invoice INV-2026-001" })).toHaveAttribute("href", "/supplier/invoices/INV-2026-001");
   expect(screen.getByText("Buyer review")).toBeInTheDocument();
+});
+
+test("does not report a confirmed transfer sent to another wallet as received", () => {
+  const fundedInvoice = {
+    ...DEMO_INVOICE,
+    status: "FUNDED" as const,
+    fundingTransaction: DEMO_FUNDING_TRANSACTION,
+  };
+
+  expect(
+    getDashboardSummary([fundedInvoice], DEMO_FUNDING_TRANSACTION.toAddress)
+      .settlementReceivedUsdc,
+  ).toBe(DEMO_FUNDING_TRANSACTION.amountUsdc);
+  expect(
+    getDashboardSummary([fundedInvoice], "A_DIFFERENT_SUPPLIER_WALLET")
+      .settlementReceivedUsdc,
+  ).toBe(0);
 });

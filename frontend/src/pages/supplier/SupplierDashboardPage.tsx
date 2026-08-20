@@ -6,29 +6,9 @@ import { LoadingState } from "../../components/LoadingState";
 import { getInvoiceDisplayReference, useInvoices } from "../../hooks/useInvoices";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
-import { formatInvoiceAmount, type Invoice, type InvoiceStatus } from "../../types/invoice";
+import { formatInvoiceAmount } from "../../types/invoice";
 import { useCurrentPrivyAccount } from "../../auth/currentAccount";
-
-const earlySettlementStatuses = new Set<InvoiceStatus>([
-  "RISK_ASSESSING",
-  "OFFER_READY",
-  "REVIEW_REQUESTED",
-  "RWA_ISSUED",
-  "FUNDING",
-]);
-
-function getDashboardSummary(invoices: Invoice[]) {
-  return invoices.reduce(
-    (summary, invoice) => ({
-      earlySettlementInProgress: summary.earlySettlementInProgress
-        + (earlySettlementStatuses.has(invoice.status) ? 1 : 0),
-      waitingForBuyer: summary.waitingForBuyer + (invoice.status === "BUYER_REVIEW" ? 1 : 0),
-      settlementReceivedUsdc: summary.settlementReceivedUsdc
-        + (invoice.fundingTransaction?.status === "CONFIRMED" ? invoice.fundingTransaction.amountUsdc : 0),
-    }),
-    { earlySettlementInProgress: 0, waitingForBuyer: 0, settlementReceivedUsdc: 0 },
-  );
-}
+import { getDashboardSummary } from "./supplierDashboardSummary";
 
 export function SupplierDashboardPage() {
   const invoices = useInvoices();
@@ -38,7 +18,7 @@ export function SupplierDashboardPage() {
   if (invoices.isLoading) return <LoadingState />;
   if (invoices.error) return <ErrorState error={invoices.error} />;
   const items = invoices.data ?? [];
-  const summary = getDashboardSummary(items);
+  const summary = getDashboardSummary(items, currentAccount?.walletAddress);
   const usdcFormatter = new Intl.NumberFormat(language === "ko" ? "ko-KR" : "en-US", {
     maximumFractionDigits: 6,
   });
@@ -108,8 +88,8 @@ export function SupplierDashboardPage() {
           <span>{t("Waiting for buyer", "구매자 응답 대기")}</span>
           <strong>{summary.waitingForBuyer} <small>{t("requests", "건")}</small></strong>
         </section>
-        <section className="stat-card" aria-label={t("Settlement received", "수령한 정산금")}>
-          <span>{t("Settlement received", "수령한 정산금")}</span>
+        <section className="stat-card" aria-label={t("Received by current wallet", "현재 지갑 수령액")}>
+          <span>{t("Received by current wallet", "현재 지갑 수령액")}</span>
           <strong>{summary.settlementReceivedUsdc.toLocaleString()} <small>USDC</small></strong>
         </section>
       </div>

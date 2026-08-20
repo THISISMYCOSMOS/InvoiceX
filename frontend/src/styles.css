@@ -7175,6 +7175,15 @@ a {
 .hard-gate-card article span { color: #0f172a; font-size: 12px; font-weight: 700; }
 .hard-gate-card article b { grid-column: 2; color: #64748b; font-size: 11px; font-weight: 500; }
 
+/* Keep the Supplier invoice workflow on the same headline type scale as other pages. */
+.supplier-invoice-workflow h1 {
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.65px;
+  line-height: 1.2;
+}
+
 .invoice-review-reasons {
   margin: 0 24px 18px;
   padding: 16px 18px;

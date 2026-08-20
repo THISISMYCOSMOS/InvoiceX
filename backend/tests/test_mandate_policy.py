@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 from fastapi.testclient import TestClient
 from solders.keypair import Keypair
 
@@ -131,6 +133,74 @@ def test_get_active_mandate_returns_404_for_wallet_without_a_mandate(
         params={"ownerWalletAddress": str(unknown.pubkey())},
     )
     assert response.status_code == 404
+
+
+def test_automatic_purchase_refreshes_the_current_supplier_settlement_wallet(
+    client: TestClient,
+    contract_files: dict[str, tuple[str, bytes, str]],
+    monkeypatch,
+) -> None:
+    created = client.post("/api/v1/invoices", files=contract_files).json()["invoice"]
+    invoice_id = created["id"]
+    requested = client.post(f"/api/v1/invoices/{invoice_id}/verification-request").json()[
+        "invoice"
+    ]
+    offered = client.post(
+        f"/api/v1/verifications/{requested['verificationId']}/confirm"
+    ).json()["invoice"]
+    amount_usdc = offered["riskPassport"]["earlySettlementTerms"][
+        "supplierExpectedSettlementUsdc"
+    ]
+    accepted = client.post(
+        f"/api/v1/invoices/{invoice_id}/offer-response",
+        json={"response": "ACCEPT"},
+    )
+    assert accepted.status_code == 200
+
+    service = client.app.state.invoice_service
+    stale_wallet = str(Keypair().pubkey())
+    current_wallet = str(Keypair().pubkey())
+    invoice = service._invoice(invoice_id)
+    invoice.supplier.wallet_address = stale_wallet
+    service._save_invoice(invoice)
+    monkeypatch.setattr(
+        service.repository,
+        "get_company_settlement_wallet",
+        lambda company_id: (
+            ("EMBEDDED", current_wallet)
+            if company_id == invoice.supplier.id
+            else None
+        ),
+    )
+    purchase_rwa = AsyncMock(wraps=service._solana.purchase_rwa)
+    monkeypatch.setattr(service._solana, "purchase_rwa", purchase_rwa)
+
+    investor = _create_signed_mandate(
+        client,
+        policy={
+            "totalInvestmentLimitUsdc": 20_000,
+            "perInvoiceLimitUsdc": 20_000,
+            "buyerAllowlist": ["Prime Mobility"],
+            "minimumRiskScore": 80,
+            "maximumRemainingTermDays": 100,
+            "expiresAt": "2030-12-31",
+        },
+    )
+    deposited = client.post(
+        "/api/v1/investor/vault/deposits/confirm",
+        json={
+            "ownerWalletAddress": str(investor.pubkey()),
+            "amountUsdc": amount_usdc,
+            "signature": "mock-current-supplier-wallet-deposit",
+        },
+    )
+    assert deposited.status_code == 200
+
+    funded = client.get(f"/api/v1/invoices/{invoice_id}").json()["invoice"]
+    assert funded["status"] == "FUNDED"
+    assert funded["supplier"]["walletAddress"] == current_wallet
+    assert funded["fundingTransaction"]["toAddress"] == current_wallet
+    assert purchase_rwa.await_args.kwargs["supplier_wallet_address"] == current_wallet
 
 
 def test_dashboard_attention_required_count_is_zero_without_exceptions(
