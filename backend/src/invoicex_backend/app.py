@@ -70,6 +70,7 @@ def create_app(
         onboarding_service = OnboardingService(
             repository=service.repository,
             privy=HttpPrivyUserGateway(resolved_settings),
+            vault_initializer=service.provision_investor_vault,
         )
     if agent_task_dispatcher is None:
         agent_task_dispatcher = (

@@ -30,6 +30,7 @@ INVESTMENT_CRITERIA_BUYERS: tuple[InvestmentCriteriaBuyer, ...] = (
     InvestmentCriteriaBuyer(id="BUYER_ORBIT", name="Orbit Components"),
     InvestmentCriteriaBuyer(id="BUYER_DAON", name="Daon Logistics"),
     InvestmentCriteriaBuyer(id="BUYER_VERTEX", name="Vertex Retail"),
+    InvestmentCriteriaBuyer(id="BUYER_HALCYON", name="Halcyon Robotics Ltd"),
 )
 
 

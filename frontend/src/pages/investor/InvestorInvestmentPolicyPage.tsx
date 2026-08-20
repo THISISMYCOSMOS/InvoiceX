@@ -8,7 +8,13 @@ import { useCurrentPrivyAccount, useUpdateCurrentPrivyAccount } from "../../auth
 import { useSignupAuth } from "../../auth/SignupAuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
 
-const fallbackBuyerCompanies = ["Prime Mobility", "Orbit Components", "Daon Logistics", "Vertex Retail"] as const;
+const fallbackBuyerCompanies = [
+  "Prime Mobility",
+  "Orbit Components",
+  "Daon Logistics",
+  "Vertex Retail",
+  "Halcyon Robotics Ltd",
+] as const;
 
 interface InvestmentPolicyDraft {
   totalLimit: string;

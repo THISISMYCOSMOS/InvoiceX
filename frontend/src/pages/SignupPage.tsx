@@ -1,4 +1,4 @@
-import { useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   getAuthMe,
@@ -113,6 +113,7 @@ export function SignupPage() {
   const [nextPath, setNextPath] = useState("/login");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailAwaitingLogout, setEmailAwaitingLogout] = useState<string | null>(null);
 
   useEffect(() => {
     if (step !== "verification" || !otpDeadline) return;
@@ -129,7 +130,7 @@ export function SignupPage() {
     return () => window.clearInterval(intervalId);
   }, [otpDeadline, step]);
 
-  const loadOtpClock = async (): Promise<OtpClockSync> => {
+  const loadOtpClock = useCallback(async (): Promise<OtpClockSync> => {
     const requestStartedAt = Date.now();
     const otpClock = await getOtpClock();
     const responseReceivedAt = Date.now();
@@ -139,16 +140,33 @@ export function SignupPage() {
       expiresInSeconds: otpClock.expiresInSeconds,
       serverOffsetMs: otpClock.serverTimeMs - estimatedClientTimeAtServerResponse,
     };
-  };
+  }, []);
 
-  const startOtpDeadline = (clock: OtpClockSync) => {
+  const startOtpDeadline = useCallback((clock: OtpClockSync) => {
     const currentServerTimeMs = Date.now() + clock.serverOffsetMs;
     setOtpDeadline({
       expiresAtServerMs: currentServerTimeMs + (clock.expiresInSeconds * 1000),
       serverOffsetMs: clock.serverOffsetMs,
     });
     setRemainingSeconds(clock.expiresInSeconds);
-  };
+  }, []);
+
+  const sendVerificationCode = useCallback(async (emailAddress: string) => {
+    const otpClock = await loadOtpClock();
+    await signupAuth.sendCode(emailAddress);
+    startOtpDeadline(otpClock);
+    setCode(["", "", "", "", "", ""]);
+    setStep("verification");
+  }, [loadOtpClock, signupAuth, startOtpDeadline]);
+
+  useEffect(() => {
+    if (!emailAwaitingLogout || signupAuth.authenticated || !signupAuth.ready) return;
+
+    setEmailAwaitingLogout(null);
+    void sendVerificationCode(emailAwaitingLogout)
+      .catch((cause) => setError(toErrorMessage(cause, "인증 코드를 보내지 못했습니다.")))
+      .finally(() => setSubmitting(false));
+  }, [emailAwaitingLogout, sendVerificationCode, signupAuth.authenticated, signupAuth.ready]);
 
   const submitEmail = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -158,17 +176,22 @@ export function SignupPage() {
       return;
     }
     setSubmitting(true);
+    let waitingForLogout = false;
     try {
-      if (signupAuth.authenticated) await signupAuth.logout();
-      const otpClock = await loadOtpClock();
-      await signupAuth.sendCode(email.trim());
-      startOtpDeadline(otpClock);
-      setCode(["", "", "", "", "", ""]);
-      setStep("verification");
+      const emailAddress = email.trim();
+      if (signupAuth.authenticated) {
+        waitingForLogout = true;
+        setEmailAwaitingLogout(emailAddress);
+        await signupAuth.logout();
+        return;
+      }
+      await sendVerificationCode(emailAddress);
     } catch (cause) {
+      setEmailAwaitingLogout(null);
+      waitingForLogout = false;
       setError(toErrorMessage(cause, "인증 코드를 보내지 못했습니다."));
     } finally {
-      setSubmitting(false);
+      if (!waitingForLogout) setSubmitting(false);
     }
   };
 

@@ -3,6 +3,7 @@ import type { OfferResponse } from "./adapters/contracts";
 
 export const invoiceApi = {
   submitInvoiceDocuments: (formData: FormData) => scenarioAdapter.submitInvoiceDocuments(formData),
+  replaceInvoiceDocuments: (invoiceId: string, formData: FormData) => scenarioAdapter.replaceInvoiceDocuments(invoiceId, formData),
   getInvoices: () => scenarioAdapter.getInvoices(),
   getInvoice: (invoiceId: string) => scenarioAdapter.getInvoice(invoiceId),
   analyzeInvoice: (invoiceId: string) => scenarioAdapter.analyzeInvoice(invoiceId),

@@ -443,6 +443,35 @@ async def create_invoice(
     return InvoiceResponse(invoice=service.get_invoice(invoice.id, identity))
 
 
+@router.put(
+    "/invoices/{invoiceId}/documents",
+    response_model=InvoiceResponse,
+    responses=documented_errors(403, 400, 404, 409, 422, 502),
+    tags=["Invoices"],
+    summary="추출 검토 중인 Invoice 문서 교체 및 재분석",
+)
+async def replace_invoice_documents(
+    invoice_id: InvoiceId,
+    invoice_file: InvoiceFile,
+    contract_file: ContractFile,
+    purchase_order_file: PurchaseOrderFile,
+    delivery_proof_file: DeliveryProofFile,
+    service: InvoiceServiceDependency,
+    dispatcher: AgentTaskDispatcherDependency,
+    identity: AuthenticatedIdentity | None = supplier_only,
+) -> InvoiceResponse:
+    max_bytes = service.settings.max_document_size_bytes
+    uploads = [
+        await _read_upload(invoice_file, DocumentType.INVOICE, max_bytes),
+        await _read_upload(contract_file, DocumentType.CONTRACT, max_bytes),
+        await _read_upload(purchase_order_file, DocumentType.PURCHASE_ORDER, max_bytes),
+        await _read_upload(delivery_proof_file, DocumentType.DELIVERY_PROOF, max_bytes),
+    ]
+    invoice = await service.replace_invoice_documents(invoice_id, uploads, identity)
+    await dispatcher.enqueue(invoice.id, AgentTrigger.INVOICE_CREATED)
+    return InvoiceResponse(invoice=service.get_invoice(invoice.id, identity))
+
+
 @internal_router.post("/agent-tasks", include_in_schema=False)
 async def run_agent_task(
     payload: dict[str, str],
@@ -752,6 +781,7 @@ async def prepare_vault_deposit(
         transaction_base64=prepared.transaction_base64,
         vault_address=prepared.vault_address,
         stablecoin_mint_address=prepared.stablecoin_mint_address,
+        provider=service.vault_provider,
         sponsored=prepared.sponsored,
         sponsor_deposit_id=prepared.sponsor_deposit_id,
         sponsor_wallet_address=prepared.sponsor_wallet_address,

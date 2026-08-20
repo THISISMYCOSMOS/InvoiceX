@@ -590,6 +590,7 @@ class VaultDepositPreparation(ApiModel):
     transaction_base64: str
     vault_address: str
     stablecoin_mint_address: str
+    provider: Literal["PRIVY", "DIRECT", "MOCK"]
     sponsored: bool = False
     sponsor_deposit_id: str | None = None
     sponsor_wallet_address: str | None = None

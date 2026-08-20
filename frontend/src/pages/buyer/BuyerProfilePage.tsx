@@ -1,33 +1,96 @@
-import { BuildingOffice, CheckCircle, LinkSimple, SignOut, Wallet } from "@phosphor-icons/react";
-import { useState } from "react";
+import { BuildingOffice, CheckCircle, LinkSimple, PencilSimple, SignOut, Wallet } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { updateCompanyProfile } from "../../api/onboarding.api";
 import { rwaApi } from "../../api/rwa.api";
-import { useCurrentPrivyAccount } from "../../auth/currentAccount";
-import { clearDemoSession } from "../../auth/demoAccounts";
+import { useCurrentPrivyAccount, useUpdateCurrentPrivyAccount } from "../../auth/currentAccount";
+import { clearDemoSession, getDemoSession } from "../../auth/demoAccounts";
 import { useSignupAuth } from "../../auth/SignupAuthContext";
 import { SolanaWalletConnection } from "../../components/SolanaWalletConnection";
 import { useDevnetUsdcBalance } from "../../hooks/useDevnetUsdcBalance";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 function formatUsEin(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length !== 9) return value;
+  const digits = value.replace(/\D/g, "").slice(0, 9);
+  if (digits.length <= 2) return digits;
   return `${digits.slice(0, 2)}-${digits.slice(2)}`;
 }
+
+function formatUsPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+type CompanyProfileForm = {
+  companyName: string;
+  registrationNumber: string;
+  representativeName: string;
+  representativeTitle: string;
+  representativePhone: string;
+};
 
 export function BuyerProfilePage() {
   const { t } = useLanguage();
   const currentAccount = useCurrentPrivyAccount();
-  const { authenticated, logout } = useSignupAuth();
+  const updateCurrentAccount = useUpdateCurrentPrivyAccount();
+  const { authenticated, getAccessToken, logout } = useSignupAuth();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawalError, setWithdrawalError] = useState<string | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<CompanyProfileForm>({ companyName: "", registrationNumber: "", representativeName: "", representativeTitle: "", representativePhone: "" });
   const [isExternalWalletConnectorOpen, setIsExternalWalletConnectorOpen] = useState(false);
   const embeddedWalletBalance = useDevnetUsdcBalance(currentAccount?.walletAddress ?? null);
   const displayedUsdcBalance = embeddedWalletBalance.balanceUsdc?.toLocaleString(undefined, {
     maximumFractionDigits: 6,
   });
+
+  const resetProfileForm = () => {
+    if (!currentAccount) return;
+    setProfileForm({
+      companyName: currentAccount.companyName,
+      registrationNumber: formatUsEin(currentAccount.registrationNumber),
+      representativeName: currentAccount.userName ?? "",
+      representativeTitle: currentAccount.userTitle ?? "",
+      representativePhone: formatUsPhone(currentAccount.userPhone ?? ""),
+    });
+  };
+
+  useEffect(() => {
+    if (!isEditingProfile) resetProfileForm();
+  }, [currentAccount, isEditingProfile]);
+
+  const handleSaveProfile = async () => {
+    if (!currentAccount) return;
+    if (profileForm.registrationNumber.replace(/\D/g, "").length !== 9) {
+      setProfileError(t("Enter a valid 9-digit US EIN.", "미국 EIN 숫자 9자리를 입력해 주세요."));
+      return;
+    }
+    setIsSavingProfile(true);
+    setProfileError(null);
+    try {
+      const token = getDemoSession()?.accessToken ?? await getAccessToken();
+      if (!token) throw new Error(t("Your login session is unavailable.", "로그인 세션을 확인할 수 없습니다."));
+      const updated = await updateCompanyProfile(token, {
+        company: { name: profileForm.companyName, type: currentAccount.role, countryCode: currentAccount.countryCode, registrationNumber: profileForm.registrationNumber },
+        representative: { name: profileForm.representativeName, title: profileForm.representativeTitle, phone: profileForm.representativePhone },
+      });
+      if (!updated.company) throw new Error(t("The updated company profile was not returned.", "수정된 회사 정보를 확인할 수 없습니다."));
+      updateCurrentAccount({ companyName: updated.company.name, registrationNumber: updated.company.registrationNumber, userName: updated.user.name, userTitle: updated.user.title, userPhone: updated.user.phone });
+      setIsEditingProfile(false);
+      setProfileSuccess(t("Company information has been saved.", "회사 정보가 저장되었습니다."));
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : t("Unable to save company information.", "회사 정보를 저장하지 못했습니다."));
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -83,8 +146,27 @@ export function BuyerProfilePage() {
               <CheckCircle size={13} weight="fill" aria-hidden="true" />
               {t("Verified", "인증 완료")}
             </span>
+            {!isEditingProfile ? (
+              <button className="company-profile-edit-button" type="button" onClick={() => { resetProfileForm(); setProfileError(null); setProfileSuccess(null); setIsEditingProfile(true); }}>
+                <PencilSimple size={14} weight="bold" aria-hidden="true" />
+                {t("Edit", "정보 수정")}
+              </button>
+            ) : null}
           </header>
 
+          {isEditingProfile ? (
+            <form className="company-profile-form" onSubmit={(event) => { event.preventDefault(); void handleSaveProfile(); }}>
+              <label className="company-profile-field"><span>{t("Legal company name", "법인명")}</span><input aria-label={t("Legal company name", "법인명")} value={profileForm.companyName} maxLength={200} onChange={(event) => setProfileForm((current) => ({ ...current, companyName: event.target.value }))} required /></label>
+              <label className="company-profile-field"><span>{t("Country code", "국가 코드")}</span><input value={currentAccount?.countryCode ?? "US"} readOnly aria-readonly="true" /></label>
+              <label className="company-profile-field"><span>{t("US EIN", "미국 EIN")}</span><input aria-label={t("US EIN", "미국 EIN")} inputMode="numeric" maxLength={10} value={profileForm.registrationNumber} onChange={(event) => setProfileForm((current) => ({ ...current, registrationNumber: formatUsEin(event.target.value) }))} placeholder="12-3456789" required /></label>
+              <label className="company-profile-field"><span>{t("Representative", "담당자")}</span><input aria-label={t("Representative", "담당자")} value={profileForm.representativeName} maxLength={100} onChange={(event) => setProfileForm((current) => ({ ...current, representativeName: event.target.value }))} required /></label>
+              <label className="company-profile-field"><span>{t("Representative title", "담당자 직책")}</span><input aria-label={t("Representative title", "담당자 직책")} value={profileForm.representativeTitle} maxLength={100} onChange={(event) => setProfileForm((current) => ({ ...current, representativeTitle: event.target.value }))} required /></label>
+              <label className="company-profile-field"><span>{t("Contact number", "담당자 연락처")}</span><input aria-label={t("Contact number", "담당자 연락처")} inputMode="tel" maxLength={12} value={profileForm.representativePhone} onChange={(event) => setProfileForm((current) => ({ ...current, representativePhone: formatUsPhone(event.target.value) }))} placeholder="415-555-0123" required /></label>
+              <div className="company-profile-readonly" aria-label={t("Uneditable account information", "변경할 수 없는 계정 정보")}><span>{t("Company email", "회사 이메일")}<strong>{currentAccount?.userEmail}</strong></span><span>{t("Account role", "계정 역할")}<strong>{t("Buyer", "구매기업")}</strong></span></div>
+              {profileError ? <p className="company-profile-message is-error" role="alert">{profileError}</p> : null}
+              <div className="company-profile-form-actions"><button className="secondary-button" type="button" onClick={() => { setIsEditingProfile(false); setProfileError(null); }} disabled={isSavingProfile}>{t("Cancel", "취소")}</button><button className="primary-button" type="submit" disabled={isSavingProfile}>{isSavingProfile ? t("Saving...", "저장 중...") : t("Save changes", "변경사항 저장")}</button></div>
+            </form>
+          ) : <>
           <dl className="company-details">
             <div>
               <dt>{t("Legal company name", "법인명")}</dt>
@@ -119,6 +201,8 @@ export function BuyerProfilePage() {
               <dd className="verified-value">{t("Completed", "인증 완료")}</dd>
             </div>
           </dl>
+          {profileSuccess ? <p className="company-profile-message is-success" role="status"><CheckCircle size={14} weight="fill" aria-hidden="true" />{profileSuccess}</p> : null}
+          </>}
         </article>
 
         <article className="wallet-card">

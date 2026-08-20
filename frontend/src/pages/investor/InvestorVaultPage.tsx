@@ -13,7 +13,7 @@ import { useLanguage } from "../../i18n/LanguageContext";
 type VaultDepositPhase = "IDLE" | "PREPARING" | "AWAITING_SIGNATURE" | "CONFIRMING" | "CONFIRMED" | "FAILED";
 
 function parseAmount(value: string): number {
-  return Number(value.replace(/[^\d]/g, ""));
+  return /^\d+$/.test(value.trim()) ? Number(value) : Number.NaN;
 }
 
 function fromBase64(value: string): Uint8Array {
@@ -93,10 +93,16 @@ export function InvestorVaultPage() {
     try {
       const ownerWalletAddress = connectedWalletAddress;
       const prepared = await rwaApi.prepareVaultDeposit(ownerWalletAddress, amountUsdc);
-      const transaction = VersionedTransaction.deserialize(fromBase64(prepared.transactionBase64));
-      setPhase("AWAITING_SIGNATURE");
       let nextVault: VaultBalance;
-      if (canUseExternalWallet && publicKey && sendTransaction) {
+      if (prepared.provider === "MOCK") {
+        setPhase("CONFIRMING");
+        const mockSignature = `mock-deposit-${crypto.randomUUID()}`;
+        setSignature(mockSignature);
+        nextVault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, mockSignature);
+      } else {
+        const transaction = VersionedTransaction.deserialize(fromBase64(prepared.transactionBase64));
+        setPhase("AWAITING_SIGNATURE");
+        if (canUseExternalWallet && publicKey && sendTransaction) {
         if (prepared.sponsored) {
           if (!signTransaction || !prepared.sponsorDepositId) {
             throw new Error(t("This wallet does not support gasless transaction signing.", "이 지갑은 가스리스 트랜잭션 서명을 지원하지 않습니다."));
@@ -111,7 +117,7 @@ export function InvestorVaultPage() {
           await connection.confirmTransaction(transactionSignature, "confirmed");
           nextVault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, transactionSignature);
         }
-      } else {
+        } else {
         const signedTransaction = await signEmbeddedSolanaTransaction(ownerWalletAddress, transaction.serialize());
         if (prepared.sponsored) {
           if (!prepared.sponsorDepositId) {
@@ -125,6 +131,7 @@ export function InvestorVaultPage() {
           setPhase("CONFIRMING");
           await connection.confirmTransaction(transactionSignature, "confirmed");
           nextVault = await rwaApi.confirmVaultDeposit(ownerWalletAddress, amountUsdc, transactionSignature);
+        }
         }
       }
       setVault(nextVault);
