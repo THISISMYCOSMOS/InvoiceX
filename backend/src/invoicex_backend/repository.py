@@ -1155,6 +1155,29 @@ class CloudSqlRwaRepository:
         """,
     )
 
+    _required_schema_tables = frozenset(
+        {
+            "agent_decisions",
+            "agent_handoffs",
+            "agent_runs",
+            "agent_tool_calls",
+            "companies",
+            "company_settlement_wallets",
+            "company_vaults",
+            "deposit_receipts",
+            "document_analyses",
+            "execution_claims",
+            "invoices",
+            "mandates",
+            "profile_wallets",
+            "rwa_assets",
+            "users",
+            "vaults",
+            "verifications",
+            "wallets",
+        }
+    )
+
     def __init__(self, connection: object, connector: object | None = None) -> None:
         self._connection = connection
         self._connector = connector
@@ -1192,9 +1215,42 @@ class CloudSqlRwaRepository:
         return model.model_validate(value)  # type: ignore[attr-defined]
 
     def _ensure_schema(self) -> None:
+        if self._schema_is_current():
+            return
         self._write(
             lambda cursor: [cursor.execute(statement) for statement in self._schema_statements]
         )
+
+    def _schema_is_current(self) -> bool:
+        cursor = self._connection.cursor()  # type: ignore[attr-defined]
+        try:
+            cursor.execute(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = current_schema()
+                """
+            )
+            tables = {str(row[0]) for row in cursor.fetchall()}
+            current = self._required_schema_tables.issubset(tables)
+            if current:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = 'users'
+                      AND column_name = 'password_hash'
+                    """
+                )
+                current = cursor.fetchone() is not None
+            self._connection.commit()  # type: ignore[attr-defined]
+            return current
+        except Exception:
+            self._connection.rollback()  # type: ignore[attr-defined]
+            raise
+        finally:
+            cursor.close()
 
     def _write(self, operation: object) -> object:
         with self._lock:
@@ -1214,7 +1270,12 @@ class CloudSqlRwaRepository:
             cursor = self._connection.cursor()  # type: ignore[attr-defined]
             try:
                 cursor.execute(query, params)
-                return cursor.fetchone()
+                row = cursor.fetchone()
+                self._connection.commit()  # type: ignore[attr-defined]
+                return row
+            except Exception:
+                self._connection.rollback()  # type: ignore[attr-defined]
+                raise
             finally:
                 cursor.close()
 
@@ -1223,7 +1284,12 @@ class CloudSqlRwaRepository:
             cursor = self._connection.cursor()  # type: ignore[attr-defined]
             try:
                 cursor.execute(query, params)
-                return list(cursor.fetchall())
+                rows = list(cursor.fetchall())
+                self._connection.commit()  # type: ignore[attr-defined]
+                return rows
+            except Exception:
+                self._connection.rollback()  # type: ignore[attr-defined]
+                raise
             finally:
                 cursor.close()
 
