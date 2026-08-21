@@ -1,4 +1,4 @@
-import { CheckCircle, FileText } from "@phosphor-icons/react";
+import { ArrowSquareOut, CheckCircle, FileText } from "@phosphor-icons/react";
 import { formatInvoiceAmount, type Invoice } from "../../../types/invoice";
 import { useLanguage } from "../../../i18n/LanguageContext";
 
@@ -88,6 +88,12 @@ export function RwaIssuedSection({ invoice }: { invoice: Invoice }) {
           <span><FileText size={18} weight="fill" aria-hidden="true" /></span>
           <p>{invoice.agentDecision?.reason ?? t("This RWA is held in platform escrow until a qualifying active investor mandate completes the automatic purchase.", "이 RWA는 조건을 충족하는 활성 투자 Mandate가 자동 매수를 완료할 때까지 플랫폼 에스크로에 보관됩니다.")}</p>
         </div>
+        {issueTransaction?.explorerUrl && (
+          <a className="rwa-issued-card__explorer-link" href={issueTransaction.explorerUrl} target="_blank" rel="noreferrer">
+            <ArrowSquareOut size={16} weight="bold" aria-hidden="true" />
+            {t("View issuance on Solana Explorer", "Explorer에서 온체인 기록 보기")}
+          </a>
+        )}
       </article>
     </section>
   );
