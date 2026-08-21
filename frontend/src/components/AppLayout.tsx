@@ -32,6 +32,8 @@ export function AppLayout({
   const isInvestorProfile = pathname === "/investor/profile";
   const detailInvoiceId = pathname.match(/^\/(?:supplier|buyer)\/invoices\/([^/]+)/)?.[1] ?? "";
   const invoices = useInvoices();
+  const detailInvoice = invoices.data?.find((invoice) => invoice.id === detailInvoiceId);
+  const isBuyerPaymentComplete = detailInvoice?.status === "SETTLED";
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [roleSwitchError, setRoleSwitchError] = useState<string>();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -150,7 +152,9 @@ export function AppLayout({
             {isBuyer && detailInvoiceId && (
               <span className="topbar-status-pill topbar-status-pill--green">
                 {isBuyerPayment
-                  ? t("Payment pending", "결제 대기")
+                  ? isBuyerPaymentComplete
+                    ? t("Payment complete", "결제 완료")
+                    : t("Payment pending", "결제 대기")
                   : t("Verification request", "확인 요청")}
               </span>
             )}

@@ -161,6 +161,17 @@ test("splits the buyer payment list into scheduled and completed tabs", async ()
   expect(screen.getByText("No completed payments yet.")).toBeInTheDocument();
 });
 
+test("shows a completed topbar status for a settled buyer payment", async () => {
+  await scenarioAdapter.confirmBuyerPayment("INV-2026-001", "mock-payment-signature");
+  await scenarioAdapter.runSettlement("INV-2026-001");
+
+  renderAt("/buyer/invoices/INV-2026-001?section=payment");
+
+  expect(await screen.findByText("Payment complete")).toBeInTheDocument();
+  expect(screen.queryByText("Payment pending")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "USDC payment complete" })).toBeInTheDocument();
+});
+
 test("switches between English and Korean from login and keeps the choice across routes", async () => {
   const user = userEvent.setup();
   const { unmount } = renderAt("/login");
