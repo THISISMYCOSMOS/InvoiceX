@@ -1954,6 +1954,15 @@ a {
   padding-top: 1px;
 }
 
+.supplier-dashboard .page-heading p {
+  margin-top: 0;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.35px;
+  line-height: 1.35;
+}
+
 .company-wallet-page {
   padding-top: 1px;
 }
@@ -2799,6 +2808,17 @@ a {
 
 .investor-policy-tabs button:focus-visible {
   outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+.buyer-payment-tabs button.is-active {
+  border-color: #16a34a;
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.buyer-payment-tabs button:focus-visible {
+  outline: 2px solid #16a34a;
   outline-offset: 2px;
 }
 
