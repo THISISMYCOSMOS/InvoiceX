@@ -9,6 +9,8 @@ import { useBuyerPayment, useBuyerPaymentPreparation } from "../../hooks/useBuye
 import { useBuyerReject } from "../../hooks/useBuyerReject";
 import { useInvoice } from "../../hooks/useInvoice";
 import { getInvoiceDisplayReference } from "../../hooks/useInvoices";
+import { useCurrentPrivyAccount } from "../../auth/currentAccount";
+import { useSignupAuth } from "../../auth/SignupAuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { DocumentType } from "../../types/documents";
 import {
@@ -277,6 +279,8 @@ function MaturityPaymentSection({
   preparation,
   onPay,
   isPaying = false,
+  walletSignIn,
+  isWalletLoading = false,
   paymentError,
   paymentComplete = false,
 }: {
@@ -284,6 +288,8 @@ function MaturityPaymentSection({
   preparation?: BuyerPaymentPreparation;
   onPay?: () => void;
   isPaying?: boolean;
+  walletSignIn?: { email: string; returnTo: string };
+  isWalletLoading?: boolean;
   paymentError?: string;
   paymentComplete?: boolean;
 }) {
@@ -318,9 +324,23 @@ function MaturityPaymentSection({
             <div><dt>{t("Asset", "결제 자산")}</dt><dd>Devnet USDC</dd></div>
           </dl>
           <footer>
-            <button type="button" className="buyer-confirm-button buyer-confirm-button--full" onClick={onPay} disabled={!preparation || !onPay || isPaying}>
-              {isPaying ? t("Confirming payment...", "결제 확인 중...") : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
-            </button>
+            {walletSignIn ? (
+              <Link
+                className="buyer-confirm-button buyer-confirm-button--full buyer-wallet-sign-in-link"
+                state={{ authOnly: true, email: walletSignIn.email, returnTo: walletSignIn.returnTo }}
+                to="/signup"
+              >
+                {t("Sign in to wallet and pay", "지갑 로그인 후 결제")}
+              </Link>
+            ) : (
+              <button type="button" className="buyer-confirm-button buyer-confirm-button--full" onClick={onPay} disabled={!preparation || !onPay || isPaying || isWalletLoading}>
+                {isWalletLoading
+                  ? t("Checking embedded wallet...", "임베디드 지갑 확인 중...")
+                  : isPaying
+                    ? t("Confirming payment...", "결제 확인 중...")
+                    : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
+              </button>
+            )}
           </footer>
         </section>
 
@@ -422,6 +442,8 @@ export function BuyerInvoiceDetailContent({
   paymentPreparation,
   onPay,
   isPaying = false,
+  walletSignIn,
+  isWalletLoading = false,
   paymentError,
   paymentComplete = false,
 }: {
@@ -434,6 +456,8 @@ export function BuyerInvoiceDetailContent({
   paymentPreparation?: BuyerPaymentPreparation;
   onPay?: () => void;
   isPaying?: boolean;
+  walletSignIn?: { email: string; returnTo: string };
+  isWalletLoading?: boolean;
   paymentError?: string;
   paymentComplete?: boolean;
 }) {
@@ -447,6 +471,8 @@ export function BuyerInvoiceDetailContent({
       preparation={paymentPreparation}
       onPay={onPay}
       isPaying={isPaying}
+      walletSignIn={walletSignIn}
+      isWalletLoading={isWalletLoading}
       paymentError={paymentError}
       paymentComplete={paymentComplete}
     />
@@ -471,12 +497,32 @@ export function BuyerInvoiceDetailPage() {
   const { t } = useLanguage();
   const { invoiceId = "" } = useParams();
   const [searchParams] = useSearchParams();
+  const currentAccount = useCurrentPrivyAccount();
+  const {
+    authenticated,
+    embeddedSolanaWalletReady,
+    hasEmbeddedSolanaWallet,
+  } = useSignupAuth();
   const invoice = useInvoice(invoiceId);
   const confirm = useBuyerConfirm();
   const reject = useBuyerReject();
   const paymentPreparation = useBuyerPaymentPreparation(invoiceId);
   const payment = useBuyerPayment(invoiceId);
   const view = searchParams.get("section") === "payment" ? "payment" : "verification";
+  const embeddedWalletAddress = currentAccount?.walletAddress;
+  const canSignWithEmbeddedWallet = Boolean(
+    authenticated
+      && embeddedSolanaWalletReady
+      && embeddedWalletAddress
+      && hasEmbeddedSolanaWallet(embeddedWalletAddress),
+  );
+  const isWalletLoading = authenticated && !embeddedSolanaWalletReady;
+  const walletSignIn = !isWalletLoading && !canSignWithEmbeddedWallet
+    ? {
+        email: currentAccount?.userEmail ?? "",
+        returnTo: `/buyer/invoices/${encodeURIComponent(invoiceId)}?section=payment`,
+      }
+    : undefined;
 
   if (invoice.isLoading) return <LoadingState />;
   if (invoice.error || !invoice.data) {
@@ -504,6 +550,8 @@ export function BuyerInvoiceDetailPage() {
       paymentPreparation={paymentPreparation.data}
       onPay={() => payment.mutate()}
       isPaying={payment.isPending}
+      walletSignIn={walletSignIn}
+      isWalletLoading={isWalletLoading}
       paymentError={(paymentPreparation.error ?? payment.error)?.message}
       paymentComplete={payment.isSuccess}
     />

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { DEMO_DOCUMENTS, DEMO_INVOICE } from "../../mocks/demoScenario";
 import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 
@@ -85,6 +85,66 @@ test("shows the embedded-wallet maturity-payment action for a funded invoice", a
   await user.click(paymentButton);
   expect(onPay).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("link", { name: "Download payment guide" })).not.toBeInTheDocument();
+});
+
+test("requires wallet sign-in before a password member can pay", async () => {
+  function SignupState() {
+    const location = useLocation();
+    return <output>{JSON.stringify(location.state)}</output>;
+  }
+
+  const user = userEvent.setup();
+  const onPay = vi.fn();
+  render(
+    <MemoryRouter initialEntries={["/buyer/invoices/INV-2026-001?section=payment"]}>
+      <Routes>
+        <Route
+          path="/buyer/invoices/:invoiceId"
+          element={(
+            <BuyerInvoiceDetailContent
+              invoice={{ ...DEMO_INVOICE, status: "FUNDED" }}
+              onConfirm={() => undefined}
+              paymentPreparation={{
+                invoiceId: DEMO_INVOICE.id,
+                buyerWalletAddress: "BuyerWallet",
+                settlementWalletAddress: "SettlementWallet",
+                usdcMintAddress: "UsdcMint",
+                amountUsdc: 3,
+                amountBaseUnits: "3000000",
+                decimals: 6,
+                dueDate: DEMO_INVOICE.dueDate,
+                transfers: [{
+                  recipientWalletAddress: "SettlementWallet",
+                  amountUsdc: 3,
+                  amountBaseUnits: "3000000",
+                }],
+                demoDueDateBypass: true,
+              }}
+              onPay={onPay}
+              walletSignIn={{
+                email: "buyer@company.com",
+                returnTo: "/buyer/invoices/INV-2026-001?section=payment",
+              }}
+            />
+          )}
+        />
+        <Route path="/signup" element={<SignupState />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  expect(screen.queryByRole("button", { name: "Pay with embedded wallet" }))
+    .not.toBeInTheDocument();
+  const signInLink = screen.getByRole("link", { name: "Sign in to wallet and pay" });
+  expect(signInLink).toHaveAttribute("href", "/signup");
+
+  await user.click(signInLink);
+
+  expect(screen.getByText(/"authOnly":true/)).toBeInTheDocument();
+  expect(screen.getByText(/"email":"buyer@company.com"/)).toBeInTheDocument();
+  expect(screen.getByText(/"returnTo":"\/buyer\/invoices\/INV-2026-001\?section=payment"/))
+    .toBeInTheDocument();
+  expect(onPay).not.toHaveBeenCalled();
 });
 
 test("shows the detailed two-step confirmation record after buyer confirmation", () => {

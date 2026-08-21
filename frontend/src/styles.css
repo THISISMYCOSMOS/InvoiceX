@@ -6084,6 +6084,13 @@ a {
   min-height: 40px;
 }
 
+.buyer-wallet-sign-in-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .payment-status-card > div {
   display: flex;
   min-height: 197px;
