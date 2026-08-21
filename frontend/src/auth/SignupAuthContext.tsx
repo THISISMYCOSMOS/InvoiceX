@@ -20,7 +20,7 @@ type SignupAuthContextValue = {
   ready: boolean;
   getAccessToken: () => Promise<string | null>;
   logout: () => Promise<void>;
-  sendCode: (email: string) => Promise<void>;
+  sendCode: (email: string, options?: { disableSignup?: boolean }) => Promise<void>;
   verifyCode: (code: string) => Promise<void>;
   embeddedSolanaWalletReady: boolean;
   ensureEmbeddedSolanaWallet: () => Promise<{ address: string; created: boolean }>;
@@ -74,7 +74,10 @@ function ConfiguredSignupAuthProvider({ children }: { children: ReactNode }) {
         ready,
         getAccessToken: getPrivyAccessToken,
         logout,
-        sendCode: async (email) => sendCode({ email }),
+        sendCode: async (email, options) => sendCode({
+          email,
+          disableSignup: options?.disableSignup,
+        }),
         verifyCode: async (code) => loginWithCode({ code }),
         embeddedSolanaWalletReady,
         ensureEmbeddedSolanaWallet: async () => {

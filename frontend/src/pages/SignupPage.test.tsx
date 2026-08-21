@@ -5,6 +5,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { SignupPage } from "./SignupPage";
 
 const mocks = vi.hoisted(() => ({
+  authenticated: false,
   ensureEmbeddedSolanaWallet: vi.fn(),
   getAccessToken: vi.fn(),
   getAuthMe: vi.fn(),
@@ -18,7 +19,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../auth/SignupAuthContext", () => ({
   useSignupAuth: () => ({
-    authenticated: false,
+    authenticated: mocks.authenticated,
     configured: true,
     ready: true,
     ensureEmbeddedSolanaWallet: mocks.ensureEmbeddedSolanaWallet,
@@ -42,6 +43,7 @@ vi.mock("../api/onboarding.api", async (importOriginal) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.authenticated = false;
   window.localStorage.clear();
   window.sessionStorage.clear();
   mocks.getAccessToken.mockResolvedValue("privy-access-token");
@@ -103,6 +105,46 @@ test("presents an existing member with wallet sign-in instead of company signup"
   expect(screen.getByLabelText("계정 이메일")).toHaveValue("investor@company.com");
   expect(screen.getByRole("button", { name: "로그인 코드 받기" })).toBeInTheDocument();
   expect(screen.queryByText("CREATE COMPANY ACCOUNT")).not.toBeInTheDocument();
+});
+
+test("requests wallet-only OTP without allowing a new Privy account", async () => {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={[{
+      pathname: "/signup",
+      state: {
+        authOnly: true,
+        email: "investor@company.com",
+        returnTo: "/investor/vault",
+      },
+    }]}>
+      <SignupPage />
+    </MemoryRouter>,
+  );
+
+  await user.click(screen.getByRole("button", { name: "로그인 코드 받기" }));
+
+  expect(mocks.sendCode).toHaveBeenCalledWith("investor@company.com", { disableSignup: true });
+});
+
+test("clears an existing Privy session before beginning wallet-only email authentication", async () => {
+  mocks.authenticated = true;
+  render(
+    <MemoryRouter initialEntries={[{
+      pathname: "/signup",
+      state: {
+        authOnly: true,
+        email: "investor@company.com",
+        returnTo: "/investor/vault",
+      },
+    }]}>
+      <SignupPage />
+    </MemoryRouter>,
+  );
+
+  await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1));
+  expect(mocks.sendCode).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "기존 지갑 세션 확인 중..." })).toBeDisabled();
 });
 
 test("returns a completed member to the page that requested wallet sign-in", async () => {

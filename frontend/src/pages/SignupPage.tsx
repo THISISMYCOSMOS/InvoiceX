@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ClipboardEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   getAuthMe,
@@ -97,6 +97,11 @@ export function SignupPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const signupAuth = useSignupAuth();
+  const {
+    authenticated: privyAuthenticated,
+    ready: privyReady,
+    logout: logoutPrivy,
+  } = signupAuth;
   const locationState = location.state as SignupLocationState | null;
   const isWalletSignIn = locationState?.authOnly === true;
   const walletReturnPath = typeof locationState?.returnTo === "string"
@@ -125,6 +130,29 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailAwaitingLogout, setEmailAwaitingLogout] = useState<string | null>(null);
+  const walletSessionResetStarted = useRef(false);
+  const [walletSessionReady, setWalletSessionReady] = useState(!isWalletSignIn);
+
+  useEffect(() => {
+    if (!isWalletSignIn || !privyReady || walletSessionResetStarted.current) return;
+
+    walletSessionResetStarted.current = true;
+    if (!privyAuthenticated) {
+      setWalletSessionReady(true);
+      return;
+    }
+
+    setWalletSessionReady(false);
+    void logoutPrivy().catch((cause) => {
+      setError(toErrorMessage(cause, "기존 지갑 로그인 세션을 종료하지 못했습니다."));
+    });
+  }, [isWalletSignIn, logoutPrivy, privyAuthenticated, privyReady]);
+
+  useEffect(() => {
+    if (isWalletSignIn && walletSessionResetStarted.current && !privyAuthenticated) {
+      setWalletSessionReady(true);
+    }
+  }, [isWalletSignIn, privyAuthenticated]);
 
   useEffect(() => {
     if (step !== "verification" || !otpDeadline) return;
@@ -164,11 +192,15 @@ export function SignupPage() {
 
   const sendVerificationCode = useCallback(async (emailAddress: string) => {
     const otpClock = await loadOtpClock();
-    await signupAuth.sendCode(emailAddress);
+    if (isWalletSignIn) {
+      await signupAuth.sendCode(emailAddress, { disableSignup: true });
+    } else {
+      await signupAuth.sendCode(emailAddress);
+    }
     startOtpDeadline(otpClock);
     setCode(["", "", "", "", "", ""]);
     setStep("verification");
-  }, [loadOtpClock, signupAuth, startOtpDeadline]);
+  }, [isWalletSignIn, loadOtpClock, signupAuth, startOtpDeadline]);
 
   useEffect(() => {
     if (!emailAwaitingLogout || signupAuth.authenticated || !signupAuth.ready) return;
@@ -184,6 +216,10 @@ export function SignupPage() {
     setError(null);
     if (!signupAuth.configured) {
       setError("Privy App ID가 설정되지 않아 이메일 인증을 시작할 수 없습니다.");
+      return;
+    }
+    if (isWalletSignIn && !walletSessionReady) {
+      setError("기존 지갑 로그인 세션을 정리하는 중입니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
     setSubmitting(true);
@@ -220,6 +256,15 @@ export function SignupPage() {
     }
     setSubmitting(true);
     try {
+      if (isWalletSignIn && signupAuth.authenticated) {
+        await signupAuth.logout();
+        setCode(["", "", "", "", "", ""]);
+        setOtpDeadline(null);
+        setRemainingSeconds(0);
+        setStep("email");
+        setError("기존 지갑 로그인 세션을 정리했습니다. 새 인증 코드를 요청해 주세요.");
+        return;
+      }
       await signupAuth.verifyCode(verificationCode);
       clearDemoSession();
       const authMe = await withPrivyAccessTokenRetry(
@@ -338,7 +383,11 @@ export function SignupPage() {
     setSubmitting(true);
     try {
       const otpClock = await loadOtpClock();
-      await signupAuth.sendCode(email.trim());
+      if (isWalletSignIn) {
+        await signupAuth.sendCode(email.trim(), { disableSignup: true });
+      } else {
+        await signupAuth.sendCode(email.trim());
+      }
       startOtpDeadline(otpClock);
       setCode(["", "", "", "", "", ""]);
       document.getElementById("verification-code-0")?.focus();
@@ -455,8 +504,14 @@ export function SignupPage() {
                 <input aria-label={isWalletSignIn ? "계정 이메일" : "기업 이메일"} type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" required />
                 <small>{isWalletSignIn ? "회원가입에 사용한 이메일입니다." : "기업에서 업무용으로 사용하는 이메일을 입력해주세요."}</small>
               </label>
-              <button className="signup-primary-button" disabled={submitting || !signupAuth.ready} type="submit">
-                {submitting ? "전송 중..." : isWalletSignIn ? "로그인 코드 받기" : "인증 코드 받기"}
+              <button className="signup-primary-button" disabled={submitting || !signupAuth.ready || (isWalletSignIn && !walletSessionReady)} type="submit">
+                {submitting
+                  ? "전송 중..."
+                  : isWalletSignIn && !walletSessionReady
+                    ? "기존 지갑 세션 확인 중..."
+                    : isWalletSignIn
+                      ? "로그인 코드 받기"
+                      : "인증 코드 받기"}
               </button>
             </form>
           )}
