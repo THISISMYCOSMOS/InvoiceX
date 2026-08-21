@@ -405,6 +405,7 @@ def test_openapi_documents_exact_contract_fields(client: TestClient) -> None:
         "/api/v1/supplier/wallet",
         "/api/v1/invoices/{invoiceId}/settlement/mock-payment",
         "/api/v1/invoices/{invoiceId}/buyer-payment/prepare",
+        "/api/v1/invoices/{invoiceId}/buyer-payment/sponsor",
         "/api/v1/invoices/{invoiceId}/buyer-payment/confirm",
         "/api/v1/reference/investment-criteria/buyers",
     }

@@ -100,6 +100,19 @@ class SolanaGateway(Protocol):
         reference_id: str,
     ) -> ChainTransferResult: ...
 
+    async def prepare_buyer_payment_transaction(
+        self, *, buyer_wallet_address: str, transfers: list[ChainTransfer]
+    ) -> PreparedBuyerPaymentTransaction: ...
+
+    async def sponsor_buyer_payment(
+        self,
+        *,
+        buyer_wallet_address: str,
+        prepared_transaction_base64: str,
+        signed_transaction_base64: str,
+        reference_id: str,
+    ) -> ChainTransferResult: ...
+
     @property
     def vault_address(self) -> str: ...
 
@@ -125,6 +138,12 @@ class PreparedVaultDeposit:
     sponsored: bool = False
     sponsor_deposit_id: str | None = None
     sponsor_wallet_address: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedBuyerPaymentTransaction:
+    transaction_base64: str
+    sponsor_wallet_address: str
 
 
 class MockSolanaGateway:
@@ -959,6 +978,67 @@ class PrivySolanaGateway:
             transaction=bytes(submitted),
             reference_id=reference_id,
             from_address=owner_wallet_address,
+        )
+
+    async def prepare_buyer_payment_transaction(
+        self,
+        *,
+        buyer_wallet_address: str,
+        transfers: list[ChainTransfer],
+    ) -> PreparedBuyerPaymentTransaction:
+        if not self._settings.gasless_enabled:
+            raise IntegrationError("가스리스 구매기업 결제가 활성화되어 있지 않습니다.")
+        sponsor = await self._sponsor_address()
+        transaction = await self._build_transaction(
+            buyer_wallet_address,
+            transfers,
+            fee_payer=Pubkey.from_string(sponsor),
+        )
+        return PreparedBuyerPaymentTransaction(
+            transaction_base64=base64.b64encode(transaction).decode("ascii"),
+            sponsor_wallet_address=sponsor,
+        )
+
+    async def sponsor_buyer_payment(
+        self,
+        *,
+        buyer_wallet_address: str,
+        prepared_transaction_base64: str,
+        signed_transaction_base64: str,
+        reference_id: str,
+    ) -> ChainTransferResult:
+        if not self._settings.gasless_enabled:
+            raise IntegrationError("가스리스 구매기업 결제가 활성화되어 있지 않습니다.")
+        try:
+            expected = VersionedTransaction.from_bytes(
+                base64.b64decode(prepared_transaction_base64, validate=True)
+            )
+            submitted = VersionedTransaction.from_bytes(
+                base64.b64decode(signed_transaction_base64, validate=True)
+            )
+        except ValueError as exc:
+            raise IntegrationError("가스리스 구매기업 결제 형식이 올바르지 않습니다.") from exc
+        if not self._has_same_vault_deposit_effect(expected, submitted):
+            raise IntegrationError("승인된 구매기업 결제 내용과 서명 트랜잭션이 일치하지 않습니다.")
+        sponsor = await self._sponsor_address()
+        if not submitted.message.account_keys or str(submitted.message.account_keys[0]) != sponsor:
+            raise IntegrationError("가스리스 수수료 지갑이 올바르지 않습니다.")
+        buyer = Pubkey.from_string(buyer_wallet_address)
+        try:
+            buyer_index = list(submitted.message.account_keys).index(buyer)
+            buyer_signature = submitted.signatures[buyer_index]
+        except (ValueError, IndexError) as exc:
+            raise IntegrationError("구매기업 지갑 서명이 결제 트랜잭션에 없습니다.") from exc
+        signature_is_valid = buyer_signature.verify(buyer, to_bytes_versioned(submitted.message))
+        if buyer_signature == Signature.default() or not signature_is_valid:
+            raise IntegrationError("구매기업 지갑 서명을 검증하지 못했습니다.")
+        # The stored server-prepared message pins the USDC sender, destinations, mint, and amounts.
+        # The submitted message is sent only after the Sponsor adds the fee-payer signature.
+        return await self._sign_and_send(
+            wallet_id=self._settings.privy_sponsor_wallet_id or "",
+            transaction=bytes(submitted),
+            reference_id=reference_id,
+            from_address=buyer_wallet_address,
         )
 
     @staticmethod

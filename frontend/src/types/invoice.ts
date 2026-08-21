@@ -189,6 +189,10 @@ export interface BuyerPaymentPreparation {
     amountBaseUnits: string;
   }>;
   demoDueDateBypass: boolean;
+  sponsored: boolean;
+  sponsorPaymentId: string | null;
+  sponsorWalletAddress: string | null;
+  transactionBase64: string | null;
 }
 
 export interface InvestorDashboard {

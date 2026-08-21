@@ -178,6 +178,13 @@ export function createHttpAdapter(fetchImpl: FetchImplementation, baseUrl: strin
         method: "GET",
       })) as BuyerPaymentPreparation;
     },
+    async sponsorBuyerPayment(invoiceId, sponsorPaymentId, signedTransactionBase64) {
+      return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/buyer-payment/sponsor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sponsorPaymentId, signedTransactionBase64 }),
+      }));
+    },
     async confirmBuyerPayment(invoiceId, signature) {
       return unwrapInvoice(await request<unknown>(`/invoices/${encodeURIComponent(invoiceId)}/buyer-payment/confirm`, {
         method: "POST",

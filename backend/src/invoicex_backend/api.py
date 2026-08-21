@@ -49,6 +49,7 @@ from invoicex_backend.models import (
     PrepareVaultDepositRequest,
     RejectVerificationRequest,
     SaveSupplierWalletRequest,
+    SponsorBuyerPaymentRequest,
     SponsorVaultDepositRequest,
     UploadedDocument,
     VaultBalance,
@@ -870,6 +871,24 @@ async def prepare_buyer_payment(
     identity: AuthenticatedIdentity | None = buyer_only,
 ) -> BuyerPaymentPreparation:
     return await service.prepare_buyer_payment(invoice_id, identity)
+
+
+@router.post(
+    "/invoices/{invoiceId}/buyer-payment/sponsor",
+    response_model=InvoiceResponse,
+    responses=documented_errors(403, 404, 409, 502),
+    tags=["Settlement"],
+    summary="가스리스 Buyer USDC 결제 서명 완결",
+)
+async def sponsor_buyer_payment(
+    invoice_id: InvoiceId,
+    payload: SponsorBuyerPaymentRequest,
+    service: InvoiceServiceDependency,
+    identity: AuthenticatedIdentity | None = buyer_only,
+) -> InvoiceResponse:
+    return InvoiceResponse(
+        invoice=await service.sponsor_buyer_payment(invoice_id, payload, identity)
+    )
 
 
 @router.post(

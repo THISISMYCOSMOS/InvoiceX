@@ -72,6 +72,7 @@ from invoicex_backend.models import (
     RiskScoreFactor,
     RwaAsset,
     Settlement,
+    SponsorBuyerPaymentRequest,
     SponsorVaultDepositRequest,
     TransactionStatus,
     UploadedDocument,
@@ -122,6 +123,14 @@ class PendingSponsoredDeposit:
     expires_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class PendingSponsoredBuyerPayment:
+    invoice_id: str
+    buyer_wallet_address: str
+    prepared_transaction_base64: str
+    expires_at: datetime
+
+
 class InvoiceService:
     """Own Invoice state and coordinate Agent and chain adapters."""
 
@@ -164,6 +173,8 @@ class InvoiceService:
         self._trace_sequence = 0
         self._sponsored_deposit_intents: dict[str, PendingSponsoredDeposit] = {}
         self._sponsored_deposit_lock = asyncio.Lock()
+        self._sponsored_buyer_payment_intents: dict[str, PendingSponsoredBuyerPayment] = {}
+        self._sponsored_buyer_payment_lock = asyncio.Lock()
         self._restore_persisted_state()
 
     def _restore_persisted_state(self) -> None:
@@ -1293,6 +1304,8 @@ class InvoiceService:
         self,
         invoice_id: str,
         identity: AuthenticatedIdentity | None = None,
+        *,
+        create_sponsor_intent: bool = True,
     ) -> BuyerPaymentPreparation:
         invoice = self._invoice(invoice_id)
         self.assert_invoice_access(invoice, identity)
@@ -1333,6 +1346,45 @@ class InvoiceService:
                 amount_base_units=base_units_string(face_value_base_units),
             )
         ]
+        sponsored = False
+        sponsor_payment_id: str | None = None
+        sponsor_wallet_address: str | None = None
+        transaction_base64: str | None = None
+        if (
+            create_sponsor_intent
+            and self._settings.gasless_enabled
+            and self._solana.mode == "privy"
+        ):
+            chain_transfers = tuple(
+                ChainTransfer(
+                    to_address=transfer.recipient_wallet_address,
+                    amount_base_units=int(transfer.amount_base_units),
+                )
+                for transfer in transfers
+            )
+            prepared = await self._solana.prepare_buyer_payment_transaction(
+                buyer_wallet_address=buyer_wallet,
+                transfers=list(chain_transfers),
+            )
+            sponsor_payment_id = secrets.token_urlsafe(24)
+            now = datetime.now(UTC)
+            async with self._sponsored_buyer_payment_lock:
+                self._sponsored_buyer_payment_intents = {
+                    key: intent
+                    for key, intent in self._sponsored_buyer_payment_intents.items()
+                    if intent.expires_at >= now
+                }
+                self._sponsored_buyer_payment_intents[sponsor_payment_id] = (
+                    PendingSponsoredBuyerPayment(
+                        invoice_id=invoice.id,
+                        buyer_wallet_address=buyer_wallet,
+                        prepared_transaction_base64=prepared.transaction_base64,
+                        expires_at=now + timedelta(minutes=5),
+                    )
+                )
+            sponsored = True
+            sponsor_wallet_address = prepared.sponsor_wallet_address
+            transaction_base64 = prepared.transaction_base64
         return BuyerPaymentPreparation(
             invoice_id=invoice.id,
             buyer_wallet_address=buyer_wallet,
@@ -1344,6 +1396,44 @@ class InvoiceService:
             due_date=invoice.due_date,
             transfers=transfers,
             demo_due_date_bypass=bypass and today < due_date,
+            sponsored=sponsored,
+            sponsor_payment_id=sponsor_payment_id,
+            sponsor_wallet_address=sponsor_wallet_address,
+            transaction_base64=transaction_base64,
+        )
+
+    async def sponsor_buyer_payment(
+        self,
+        invoice_id: str,
+        request: SponsorBuyerPaymentRequest,
+        identity: AuthenticatedIdentity | None = None,
+    ) -> Invoice:
+        invoice = self._invoice(invoice_id)
+        self.assert_invoice_access(invoice, identity)
+        async with self._sponsored_buyer_payment_lock:
+            intent = self._sponsored_buyer_payment_intents.pop(
+                request.sponsor_payment_id,
+                None,
+            )
+        if intent is None or intent.expires_at < datetime.now(UTC):
+            raise StateConflictError(
+                "가스리스 구매기업 결제 요청이 만료되었거나 이미 처리되었습니다. "
+                "다시 시도해 주세요."
+            )
+        if intent.invoice_id != invoice_id:
+            raise StateConflictError("가스리스 결제 요청의 인보이스가 일치하지 않습니다.")
+        if identity and identity.wallet_address != intent.buyer_wallet_address:
+            raise StateConflictError("가스리스 결제 요청의 구매기업 지갑이 일치하지 않습니다.")
+        result = await self._solana.sponsor_buyer_payment(
+            buyer_wallet_address=intent.buyer_wallet_address,
+            prepared_transaction_base64=intent.prepared_transaction_base64,
+            signed_transaction_base64=request.signed_transaction_base64,
+            reference_id=f"buyer-payment-{invoice_id}-{request.sponsor_payment_id[:12]}",
+        )
+        return await self.confirm_buyer_payment(
+            invoice_id,
+            signature=result.signature,
+            identity=identity,
         )
 
     async def confirm_buyer_payment(
@@ -1376,7 +1466,11 @@ class InvoiceService:
                 await self._run_settlement(invoice)
                 return self._copy_invoice(invoice)
 
-            preparation = await self.prepare_buyer_payment(invoice_id, identity)
+            preparation = await self.prepare_buyer_payment(
+                invoice_id,
+                identity,
+                create_sponsor_intent=False,
+            )
             verified = all(
                 await asyncio.gather(
                     *(

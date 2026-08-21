@@ -29,6 +29,10 @@ describe("buyer payment transaction", () => {
         amountBaseUnits: "96000000000",
       }],
       demoDueDateBypass: true,
+      sponsored: false,
+      sponsorPaymentId: null,
+      sponsorWalletAddress: null,
+      transactionBase64: null,
     };
 
     const transaction = buildBuyerPaymentTransaction(preparation, buyer);

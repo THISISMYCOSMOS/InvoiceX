@@ -70,6 +70,10 @@ test("shows the embedded-wallet maturity-payment action for a funded invoice", a
           amountBaseUnits: "3000000",
         }],
         demoDueDateBypass: true,
+        sponsored: false,
+        sponsorPaymentId: null,
+        sponsorWalletAddress: null,
+        transactionBase64: null,
       }}
       onPay={onPay}
     />,
@@ -119,6 +123,10 @@ test("requires wallet sign-in before a password member can pay", async () => {
                   amountBaseUnits: "3000000",
                 }],
                 demoDueDateBypass: true,
+                sponsored: false,
+                sponsorPaymentId: null,
+                sponsorWalletAddress: null,
+                transactionBase64: null,
               }}
               onPay={onPay}
               walletSignIn={{

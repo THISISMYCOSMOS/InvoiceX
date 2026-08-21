@@ -401,10 +401,19 @@ class BuyerPaymentPreparation(ApiModel):
     due_date: str
     transfers: list[BuyerPaymentTransfer] = Field(min_length=1)
     demo_due_date_bypass: bool = False
+    sponsored: bool = False
+    sponsor_payment_id: str | None = None
+    sponsor_wallet_address: str | None = None
+    transaction_base64: str | None = None
 
 
 class BuyerPaymentConfirmRequest(ApiModel):
     signature: str = Field(min_length=20, max_length=200)
+
+
+class SponsorBuyerPaymentRequest(ApiModel):
+    sponsor_payment_id: str
+    signed_transaction_base64: str
 
 
 class AgentTrace(ApiModel):

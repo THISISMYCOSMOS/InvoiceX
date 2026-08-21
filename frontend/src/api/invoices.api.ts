@@ -16,6 +16,11 @@ export const invoiceApi = {
   ) => scenarioAdapter.respondToOffer(invoiceId, response, supplierWalletAddress),
   runFunding: (invoiceId: string) => scenarioAdapter.runFunding(invoiceId),
   prepareBuyerPayment: (invoiceId: string) => scenarioAdapter.prepareBuyerPayment(invoiceId),
+  sponsorBuyerPayment: (
+    invoiceId: string,
+    sponsorPaymentId: string,
+    signedTransactionBase64: string,
+  ) => scenarioAdapter.sponsorBuyerPayment(invoiceId, sponsorPaymentId, signedTransactionBase64),
   confirmBuyerPayment: (invoiceId: string, signature: string) =>
     scenarioAdapter.confirmBuyerPayment(invoiceId, signature),
 };

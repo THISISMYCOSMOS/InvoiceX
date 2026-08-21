@@ -92,6 +92,10 @@ test("prepares and confirms an exact buyer USDC payment", async () => {
     decimals: 6,
     dueDate: "2026-09-18",
     demoDueDateBypass: true,
+    sponsored: false,
+    sponsorPaymentId: null,
+    sponsorWalletAddress: null,
+    transactionBase64: null,
   };
   const fetchImpl = vi.fn()
     .mockResolvedValueOnce(new Response(JSON.stringify(preparation), { status: 200 }))
@@ -109,6 +113,27 @@ test("prepares and confirms an exact buyer USDC payment", async () => {
   );
   expect(JSON.parse(fetchImpl.mock.calls[1][1]?.body as string)).toEqual({
     signature: "payment-signature",
+  });
+});
+
+test("submits the buyer signature to the gasless payment endpoint", async () => {
+  const fetchImpl = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ id: "INV-2026-001", status: "SETTLED" }), { status: 200 }),
+  );
+  const adapter = createHttpAdapter(fetchImpl, "https://api.example.com/api/v1");
+
+  await adapter.sponsorBuyerPayment(
+    "INV-2026-001",
+    "sponsor-payment-id",
+    "signed-transaction-base64",
+  );
+
+  expect(fetchImpl.mock.calls[0][0]).toBe(
+    "https://api.example.com/api/v1/invoices/INV-2026-001/buyer-payment/sponsor",
+  );
+  expect(JSON.parse(fetchImpl.mock.calls[0][1]?.body as string)).toEqual({
+    sponsorPaymentId: "sponsor-payment-id",
+    signedTransactionBase64: "signed-transaction-base64",
   });
 });
 

@@ -34,6 +34,11 @@ export interface ScenarioAdapter {
   runFunding(invoiceId: string): Promise<Invoice>;
   mockPayment(invoiceId: string): Promise<Invoice>;
   prepareBuyerPayment(invoiceId: string): Promise<BuyerPaymentPreparation>;
+  sponsorBuyerPayment(
+    invoiceId: string,
+    sponsorPaymentId: string,
+    signedTransactionBase64: string,
+  ): Promise<Invoice>;
   confirmBuyerPayment(invoiceId: string, signature: string): Promise<Invoice>;
   runSettlement(invoiceId: string): Promise<Invoice>;
   getInvestorDashboard(): Promise<InvestorDashboard>;

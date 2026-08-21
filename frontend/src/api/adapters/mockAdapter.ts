@@ -234,7 +234,16 @@ export function createMockAdapter(): ScenarioAdapter {
           amountBaseUnits,
         }],
         demoDueDateBypass: true,
+        sponsored: false,
+        sponsorPaymentId: null,
+        sponsorWalletAddress: null,
+        transactionBase64: null,
       };
+    },
+    async sponsorBuyerPayment(invoiceId) {
+      const current = ensureInvoice(invoiceId);
+      invoice = { ...current, status: "SETTLING" };
+      return clone(invoice);
     },
     async confirmBuyerPayment(invoiceId) {
       const current = ensureInvoice(invoiceId);

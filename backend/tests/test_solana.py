@@ -386,6 +386,76 @@ async def test_privy_gateway_sponsors_an_externally_signed_vault_deposit(
 
 
 @pytest.mark.asyncio
+async def test_privy_gateway_sponsors_buyer_payment_without_buyer_sol(tmp_path: Path) -> None:
+    buyer = Keypair()
+    settlement = str(Pubkey.new_unique())
+    sponsor = str(Pubkey.new_unique())
+    signature = str(Signature.from_bytes(bytes(range(64))))
+    submitted: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        if request.url.host == "privy.test" and request.method == "GET":
+            return httpx.Response(200, json={"chain_type": "solana", "address": sponsor})
+        if request.url.host == "privy.test":
+            submitted.update(payload)
+            return httpx.Response(200, json={"data": {"hash": signature}})
+        if payload["method"] == "getLatestBlockhash":
+            result: object = {"value": {"blockhash": str(Hash.default())}}
+        elif payload["method"] == "getSignatureStatuses":
+            result = {"value": [{"err": None, "confirmationStatus": "confirmed"}]}
+        else:
+            raise AssertionError(f"unexpected RPC method: {payload['method']}")
+        return httpx.Response(200, json={"jsonrpc": "2.0", "result": result, "id": 1})
+
+    settings = BackendSettings(
+        _env_file=None,
+        AGENT_MODE="mock",
+        SOLANA_MODE="privy",
+        GASLESS_ENABLED=True,
+        UPLOAD_DIRECTORY=tmp_path / "uploads",
+        PRIVY_APP_ID="app-id",
+        PRIVY_APP_SECRET="app-secret",
+        PRIVY_JWKS_URL="https://auth.privy.io/api/v1/apps/app-id/jwks.json",
+        PRIVY_TREASURY_WALLET_ID="treasury",
+        PRIVY_RWA_ISSUER_WALLET_ID="issuer",
+        PRIVY_SETTLEMENT_WALLET_ID="settlement",
+        PRIVY_SPONSOR_WALLET_ID="sponsor",
+        PRIVY_SPONSOR_WALLET_ADDRESS=sponsor,
+        INVESTOR_SETTLEMENT_WALLET_ADDRESS=settlement,
+        PRIVY_API_BASE_URL="https://privy.test",
+        SOLANA_RPC_URL="https://rpc.test",
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = PrivySolanaGateway(settings, http_client=client)
+    transfers = [ChainTransfer(to_address=settlement, amount_base_units=3_000_000)]
+    prepared = await gateway.prepare_buyer_payment_transaction(
+        buyer_wallet_address=str(buyer.pubkey()),
+        transfers=transfers,
+    )
+    unsigned = VersionedTransaction.from_bytes(base64.b64decode(prepared.transaction_base64))
+    signatures = list(unsigned.signatures)
+    buyer_index = list(unsigned.message.account_keys).index(buyer.pubkey())
+    signatures[buyer_index] = buyer.sign_message(to_bytes_versioned(unsigned.message))
+    buyer_signed = VersionedTransaction.populate(unsigned.message, signatures)
+
+    result = await gateway.sponsor_buyer_payment(
+        buyer_wallet_address=str(buyer.pubkey()),
+        prepared_transaction_base64=prepared.transaction_base64,
+        signed_transaction_base64=base64.b64encode(bytes(buyer_signed)).decode("ascii"),
+        reference_id="gasless-buyer-payment-test",
+    )
+    await client.aclose()
+
+    assert prepared.sponsor_wallet_address == sponsor
+    assert str(unsigned.message.account_keys[0]) == sponsor
+    assert unsigned.message.header.num_required_signatures == 2
+    assert result.signature == signature
+    assert submitted["method"] == "signAndSendTransaction"
+    assert submitted["reference_id"] == "gasless-buyer-payment-test"
+
+
+@pytest.mark.asyncio
 async def test_privy_gateway_verifies_versioned_vault_deposit(tmp_path: Path) -> None:
     investor = str(Pubkey.new_unique())
     treasury = str(Pubkey.new_unique())

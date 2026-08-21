@@ -8,6 +8,16 @@ import { useSignupAuth } from "../auth/SignupAuthContext";
 import { buildBuyerPaymentTransaction } from "../wallet/buyerPaymentTransaction";
 import { queryKeys } from "./queryKeys";
 
+function fromBase64(value: string): Uint8Array {
+  return Uint8Array.from(window.atob(value), (character) => character.charCodeAt(0));
+}
+
+function toBase64(value: Uint8Array): string {
+  let binary = "";
+  value.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return window.btoa(binary);
+}
+
 export function useBuyerPaymentPreparation(invoiceId: string) {
   return useQuery({
     queryKey: [...queryKeys.invoice(invoiceId), "buyer-payment-preparation"],
@@ -50,6 +60,30 @@ export function useBuyerPayment(invoiceId: string) {
       );
       if (available < totalAmountBaseUnits) {
         throw new Error("구매기업 지갑의 Devnet USDC 잔액이 결제 금액보다 부족합니다.");
+      }
+      if (preparation.sponsored) {
+        if (
+          !preparation.transactionBase64
+          || !preparation.sponsorPaymentId
+          || !preparation.sponsorWalletAddress
+        ) {
+          throw new Error("가스리스 결제 준비 정보를 확인할 수 없습니다.");
+        }
+        const transaction = VersionedTransaction.deserialize(
+          fromBase64(preparation.transactionBase64),
+        );
+        if (transaction.message.staticAccountKeys[0]?.toBase58() !== preparation.sponsorWalletAddress) {
+          throw new Error("가스리스 수수료 지갑이 결제 준비 정보와 일치하지 않습니다.");
+        }
+        const signedTransaction = await signEmbeddedSolanaTransaction(
+          buyerWalletAddress,
+          transaction.serialize(),
+        );
+        return invoiceApi.sponsorBuyerPayment(
+          invoiceId,
+          preparation.sponsorPaymentId,
+          toBase64(signedTransaction),
+        );
       }
       // Reuse the tested instruction builder, then wrap them in a v0 message so
       // the Privy embedded wallet signs the exact VersionedTransaction shape it
