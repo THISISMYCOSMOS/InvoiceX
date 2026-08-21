@@ -162,6 +162,10 @@ test("shows the supplier RWA issuance summary after RWA issuance", () => {
   expect(screen.getByText("Risk Passport score")).toBeInTheDocument();
   expect(screen.getByText("RWA asset details")).toBeInTheDocument();
   expect(screen.getByText("Delivery date")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "View issuance on Solana Explorer" })).toHaveAttribute(
+    "href",
+    DEMO_FUNDING_TRANSACTION.explorerUrl,
+  );
   expect(screen.queryByText("Treasury Agent is processing the RWA investment")).not.toBeInTheDocument();
 });
 
