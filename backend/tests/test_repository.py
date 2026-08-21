@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 from invoicex_backend.models import InvestorMandate, MandatePolicy
+from invoicex_backend.onboarding_models import (
+    Company,
+    CompanyType,
+    OnboardingStatus,
+    OnboardingUser,
+)
 from invoicex_backend.repository import CloudSqlRwaRepository, SQLiteRwaRepository
 
 
@@ -79,6 +85,56 @@ def test_cloud_sql_restores_country_code_from_the_fixed_company_role_policy() ->
     assert buyer.country_code == "US"
     assert investor.country_code == "US"
     assert supplier.country_code == "KR"
+
+
+def test_cloud_sql_company_profile_insert_persists_country_code(monkeypatch) -> None:
+    repository = object.__new__(CloudSqlRwaRepository)
+    user = OnboardingUser(
+        id="usr-buyer",
+        privy_user_id="did:privy:buyer",
+        email="buyer@example.com",
+        onboarding_status=OnboardingStatus.NEEDS_COMPANY_PROFILE,
+    )
+    updated_user = user.model_copy(
+        update={
+            "company_id": "cmp-buyer",
+            "onboarding_status": OnboardingStatus.PROVISIONING_EMBEDDED_WALLET,
+            "wallet_idempotency_key": "onboarding-buyer",
+        }
+    )
+    company = Company(
+        id="cmp-buyer",
+        name="Buyer Inc",
+        type=CompanyType.BUYER,
+        country_code="US",
+        registration_number="123456789",
+    )
+    executed: list[tuple[str, tuple[object, ...]]] = []
+
+    class Cursor:
+        def execute(self, query: str, params: tuple[object, ...]) -> None:
+            executed.append((query, params))
+
+    saved_users = iter((user, updated_user))
+    monkeypatch.setattr(repository, "get_onboarding_user", lambda _privy_user_id: next(saved_users))
+    monkeypatch.setattr(repository, "get_company", lambda _company_id: None)
+    monkeypatch.setattr(repository, "_read_one", lambda _query, _params: None)
+    monkeypatch.setattr(repository, "_write", lambda operation: operation(Cursor()))
+    saved_user, saved_company = repository.save_company_profile(updated_user, company)
+
+    company_insert, company_params = executed[0]
+    assert "country_code" in company_insert
+    assert company_params == (
+        "cmp-buyer",
+        "Buyer Inc",
+        "BUYER",
+        "US",
+        "123456789",
+        "NOT_PERFORMED",
+        "ACTIVE",
+    )
+    assert saved_user == updated_user
+    assert saved_company == company
 
 
 def test_new_mandate_replaces_the_previous_active_mandate_for_one_wallet(tmp_path) -> None:

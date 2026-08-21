@@ -1744,13 +1744,15 @@ class CloudSqlRwaRepository:
             cursor.execute(  # type: ignore[attr-defined]
                 """
                 INSERT INTO companies (
-                    id, name, company_type, business_registration_number, kyb_status, status
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                    id, name, company_type, country_code, business_registration_number,
+                    kyb_status, status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     company.id,
                     company.name,
                     company.type.value,
+                    company.country_code,
                     company.registration_number,
                     company.kyb_status,
                     company.status,
