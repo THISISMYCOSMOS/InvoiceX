@@ -6,7 +6,7 @@ import { useInvoices } from "../../hooks/useInvoices";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { investorActivityAmount, investorActivityResult, investorActivityTime } from "./investorActivityStatus";
 
-const usdc = new Intl.NumberFormat("en-US");
+const usdc = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 });
 
 export function InvestorDashboardPage() {
   const dashboard = useInvestorDashboard();
@@ -30,16 +30,9 @@ export function InvestorDashboardPage() {
     Boolean(invoice.agentDecision || invoice.rwaAsset)
   )) ?? [];
   const automatedInvestmentInvoices = activityInvoices.filter((invoice) => (
-    invoice.agentDecision?.status === "EXECUTED" && invoice.rwaAsset?.status === "SOLD"
+    invoice.agentDecision?.status === "EXECUTED"
+    && (invoice.rwaAsset?.status === "SOLD" || invoice.rwaAsset?.status === "SETTLED")
   ));
-  const totalProfitUsdc = automatedInvestmentInvoices
-    .filter((invoice) => invoice.status === "SETTLED")
-    .reduce((total, invoice) => (
-      total + Math.max(
-        0,
-        (invoice.settlement?.investorSettlementUsdc ?? 0) - (invoice.agentDecision?.amountUsdc ?? 0),
-      )
-    ), 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const overdueReceivables = automatedInvestmentInvoices.filter((invoice) => {
@@ -56,12 +49,12 @@ export function InvestorDashboardPage() {
     },
     {
       label: t("Total profit", "총 수익"),
-      value: totalProfitUsdc,
+      value: data.totalProfitUsdc,
       unit: "USDC",
     },
     {
       label: t("Auto-invested RWA", "자동 투자 RWA"),
-      value: automatedInvestmentInvoices.length,
+      value: data.automatedInvestmentCount,
       unit: t("invoices", "건"),
     },
     {

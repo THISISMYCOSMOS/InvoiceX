@@ -7,6 +7,7 @@ import {
   DEMO_FUNDING_TRANSACTION,
   DEMO_INVOICE,
   DEMO_RISK_PASSPORT,
+  DEMO_RWA_ASSET,
 } from "../../mocks/demoScenario";
 import { SupplierInvoiceDetailContent } from "./SupplierInvoiceDetailPage";
 
@@ -149,7 +150,12 @@ test("shows the transaction receipt for a funded invoice", () => {
 test("shows the supplier RWA issuance summary after RWA issuance", () => {
   render(
     <SupplierInvoiceDetailContent
-      invoice={{ ...DEMO_INVOICE, status: "RWA_ISSUED", riskPassport: DEMO_RISK_PASSPORT }}
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "RWA_ISSUED",
+        riskPassport: DEMO_RISK_PASSPORT,
+        rwaAsset: DEMO_RWA_ASSET,
+      }}
       onAccept={() => undefined}
     />,
   );

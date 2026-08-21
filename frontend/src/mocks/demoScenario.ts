@@ -210,6 +210,8 @@ export const DEMO_INVESTOR_DASHBOARD: InvestorDashboard = {
   automatedInvestmentActive: true,
   mandateStatus: "ACTIVE",
   availableVaultUsdc: 312_400,
+  totalProfitUsdc: 0,
+  automatedInvestmentCount: 0,
   outstandingPrincipalUsdc: 187_600,
   dueWithin30DaysUsdc: 72_840,
   attentionRequiredCount: 2,

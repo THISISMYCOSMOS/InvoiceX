@@ -200,6 +200,8 @@ export interface InvestorDashboard {
   automatedInvestmentActive: boolean;
   mandateStatus: "DRAFT" | "ACTIVE";
   availableVaultUsdc: number;
+  totalProfitUsdc: number;
+  automatedInvestmentCount: number;
   outstandingPrincipalUsdc: number;
   dueWithin30DaysUsdc: number;
   attentionRequiredCount: number;

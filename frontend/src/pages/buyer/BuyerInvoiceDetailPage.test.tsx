@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { DEMO_DOCUMENTS, DEMO_INVOICE } from "../../mocks/demoScenario";
+import { DEMO_DOCUMENTS, DEMO_INVOICE, DEMO_SETTLEMENT_TRANSACTION } from "../../mocks/demoScenario";
 import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 
 test("shows the Figma verification controls for a buyer-review invoice", async () => {
@@ -153,6 +153,33 @@ test("requires wallet sign-in before a password member can pay", async () => {
   expect(screen.getByText(/"returnTo":"\/buyer\/invoices\/INV-2026-001\?section=payment"/))
     .toBeInTheDocument();
   expect(onPay).not.toHaveBeenCalled();
+});
+
+test("shows the persisted completion state after a settled payment is reloaded", () => {
+  render(
+    <BuyerInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "SETTLED",
+        buyerPaidAt: "2026-08-21T02:15:00.000Z",
+        buyerPaymentTransaction: {
+          ...DEMO_SETTLEMENT_TRANSACTION,
+          fromAddress: "BuyerWallet",
+          toAddress: "SettlementWallet",
+        },
+      }}
+      view="payment"
+      onConfirm={() => undefined}
+      paymentError="A stale preparation error must not replace the completed state."
+    />,
+  );
+
+  expect(screen.getByText("USDC PAYMENT COMPLETE")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "USDC payment complete" })).toBeInTheDocument();
+  expect(screen.getByText("SettlementWallet")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("USDC payment and settlement were confirmed.");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pay with embedded wallet" })).not.toBeInTheDocument();
 });
 
 test("shows the detailed two-step confirmation record after buyer confirmation", () => {

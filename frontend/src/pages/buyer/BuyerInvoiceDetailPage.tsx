@@ -294,17 +294,22 @@ function MaturityPaymentSection({
   paymentComplete?: boolean;
 }) {
   const { language, t } = useLanguage();
-  const accountNumber = preparation?.settlementWalletAddress ?? "—";
+  const isPaymentComplete = paymentComplete || invoice.status === "SETTLED";
+  const accountNumber = preparation?.settlementWalletAddress
+    ?? invoice.buyerPaymentTransaction?.toAddress
+    ?? "—";
 
   return (
     <section className="buyer-payment">
       <header className="buyer-detail-heading">
         <div>
-          <p className="detail-breadcrumb">{t("Payment Schedule", "결제 일정")} / {invoice.id}</p>
+          <p className="detail-breadcrumb">{t("Payment List", "결제 목록")} / {invoice.id}</p>
           <h1>{t("Pay invoice amount", "인보이스 금액 결제")}</h1>
           <p>{t("Transfer the USDC amount to the designated settlement address by the contractual due date.", "계약상 만기일까지 USDC 금액을 지정 정산 주소로 이체하세요.")}</p>
         </div>
-        <span className="payment-pending-chip">{t("USDC PAYMENT PENDING", "USDC 결제 대기")}</span>
+        <span className="payment-pending-chip">{isPaymentComplete
+          ? t("USDC PAYMENT COMPLETE", "USDC 결제 완료")
+          : t("USDC PAYMENT PENDING", "USDC 결제 대기")}</span>
       </header>
 
       <div className="buyer-payment-grid">
@@ -323,7 +328,7 @@ function MaturityPaymentSection({
             <div><dt>{t("Settlement address", "정산 주소")}</dt><dd className="settlement-wallet-address">{accountNumber}</dd></div>
             <div><dt>{t("Asset", "결제 자산")}</dt><dd>Devnet USDC</dd></div>
           </dl>
-          <footer>
+          {!isPaymentComplete && <footer>
             {walletSignIn ? (
               <Link
                 className="buyer-confirm-button buyer-confirm-button--full buyer-wallet-sign-in-link"
@@ -341,20 +346,26 @@ function MaturityPaymentSection({
                     : t("Pay with embedded wallet", "임베디드 지갑으로 결제")}
               </button>
             )}
-          </footer>
+          </footer>}
         </section>
 
         <section className="payment-status-card">
           <header><h2>{t("Current status", "현재 상태")}</h2></header>
           <div>
-            <span className="krw-status-icon" aria-hidden="true"><CurrencyDollar size={26} /></span>
-            <h3>{t("Waiting for USDC payment", "USDC 결제 대기 중")}</h3>
-            <p>{t("The status updates automatically after the transfer is confirmed. No manual payment confirmation is required.", "전송이 확인되면 상태가 자동으로 갱신됩니다. 별도의 수동 결제 확인은 필요하지 않습니다.")}</p>
+            <span className="krw-status-icon" aria-hidden="true">{isPaymentComplete
+              ? <CheckCircle size={30} weight="fill" />
+              : <CurrencyDollar size={26} />}</span>
+            <h3>{isPaymentComplete
+              ? t("USDC payment complete", "USDC 결제 완료")
+              : t("Waiting for USDC payment", "USDC 결제 대기 중")}</h3>
+            <p>{isPaymentComplete
+              ? t("The buyer payment and maturity settlement were confirmed on Solana Devnet.", "구매기업 결제와 만기 정산이 Solana Devnet에서 확인되었습니다.")
+              : t("The status updates automatically after the transfer is confirmed. No manual payment confirmation is required.", "전송이 확인되면 상태가 자동으로 갱신됩니다. 별도의 수동 결제 확인은 필요하지 않습니다.")}</p>
           </div>
         </section>
       </div>
-      {paymentError && <p className="wallet-error" role="alert">{paymentError}</p>}
-      {paymentComplete && <p className="inline-status" role="status">{t("USDC payment and settlement were confirmed.", "USDC 결제와 정산이 확인되었습니다.")}</p>}
+      {!isPaymentComplete && paymentError && <p className="wallet-error" role="alert">{paymentError}</p>}
+      {isPaymentComplete && <p className="inline-status" role="status">{t("USDC payment and settlement were confirmed.", "USDC 결제와 정산이 확인되었습니다.")}</p>}
     </section>
   );
 }
@@ -506,7 +517,10 @@ export function BuyerInvoiceDetailPage() {
   const invoice = useInvoice(invoiceId);
   const confirm = useBuyerConfirm();
   const reject = useBuyerReject();
-  const paymentPreparation = useBuyerPaymentPreparation(invoiceId);
+  const paymentPreparation = useBuyerPaymentPreparation(
+    invoiceId,
+    invoice.data !== undefined && invoice.data.status !== "SETTLED",
+  );
   const payment = useBuyerPayment(invoiceId);
   const view = searchParams.get("section") === "payment" ? "payment" : "verification";
   const embeddedWalletAddress = currentAccount?.walletAddress;
@@ -548,12 +562,12 @@ export function BuyerInvoiceDetailPage() {
       isConfirming={confirm.isPending}
       isRejecting={reject.isPending}
       paymentPreparation={paymentPreparation.data}
-      onPay={() => payment.mutate()}
+      onPay={invoice.data.status === "SETTLED" ? undefined : () => payment.mutate()}
       isPaying={payment.isPending}
-      walletSignIn={walletSignIn}
+      walletSignIn={invoice.data.status === "SETTLED" ? undefined : walletSignIn}
       isWalletLoading={isWalletLoading}
-      paymentError={(paymentPreparation.error ?? payment.error)?.message}
-      paymentComplete={payment.isSuccess}
+      paymentError={invoice.data.status === "SETTLED" ? undefined : (paymentPreparation.error ?? payment.error)?.message}
+      paymentComplete={invoice.data.status === "SETTLED" || payment.isSuccess}
     />
   );
 }

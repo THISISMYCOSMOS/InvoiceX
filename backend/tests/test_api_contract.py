@@ -299,6 +299,8 @@ def test_complete_frontend_contract_workflow(
     dashboard = client.get("/api/v1/investor/dashboard")
     assert dashboard.status_code == 200
     assert dashboard.json()["outstandingPrincipalUsdc"] == terms["supplierExpectedSettlementUsdc"]
+    assert dashboard.json()["automatedInvestmentCount"] == 1
+    assert dashboard.json()["totalProfitUsdc"] == 0
 
     settled_response = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")
     assert settled_response.status_code == 200
@@ -323,6 +325,10 @@ def test_complete_frontend_contract_workflow(
     assert int(settled["buyerPaymentTransaction"]["amountBaseUnits"]) - int(
         settled["investorPayoutTransaction"]["amountBaseUnits"]
     ) == int(terms["platformFeeBaseUnits"])
+    settled_dashboard = client.get("/api/v1/investor/dashboard")
+    assert settled_dashboard.status_code == 200
+    assert settled_dashboard.json()["automatedInvestmentCount"] == 1
+    assert settled_dashboard.json()["totalProfitUsdc"] == terms["expectedInvestorReturnUsdc"]
     settlement_signature = settled["settlementTransaction"]["signature"]
 
     duplicate_settlement = client.post(f"/api/v1/invoices/{invoice_id}/settlement/mock-payment")

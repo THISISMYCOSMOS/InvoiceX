@@ -18,11 +18,11 @@ function toBase64(value: Uint8Array): string {
   return window.btoa(binary);
 }
 
-export function useBuyerPaymentPreparation(invoiceId: string) {
+export function useBuyerPaymentPreparation(invoiceId: string, enabled = true) {
   return useQuery({
     queryKey: [...queryKeys.invoice(invoiceId), "buyer-payment-preparation"],
     queryFn: () => invoiceApi.prepareBuyerPayment(invoiceId),
-    enabled: Boolean(invoiceId),
+    enabled: Boolean(invoiceId) && enabled,
     staleTime: 15_000,
   });
 }

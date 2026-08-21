@@ -1605,6 +1605,52 @@ class InvoiceService:
         self,
         identity: AuthenticatedIdentity | None = None,
     ) -> InvestorDashboard:
+        investor_wallet_address = identity.wallet_address if identity is not None else None
+        if identity is not None and identity.company_id is not None:
+            embedded_wallet = self._repository.get_company_wallet(identity.company_id)
+            if embedded_wallet is not None:
+                # Mandates and RWA ownership are signed by the Embedded Wallet.
+                # The independently selectable settlement wallet must not hide
+                # historical investments when a company changes payout routing.
+                investor_wallet_address = embedded_wallet.address
+
+        def belongs_to_investor(invoice: Invoice) -> bool:
+            asset = invoice.rwa_asset
+            if asset is None or asset.purchase_transaction is None:
+                return False
+            return (
+                investor_wallet_address is None
+                or asset.owner_wallet_address == investor_wallet_address
+            )
+
+        completed_investments = [
+            invoice
+            for invoice in self._invoices.values()
+            if invoice.rwa_asset is not None
+            and invoice.rwa_asset.status in {"SOLD", "SETTLED"}
+            and belongs_to_investor(invoice)
+        ]
+        total_profit = sum(
+            (
+                max(
+                    Decimal(0),
+                    invoice.settlement.investor_settlement_usdc
+                    - (
+                        invoice.rwa_asset.purchase_price_usdc
+                        or (
+                            invoice.agent_decision.amount_usdc
+                            if invoice.agent_decision is not None
+                            else Decimal(0)
+                        )
+                    ),
+                )
+                for invoice in completed_investments
+                if invoice.status is InvoiceStatus.SETTLED
+                and invoice.settlement is not None
+                and invoice.rwa_asset is not None
+            ),
+            start=Decimal(0),
+        )
         active = {
             InvoiceStatus.FUNDED,
             InvoiceStatus.REPAYMENT_PENDING,
@@ -1639,11 +1685,11 @@ class InvoiceService:
         except Exception:
             logger.exception("Unable to load active investor mandates for dashboard")
             mandates = []
-        if identity is not None and identity.source == "PRIVY":
+        if investor_wallet_address is not None:
             mandates = [
                 mandate
                 for mandate in mandates
-                if mandate.owner_wallet_address == identity.wallet_address
+                if mandate.owner_wallet_address == investor_wallet_address
             ]
         try:
             vault = self.get_vault(mandates[0].owner_wallet_address) if mandates else None
@@ -1673,6 +1719,8 @@ class InvoiceService:
             automated_investment_active=bool(mandates),
             mandate_status="ACTIVE" if mandates else "DRAFT",
             available_vault_usdc=vault.available_usdc if vault else 0,
+            total_profit_usdc=total_profit,
+            automated_investment_count=len(completed_investments),
             outstanding_principal_usdc=outstanding,
             due_within_30_days_usdc=due_within_30_days,
             attention_required_count=attention_required_count,

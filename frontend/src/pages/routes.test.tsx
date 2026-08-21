@@ -28,7 +28,7 @@ test.each([
   ["/supplier/company-wallet", "Company & Wallet"],
   ["/buyer", "Invoice verification"],
   ["/buyer/verification", "Verification requests"],
-  ["/buyer/payment", "Payment schedule"],
+  ["/buyer/payment", "Payment list"],
   ["/buyer/profile", "Company profile"],
   ["/investor", "Dashboard"],
   ["/dev/demo", "Developer demo controls"],
@@ -143,6 +143,22 @@ test("splits investor wallet, policy, and Vault across their MVP pages", async (
   renderAt("/buyer");
   expect(await screen.findByRole("heading", { name: "Invoice verification" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Connect Solana wallet" })).not.toBeInTheDocument();
+});
+
+test("splits the buyer payment list into scheduled and completed tabs", async () => {
+  const user = userEvent.setup();
+  renderAt("/buyer/payment");
+
+  expect(await screen.findByRole("heading", { name: "Payment list" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Payment List" })).toHaveAttribute("href", "/buyer/payment");
+  expect(screen.getByRole("tab", { name: "Payment schedule" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", { name: "Completed payments" })).toHaveAttribute("aria-selected", "false");
+
+  await user.click(screen.getByRole("tab", { name: "Completed payments" }));
+
+  expect(screen.getByRole("tab", { name: "Completed payments" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("heading", { name: "Completed payment items" })).toBeInTheDocument();
+  expect(screen.getByText("No completed payments yet.")).toBeInTheDocument();
 });
 
 test("switches between English and Korean from login and keeps the choice across routes", async () => {

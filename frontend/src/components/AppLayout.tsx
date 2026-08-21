@@ -191,7 +191,7 @@ export function AppLayout({
                   className={pathname === "/buyer/payment" || isBuyerPayment ? "is-active" : ""}
                   to="/buyer/payment"
                 >
-                  {t("Payment Schedule", "결제 일정")}
+                  {t("Payment List", "결제 목록")}
                 </Link>
                 <Link className={isBuyerProfile ? "is-active" : ""} to="/buyer/profile">
                   {t("Profile", "프로필")}

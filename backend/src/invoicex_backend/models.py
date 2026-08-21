@@ -744,6 +744,8 @@ class InvestorDashboard(ApiModel):
     automated_investment_active: bool
     mandate_status: Literal["DRAFT", "ACTIVE"]
     available_vault_usdc: UsdcAmount
+    total_profit_usdc: UsdcAmount = Field(default=Decimal(0), ge=0)
+    automated_investment_count: int = Field(default=0, ge=0)
     outstanding_principal_usdc: UsdcAmount
     due_within_30_days_usdc: UsdcAmount
     attention_required_count: int
