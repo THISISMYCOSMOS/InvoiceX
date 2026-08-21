@@ -20,6 +20,7 @@ InvoiceX는 공급기업의 인보이스를 Gemini로 분석하고 구매기업�
 4. 확인된 인보이스는 **1개 인보이스당 1개의 SPL 기반 RWA**로 발행되어 플랫폼 에스크로에 보관됩니다.
 5. **투자자**는 허용 구매기업, 인보이스당 한도, 총 한도, 최소 위험 점수, 최대 잔존 만기 등을 담은 Mandate에 서명하고 USDC를 Agent Vault에 예치합니다.
 6. **Treasury Agent**가 발행 RWA와 Mandate를 자동 평가합니다. 정책을 모두 통과하면 Agent Vault의 USDC를 공급기업 지갑으로 보내고, 에스크로의 RWA를 Agent Vault로 이전합니다.
+7. 만기에 **구매기업**이 USDC를 Settlement Vault로 결제하면 **Settlement Agent**가 투자자에게 정산액을 지급하고 플랫폼 수수료를 기록합니다.
 
 즉, 투자자는 사전에 정한 정책만 승인하고, 이후의 RWA 매수 결정과 온체인 정산은 그 정책 범위 안에서 에이전트가 실행합니다.
 
@@ -39,9 +40,12 @@ flowchart LR
     AI --> DB["Cloud SQL\n인보이스·Risk Passport"]
     DB --> RWA["Privy Issuer / Escrow\nSolana Devnet RWA 발행"]
     API --> V["Privy Treasury\nAgent Vault"]
+    API --> SV["Privy Settlement Vault\n만기 결제·투자자 정산"]
     RWA --> TA["Treasury Agent\n정책 자동 평가"]
     V --> TA
     TA --> P["USDC → 공급기업\nRWA → Agent Vault"]
+    B --> SV
+    SV --> Q["USDC → 투자자\n수수료 → 플랫폼"]
 ```
 
 ### 역할별 경험
@@ -49,8 +53,8 @@ flowchart LR
 | 역할 | 주요 행동 | 생성되는 증적 |
 | --- | --- | --- |
 | 공급기업 | 인보이스 문서 4종 제출, 조기정산 조건 확인, RWA 발행 요청 | 문서 분석, Risk Passport, RWA mint / 발행 트랜잭션 |
-| 구매기업 | 원본 문서 탭을 확인하고 거래·공급기업·금액·만기·납품·분쟁 여부를 검증 | 구매기업 확인 기록 |
-| 투자자 | 투자 Mandate 서명, Devnet USDC 가스리스 예치, Agent 활동 조회 | 정책 서명, 예치 트랜잭션, 매수 결정·정산 트랜잭션 |
+| 구매기업 | 원본 문서를 검증하고, 만기에 Embedded Wallet로 USDC를 결제 | 구매기업 확인 기록, 만기 결제 트랜잭션 |
+| 투자자 | 투자 Mandate 서명, Devnet USDC 가스리스 예치, Agent 활동·상환 내역 조회 | 정책 서명, 예치·매수·상환 트랜잭션 |
 
 ### 실제 자동매매 순서
 
@@ -61,6 +65,7 @@ flowchart LR
 5. 투자자는 브라우저 지갑으로 Mandate에 서명하고 Circle USDC Devnet을 Treasury Agent Vault에 예치합니다. Sponsor 지갑이 Devnet SOL 수수료를 부담합니다.
 6. Treasury Agent는 `policyActive`, 구매기업 allowlist, 최소 Risk Score, 잔존 만기, 인보이스별/총 투자 한도, Vault 잔액을 모두 검사합니다.
 7. 모든 조건을 통과한 경우에만 Privy가 서비스 지갑 서명을 수행하고, **USDC는 공급기업으로 / RWA는 Agent Vault로** 같은 자동매매 단계에서 이전됩니다. 실행 결과와 체크 항목은 투자자 Activity 화면에 남습니다.
+8. 만기일에는 구매기업의 Embedded Wallet이 액면 USDC를 Settlement Vault로 결제합니다. Settlement Agent는 결제를 검증한 뒤 투자자 정산액을 지급하고 플랫폼 수수료를 Vault에 기록합니다. 데모 환경에서는 조기 결제 허용 여부를 설정으로 제어할 수 있습니다.
 
 ## 화면
 
@@ -91,10 +96,10 @@ flowchart LR
 | Web | React, TypeScript, Vite | 공급기업·구매기업·투자자 역할별 UI, 브라우저 지갑 연결, 상태·거래 증적 표시 |
 | API / Agent | FastAPI, Pydantic, Python | 도메인 API, Document/Risk/Treasury Agent, 정책 검사, 감사 가능한 결정 결과 |
 | AI | Google Gemini | 문서 4종의 멀티모달 분석, 필드 추출, 인보이스 위험 서술과 Risk Passport 생성 |
-| 데이터 | Cloud SQL for PostgreSQL | 인보이스, 검증, Mandate, Vault, RWA, Agent Decision의 영속화 |
+| 데이터 | Cloud SQL for PostgreSQL | 인보이스, 검증, Mandate, Vault, RWA, Agent Decision, 만기 결제·상환 기록의 영속화 |
 | 문서 저장소 | Google Cloud Storage | 비공개 원본 PDF·이미지 저장, 짧은 만료시간의 Signed URL로 구매기업 미리보기 제공 |
 | 컨테이너 / 배포 / 보안 | Docker, Dockerfile, Cloud Run, Cloud Build, Artifact Registry, Secret Manager | Dockerfile로 Web·API 이미지를 빌드하고, 이미지 보관·Cloud Run 배포·환경별 비밀 주입을 수행 |
-| 온체인 | Solana Devnet, Circle USDC Devnet, SPL Token, Privy | RWA mint·escrow, USDC 예치·지급, 서비스 지갑 서명, Sponsor 지갑 수수료 대납 |
+| 온체인 | Solana Devnet, Circle USDC Devnet, SPL Token, Privy | RWA mint·escrow, USDC 예치·공급기업 지급·만기 결제·투자자 상환, 서비스 지갑 서명, Sponsor 지갑 수수료 대납 |
 
 ### GCP 운영 구성
 
@@ -124,7 +129,7 @@ Treasury Agent는 단순 버튼 자동화가 아닙니다. RWA가 발행되거�
 | 심사 기준 | InvoiceX의 구현 |
 | --- | --- |
 | 1. AI 활용도 (Gemini / Vertex AI) | Gemini Document Agent가 실제 제출 문서에서 거래 필드를 추출하고, Risk Agent가 Risk Passport와 리스크 서술을 생성합니다. 분석 결과는 구매기업 검증과 Agent 투자 정책의 입력값이 됩니다. |
-| 2. Solana 온체인 구현 | Circle USDC Devnet 예치·공급기업 지급, 인보이스별 SPL Token RWA 발행·Escrow·이전, Solana Explorer에서 확인 가능한 실제 Devnet 트랜잭션을 구현했습니다. |
+| 2. Solana 온체인 구현 | Circle USDC Devnet 예치·공급기업 지급·구매기업 만기 결제·투자자 상환, 인보이스별 SPL Token RWA 발행·Escrow·이전, Solana Explorer에서 확인 가능한 실제 Devnet 트랜잭션을 구현했습니다. |
 | 3. GCP 아키텍처 & 프로토콜 연동 | Cloud Run, Cloud SQL, Cloud Storage, Artifact Registry, Cloud Build, Secret Manager를 운영 경로에 연결했습니다. 투자 권한은 AP2-style signed Mandate로 표현했습니다. **x402 결제 플로우는 현재 데모 범위에 포함하지 않았습니다.** |
 | 4. 상업성·기관 적용성 / UX·혁신성 | 공급·구매·투자 역할 분리, 원본 문서 검증, 정책 한도와 감사 가능한 Agent Decision, 비공개 문서 저장, Sponsor 지갑 기반 가스리스 Devnet UX를 제공합니다. **Passkey는 현재 구현 범위가 아닙니다.** |
 | 5. 실제 온체인 실행 | 위 Explorer 링크의 RWA 발행 및 Treasury Agent 자동 USDC 지급은 Devnet에서 실제로 확인할 수 있습니다. |
@@ -136,7 +141,7 @@ Treasury Agent는 단순 버튼 자동화가 아닙니다. RWA가 발행되거�
 
 - **실제 인보이스 문서 기반**: 공급기업이 올린 인보이스·계약서·발주서·납품 증빙 4종을 문서 분석과 구매기업 확인 화면에 사용합니다. 다만 데모 자료는 테스트·시연 목적의 문서이며, 실거래 원본을 공개 저장소에 포함하지 않습니다.
 - **소액 Devnet USDC**: 온체인 트랜잭션은 Circle USDC Devnet의 소액으로 실행합니다. 자금 손실 없이 서명·수수료 대납·USDC 이전·RWA 이전을 검증하기 위한 설정이며, 실제 투자금이나 Mainnet 유동성을 뜻하지 않습니다.
-- **만기 상환·원화 환전은 범위 밖**: 구매기업의 만기 원화 입금, KRW↔USDC 환전, 투자자 상환 배분은 핵심 자동매수 MVP 이후의 정산 단계로 남겨 두었습니다. 현재 데모의 핵심은 **정책 기반 RWA 자동 매수와 공급기업 조기 지급**입니다.
+- **법정통화 결제·환전은 범위 밖**: 구매기업의 만기 결제와 투자자 상환은 Devnet USDC로 구현했습니다. KRW 실결제, KRW↔USDC 환전, 은행·정산 파트너 연동은 MVP 이후 과제로 남겨 두었습니다.
 - **SPL Token RWA 데모**: 인보이스당 1개 토큰을 발행하는 구조로 권리와 거래 흐름을 검증합니다. 법적 권리 이전, 수탁, KYC/AML, 규제 심사, 기관용 한도·회계는 상용화 전에 별도 설계와 검증이 필요합니다.
 - **프로토콜 범위**: AP2-style 서명 Mandate는 구현했지만, x402·A2A·Passkey·Solana Mobile은 이번 MVP의 구현 범위가 아닙니다.
 

@@ -1,6 +1,6 @@
 # InvoiceX Backend
 
-FastAPI implementation of `docs/FRONTEND_API_CONTRACT_DRAFT.md`.
+InvoiceX의 문서 분석, RWA 발행, Treasury Agent 및 만기 정산 API를 제공하는 FastAPI 애플리케이션입니다. 실행 중인 API 계약은 Swagger UI 또는 OpenAPI JSON에서 확인할 수 있습니다.
 
 ## Run
 
@@ -50,8 +50,9 @@ isolated local tests with developer-managed keypairs.
 ## Real Devnet RWA demo
 
 The Devnet demo issues one indivisible SPL token per invoice. Privy manages
-three service wallets: Treasury / Agent Vault holds the investor's deposited
-USDC, Issuer / Escrow mints and holds the RWA, and Sponsor pays Devnet SOL
+four service wallets: Treasury / Agent Vault holds the investor's deposited
+USDC, Issuer / Escrow mints and holds the RWA, Settlement Vault receives the
+buyer's maturity payment and pays the investor, and Sponsor pays Devnet SOL
 fees. External supplier and investor wallets remain browser wallets; neither
 their private keys nor Privy secrets are sent to the frontend.
 
@@ -65,8 +66,9 @@ provided the recent blockhash broadcasts the fully signed transaction. This
 does not export a wallet private key from Privy.
 
 1. Copy `.env.example` to `backend/.env` and set the Privy App ID / Secret,
-   Treasury, Issuer, and Sponsor wallet values. Keep the App Secret in Secret
-   Manager for Cloud Run; do not share it through Git or the frontend.
+   Treasury, Issuer, Settlement, and Sponsor wallet values. Keep the App
+   Secret in Secret Manager for Cloud Run; do not share it through Git or the
+   frontend.
 
 2. Fund the Sponsor wallet with Devnet SOL and fund the investor's external
    wallet with Circle Devnet USDC using the Mint configured in `SOLANA_USDC_MINT`.
@@ -85,7 +87,9 @@ does not export a wallet private key from Privy.
 3. Start the backend and frontend with `VITE_USE_MOCK_API=false`. The investor
    signs the policy and Vault deposit in their browser wallet. A qualifying RWA
    then transfers atomically: Agent Vault stablecoin to the supplier and the
-   escrowed RWA to Agent Vault.
+   escrowed RWA to Agent Vault. On or after the due date, the buyer signs a
+   USDC payment to the Settlement Vault; the Settlement Agent verifies it and
+   pays the investor (less the platform fee).
 
 ## Verify
 
