@@ -1,6 +1,6 @@
 import type { AgentTrace, BlockchainTransaction, RiskPassport } from "../types/agents";
 import type { DocumentAnalysis, DocumentType, ExtractedField, InvoiceDocument } from "../types/documents";
-import type { AgentDecision, Invoice, InvestorDashboard, RwaAsset } from "../types/invoice";
+import type { AgentDecision, Invoice, InvestorDashboard, RwaAsset, SettlementResult } from "../types/invoice";
 import pricing from "./generatedPricingFixture.json";
 
 export const REQUIRED_DOCUMENT_TYPES: readonly DocumentType[] = [
@@ -19,6 +19,17 @@ export const DEMO_SETTLEMENT = {
   platformFeeUsdc: pricing.platformFeeUsdc,
   earlySettlementCostUsdc: pricing.discountAmountUsdc,
 } as const;
+
+export const DEMO_SETTLEMENT_RESULT: SettlementResult = {
+  invoiceFaceValueUsdc: DEMO_SETTLEMENT.invoiceFaceValueUsdc,
+  invoiceFaceValueBaseUnits: pricing.faceValueBaseUnits,
+  investorSettlementUsdc: DEMO_SETTLEMENT.investorSettlementUsdc,
+  investorSettlementBaseUnits: pricing.investorSettlementBaseUnits,
+  platformFeeUsdc: DEMO_SETTLEMENT.platformFeeUsdc,
+  platformFeeBaseUnits: pricing.platformFeeBaseUnits,
+  supplierResidualUsdc: 0,
+  supplierResidualBaseUnits: "0",
+};
 
 export const DEMO_INVOICE: Invoice = {
   id: "INV-2026-001",

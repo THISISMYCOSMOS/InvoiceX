@@ -8,6 +8,8 @@ import {
   DEMO_INVOICE,
   DEMO_RISK_PASSPORT,
   DEMO_RWA_ASSET,
+  DEMO_SETTLEMENT_RESULT,
+  DEMO_SETTLEMENT_TRANSACTION,
 } from "../../mocks/demoScenario";
 import { SupplierInvoiceDetailContent } from "./SupplierInvoiceDetailPage";
 
@@ -145,6 +147,29 @@ test("shows the transaction receipt for a funded invoice", () => {
   expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
   expect(screen.queryByLabelText("Invoice lifecycle")).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "INV-2026-001" })).not.toBeInTheDocument();
+});
+
+test("keeps the supplier early-settlement receipt after maturity settlement", () => {
+  render(
+    <SupplierInvoiceDetailContent
+      invoice={{
+        ...DEMO_INVOICE,
+        status: "SETTLED",
+        fundingTransaction: DEMO_FUNDING_TRANSACTION,
+        settlement: DEMO_SETTLEMENT_RESULT,
+        settlementTransaction: DEMO_SETTLEMENT_TRANSACTION,
+      }}
+      onAccept={() => undefined}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Your USDC early settlement has been paid" })).toBeInTheDocument();
+  expect(screen.getByText("Early settlement received")).toBeInTheDocument();
+  expect(screen.queryByText("Investor settlement")).not.toBeInTheDocument();
+  expect(screen.queryByText("Maturity settlement complete")).not.toBeInTheDocument();
+  expect(screen.queryByText(DEMO_SETTLEMENT_TRANSACTION.signature)).not.toBeInTheDocument();
+  expect(screen.getByText(DEMO_FUNDING_TRANSACTION.signature)).toBeInTheDocument();
+  expect(screen.queryByLabelText("Invoice lifecycle")).not.toBeInTheDocument();
 });
 
 test("shows the supplier RWA issuance summary after RWA issuance", () => {

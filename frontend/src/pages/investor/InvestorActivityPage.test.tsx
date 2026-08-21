@@ -1,6 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DEMO_AGENT_TRACES, DEMO_FUNDING_TRANSACTION, DEMO_INVOICE, DEMO_RISK_PASSPORT, DEMO_RWA_ASSET } from "../../mocks/demoScenario";
+import {
+  DEMO_AGENT_TRACES,
+  DEMO_FUNDING_TRANSACTION,
+  DEMO_INVOICE,
+  DEMO_RISK_PASSPORT,
+  DEMO_RWA_ASSET,
+  DEMO_SETTLEMENT_RESULT,
+  DEMO_SETTLEMENT_TRANSACTION,
+} from "../../mocks/demoScenario";
 import { InvestorActivityContent } from "./InvestorActivityPage";
 
 test("shows the Treasury Agent mandate decision and execution summary", () => {
@@ -54,4 +62,20 @@ test("moves detailed agent events into a dedicated timeline tab", async () => {
   expect(screen.getByText("evaluate_mandate")).toBeInTheDocument();
   expect(screen.getByText("policyActive: PASS")).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "Execution summary" })).not.toBeInTheDocument();
+});
+
+test("shows maturity settlement amounts and the payout receipt only to the investor", () => {
+  render(<InvestorActivityContent invoice={{
+    ...DEMO_INVOICE,
+    status: "SETTLED",
+    settlement: DEMO_SETTLEMENT_RESULT,
+    settlementTransaction: DEMO_SETTLEMENT_TRANSACTION,
+    investorPayoutTransaction: DEMO_SETTLEMENT_TRANSACTION,
+  }} />);
+
+  expect(screen.getByRole("heading", { name: "Maturity settlement received" })).toBeInTheDocument();
+  expect(screen.getByText("Investor settlement")).toBeInTheDocument();
+  expect(screen.getByText("Platform fee")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Transaction details" })).toBeInTheDocument();
+  expect(screen.getByText(DEMO_SETTLEMENT_TRANSACTION.signature)).toBeInTheDocument();
 });

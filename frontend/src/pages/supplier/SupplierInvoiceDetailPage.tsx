@@ -14,7 +14,6 @@ import { EarlySettlementOfferSection, type OfferStage } from "./sections/EarlySe
 import { FundingReceiptSection } from "./sections/FundingReceiptSection";
 import { InvoiceWorkflowStatusSection } from "./sections/InvoiceWorkflowStatusSection";
 import { RwaIssuedSection } from "./sections/RwaIssuedSection";
-import { SettlementReceiptSection } from "./sections/SettlementReceiptSection";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 export function SupplierInvoiceDetailContent({
@@ -84,12 +83,8 @@ export function SupplierInvoiceDetailContent({
       return <RwaIssuedSection invoice={invoice} />;
     }
 
-    if (invoice.status === "FUNDED") {
+    if (invoice.status === "FUNDED" || invoice.status === "SETTLED") {
       return <FundingReceiptSection invoice={invoice} />;
-    }
-
-    if (invoice.status === "SETTLED") {
-      return <SettlementReceiptSection invoice={invoice} />;
     }
 
     return (
@@ -120,7 +115,7 @@ export function SupplierInvoiceDetailContent({
   return (
     <>
       <div className="supplier-invoice-workflow">
-        {invoice.status !== "BUYER_REVIEW" && invoice.status !== "FUNDED" && (
+        {invoice.status !== "BUYER_REVIEW" && invoice.status !== "FUNDED" && invoice.status !== "SETTLED" && (
           <InvoiceProgress status={invoice.status} offerStage={offerStage} />
         )}
         {renderContent()}

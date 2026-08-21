@@ -5,9 +5,10 @@ import { LoadingState } from "../../components/LoadingState";
 import { useInvoice } from "../../hooks/useInvoice";
 import { useAgentActivity } from "../../hooks/useAgentActivity";
 import { AgentActivityTimeline } from "../../components/AgentActivityTimeline";
+import { TransactionReceipt } from "../../components/TransactionReceipt";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { AgentActivityTimeline as AgentTimelineData } from "../../types/agents";
-import type { AgentDecision, Invoice } from "../../types/invoice";
+import { formatInvoiceAmount, type AgentDecision, type Invoice } from "../../types/invoice";
 import { investorActivityResult } from "./investorActivityStatus";
 
 interface PolicyCheck {
@@ -106,6 +107,7 @@ export function InvestorActivityContent({
   const copy = decisionCopy(decision, t);
   const result = investorActivityResult(invoice);
   const rwaId = invoice.rwaAsset?.mintAddress;
+  const settlementTransaction = invoice.investorPayoutTransaction ?? invoice.settlementTransaction;
 
   return (
     <section className="investor-decision">
@@ -149,55 +151,75 @@ export function InvestorActivityContent({
       </div>
 
       {activeTab === "summary" ? (
-        <div id="investor-activity-summary-panel" role="tabpanel" aria-labelledby="investor-activity-summary-tab" className="investor-decision__grid">
-          <section className="investor-policy-card">
-            <header>
-              <h2>{t("Mandate evaluation", "Mandate 평가")}</h2>
-              <time dateTime={decision?.createdAt}>{formatTimestamp(decision?.createdAt, language === "ko" ? "ko-KR" : "en-US")}</time>
-            </header>
-            <div className="investor-policy-grid">
-              {checks.length > 0 ? checks.map((check) => (
-                <article key={check.label}>
-                  <div>
-                    <span>{check.label}</span>
-                    <b>{check.passed ? t("PASS", "통과") : t("NOT MET", "미충족")}</b>
-                  </div>
-                  <strong>{check.passed ? t("Within mandate", "Mandate 충족") : t("Outside mandate", "Mandate 미충족")}</strong>
-                </article>
-              )) : (
-                <p className="investor-activity-empty">{t("No mandate evaluation has been recorded yet.", "아직 기록된 Mandate 평가가 없습니다.")}</p>
-              )}
-            </div>
-          </section>
-
-          <div className="investor-execution-column">
-            <section className="investor-execution-card">
+        <div id="investor-activity-summary-panel" role="tabpanel" aria-labelledby="investor-activity-summary-tab">
+          <div className="investor-decision__grid">
+            <section className="investor-policy-card">
               <header>
-                <h2>{t("Execution summary", "실행 요약")}</h2>
+                <h2>{t("Mandate evaluation", "Mandate 평가")}</h2>
+                <time dateTime={decision?.createdAt}>{formatTimestamp(decision?.createdAt, language === "ko" ? "ko-KR" : "en-US")}</time>
+              </header>
+              <div className="investor-policy-grid">
+                {checks.length > 0 ? checks.map((check) => (
+                  <article key={check.label}>
+                    <div>
+                      <span>{check.label}</span>
+                      <b>{check.passed ? t("PASS", "통과") : t("NOT MET", "미충족")}</b>
+                    </div>
+                    <strong>{check.passed ? t("Within mandate", "Mandate 충족") : t("Outside mandate", "Mandate 미충족")}</strong>
+                  </article>
+                )) : (
+                  <p className="investor-activity-empty">{t("No mandate evaluation has been recorded yet.", "아직 기록된 Mandate 평가가 없습니다.")}</p>
+                )}
+              </div>
+            </section>
+
+            <div className="investor-execution-column">
+              <section className="investor-execution-card">
+                <header>
+                  <h2>{t("Execution summary", "실행 요약")}</h2>
+                </header>
+                <dl>
+                  <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={rwaId}>{rwaId ? shortAddress(rwaId) : "—"}</dd></div>
+                  <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
+                  <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
+                  <div><dt>{t("Decision", "결정")}</dt><dd>{t(result.english, result.korean)}</dd></div>
+                  <div>
+                    <dt>{t("Transaction", "트랜잭션")}</dt>
+                    <dd>{transaction ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{shortAddress(transaction.signature)}</a> : "—"}</dd>
+                  </div>
+                </dl>
+                {transaction ? (
+                  <a
+                    className="investor-primary-button investor-position-button"
+                    href={transaction.explorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t("View RWA position", "RWA 포지션 보기")}
+                  </a>
+                ) : null}
+              </section>
+              <p className="investor-agent-notice">{copy.notice}</p>
+            </div>
+          </div>
+
+          {invoice.status === "SETTLED" && invoice.settlement ? (
+            <section className="investor-settlement">
+              <header>
+                <div>
+                  <span>{t("MATURITY SETTLED", "만기 정산 완료")}</span>
+                  <h2>{t("Maturity settlement received", "투자자 만기 수령 완료")}</h2>
+                </div>
+                <strong>{t("CONFIRMED", "확인 완료")}</strong>
               </header>
               <dl>
-                <div><dt>{t("RWA mint", "RWA 민트")}</dt><dd title={rwaId}>{rwaId ? shortAddress(rwaId) : "—"}</dd></div>
-                <div><dt>{t("Investment", "투자 금액")}</dt><dd>{investment.toLocaleString("en-US")} USDC</dd></div>
-                <div><dt>{t("Risk Score", "위험 점수")}</dt><dd>{invoice.riskPassport?.riskScore ?? "—"}{invoice.riskPassport?.riskScore !== null && invoice.riskPassport?.riskScore !== undefined ? " / 100" : ""}</dd></div>
-                <div><dt>{t("Decision", "결정")}</dt><dd>{t(result.english, result.korean)}</dd></div>
-                <div>
-                  <dt>{t("Transaction", "트랜잭션")}</dt>
-                  <dd>{transaction ? <a href={transaction.explorerUrl} target="_blank" rel="noreferrer">{shortAddress(transaction.signature)}</a> : "—"}</dd>
-                </div>
+                <div><dt>{t("RWA face value", "RWA 액면가")}</dt><dd>{formatInvoiceAmount(invoice.settlement.invoiceFaceValueUsdc, "USDC")}</dd></div>
+                <div><dt>{t("Investor settlement", "투자자 만기 수령액")}</dt><dd>{formatInvoiceAmount(invoice.settlement.investorSettlementUsdc, "USDC")}</dd></div>
+                <div><dt>{t("Platform fee", "플랫폼 수수료")}</dt><dd>{formatInvoiceAmount(invoice.settlement.platformFeeUsdc, "USDC")}</dd></div>
               </dl>
-              {transaction ? (
-                <a
-                  className="investor-primary-button investor-position-button"
-                  href={transaction.explorerUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t("View RWA position", "RWA 포지션 보기")}
-                </a>
-              ) : null}
+              {settlementTransaction ? <TransactionReceipt transaction={settlementTransaction} /> : null}
             </section>
-            <p className="investor-agent-notice">{copy.notice}</p>
-          </div>
+          ) : null}
         </div>
       ) : (
         <div id="investor-activity-timeline-panel" role="tabpanel" aria-labelledby="investor-activity-timeline-tab">
