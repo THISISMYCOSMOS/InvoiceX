@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { ErrorState } from "../../components/ErrorState";
 import { InvoiceProgress } from "../../components/InvoiceProgress";
 import { LoadingState } from "../../components/LoadingState";

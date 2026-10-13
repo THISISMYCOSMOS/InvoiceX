@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { DocumentUploadCard } from "../../components/DocumentUploadCard";
 import { ErrorState } from "../../components/ErrorState";
 import { DEMO_INVOICE } from "../../mocks/demoScenario";

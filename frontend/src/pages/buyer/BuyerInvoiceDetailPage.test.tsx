@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { DEMO_DOCUMENTS, DEMO_INVOICE } from "../../mocks/demoScenario";
 import { BuyerInvoiceDetailContent } from "./BuyerInvoiceDetailPage";
 

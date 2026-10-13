@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { beforeEach, test } from "vitest";
 import { scenarioAdapter } from "../../api/client";
 import { BuyerDashboardPage } from "./BuyerDashboardPage";

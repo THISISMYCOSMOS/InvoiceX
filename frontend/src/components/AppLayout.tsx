@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useInvoice } from "../hooks/useInvoice";
 import { useLanguage } from "../i18n/LanguageContext";
 import { Brand } from "./Brand";

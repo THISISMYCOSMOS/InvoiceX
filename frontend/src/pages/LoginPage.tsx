@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Brand } from "../components/Brand";
 import { LanguageToggle } from "../components/LanguageToggle";
 import { useLanguage } from "../i18n/LanguageContext";

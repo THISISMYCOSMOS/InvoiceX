@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export function RoleSwitcher() {

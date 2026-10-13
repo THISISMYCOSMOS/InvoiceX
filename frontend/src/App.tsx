@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router";
 import { AppLayout } from "./components/AppLayout";
 import { NewInvoicePage } from "./pages/supplier/NewInvoicePage";
 import { SupplierCompanyWalletPage } from "./pages/supplier/SupplierCompanyWalletPage";
