@@ -125,7 +125,9 @@ export function SupplierInvoiceDetailContent({
   return (
     <>
       <div className="supplier-invoice-workflow">
-        {invoice.status !== "BUYER_REVIEW" && <InvoiceProgress status={invoice.status} offerStage={offerStage} />}
+        {invoice.status !== "BUYER_REVIEW" && invoice.status !== "FUNDED" && (
+          <InvoiceProgress status={invoice.status} offerStage={offerStage} />
+        )}
         {renderContent()}
       </div>
       {riskReviewNotice}
